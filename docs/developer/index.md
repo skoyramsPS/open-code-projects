@@ -16,3 +16,7 @@ Developer docs make workflows maintainable without relying on tribal knowledge.
 - document the why behind non-obvious patterns
 - show code paths, contracts, and failure modes explicitly
 - update this index when new developer docs are added or renamed
+
+## Workflows
+
+- [Implementation Execution Agent](implementation-execution-agent/index.md): invocation, skill reuse, and handoff contract for commit-sized implementation sessions.

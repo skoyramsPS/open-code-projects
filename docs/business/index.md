@@ -16,3 +16,7 @@ Business docs explain workflows in plain language for non-technical readers.
 - write for readers who do not know the codebase
 - prefer concrete examples and outcome-oriented language
 - update this index when new business-facing docs are added or renamed
+
+## Workflows
+
+- [Implementation Execution Agent](implementation-execution-agent/index.md): what to expect from the agent that advances implementation guides in small, resumable slices.

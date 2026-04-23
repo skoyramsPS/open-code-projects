@@ -20,3 +20,8 @@ Planning docs explain what is being built, why, and how implementation should pr
 ## ADRs
 
 - [ADR index](adr/index.md)
+
+## Workflows
+
+- [Image Prompt Generation Workflow](Image-prompt-gen-workflow/index.md): plan and implementation guide for the LangGraph-based prompt-routing and serial image-generation workflow.
+- [Implementation Execution Agent](implementation-execution-agent/index.md): design and operating rules for the agent that executes implementation guides in resumable commit-sized slices.

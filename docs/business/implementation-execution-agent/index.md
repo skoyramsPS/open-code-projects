@@ -1,0 +1,50 @@
+# Implementation Execution Agent
+
+Plain-language documentation for the implementation execution workflow.
+
+## What it is
+
+The implementation execution agent is the repository's delivery worker for approved implementation guides.
+
+Instead of taking on an entire implementation document in one pass, it advances the work in small, controlled slices. Each run should leave behind working progress, tests, updated documentation, and a handoff note that tells the next session exactly where to continue.
+
+## When to use it
+
+Use this workflow when a planning folder already contains an `implementation.md` file and the team wants OpenCode to start building against that document.
+
+Typical use:
+
+- the plan is approved
+- the implementation guide is detailed enough to execute
+- the team wants progress in reviewable increments instead of one large batch
+
+## What to expect from each run
+
+Each implementation run should:
+
+- pick the next unfinished part of the implementation guide
+- keep the scope small enough to fit one coherent commit
+- build and test the selected slice
+- update any required docs
+- update the handoff file in the same planning folder
+
+## Why the handoff file matters
+
+The handoff file prevents lost context between sessions.
+
+It tells the next run:
+
+- what is already done
+- what was tested
+- what changed in docs
+- what is still blocked
+- what should be implemented next
+
+This makes the workflow safer to pause and resume without relying on memory.
+
+## Limits
+
+- it does not replace the implementation guide as the source of design truth
+- it does not auto-commit unless a user explicitly asks for a commit
+- it does not skip required testing or documentation just to move faster
+- it should not work ahead on later TaskGroups while earlier dependency work is unfinished

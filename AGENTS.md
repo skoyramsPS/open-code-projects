@@ -72,6 +72,8 @@ All project documentation lives under `docs/`.
 ## Recommended commands
 
 - `/plan-workflow <topic>`
+- `/implementation-doc <planning-doc> [output-doc]`
+- `/implement-next <implementation-doc> [handoff-doc]`
 - `/update-docs <topic>`
 - `/test-change <topic>`
 - `/adr <decision>`
