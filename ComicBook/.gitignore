@@ -1,0 +1,16 @@
+.env
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.sqlite
+*.sqlite-*
+.coverage
+.venv/
+uv.lock
+logs/*
+!logs/.gitkeep
+runs/*
+!runs/.gitkeep
+image_output/*
+!image_output/.gitkeep

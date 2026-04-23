@@ -19,4 +19,5 @@ Business docs explain workflows in plain language for non-technical readers.
 
 ## Workflows
 
+- [Image Prompt Generation Workflow](Image-prompt-gen-workflow/index.md): current plain-language status, setup expectations, and operational guardrails for the image-generation workflow.
 - [Implementation Execution Agent](implementation-execution-agent/index.md): what to expect from the agent that advances implementation guides in small, resumable slices.

@@ -1,0 +1,266 @@
+from __future__ import annotations
+
+import logging
+from dataclasses import FrozenInstanceError
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
+
+from comicbook.config import AppConfig, ConfigError, load_config
+from comicbook.deps import Deps
+from comicbook.state import (
+    ImageResult,
+    NewTemplateDraft,
+    RenderedPrompt,
+    RouterPlan,
+    RouterTemplateDecision,
+    RunSummary,
+    TemplateSummary,
+    UsageTotals,
+    WorkflowError,
+)
+
+
+ALL_ENV_VARS = (
+    "AZURE_OPENAI_ENDPOINT",
+    "AZURE_OPENAI_API_KEY",
+    "AZURE_API_KEY",
+    "AZURE_OPENAI_API_VERSION",
+    "AZURE_OPENAI_CHAT_DEPLOYMENT",
+    "AZURE_OPENAI_IMAGE_DEPLOYMENT",
+    "COMICBOOK_DB_PATH",
+    "COMICBOOK_IMAGE_OUTPUT_DIR",
+    "COMICBOOK_RUNS_DIR",
+    "COMICBOOK_LOGS_DIR",
+    "COMICBOOK_ROUTER_MODEL_FALLBACK",
+    "COMICBOOK_ROUTER_MODEL_ESCALATION",
+    "COMICBOOK_DAILY_BUDGET_USD",
+    "COMICBOOK_ROUTER_PROMPT_VERSION",
+    "COMICBOOK_ENABLE_ROUTER_PREFLIGHT",
+)
+
+
+@pytest.fixture(autouse=True)
+def clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ALL_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_load_config_reads_dotenv_and_defaults(tmp_path: Path) -> None:
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text(
+        "\n".join(
+            [
+                "AZURE_OPENAI_ENDPOINT=https://example.openai.azure.com/",
+                "AZURE_OPENAI_API_KEY=test-key",
+                "AZURE_OPENAI_API_VERSION=2025-04-01-preview",
+                "AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-5-router",
+                "AZURE_OPENAI_IMAGE_DEPLOYMENT=gpt-image-1.5",
+                "COMICBOOK_DAILY_BUDGET_USD=12.5",
+                "COMICBOOK_ENABLE_ROUTER_PREFLIGHT=1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(dotenv_path=dotenv_path)
+
+    assert isinstance(config, AppConfig)
+    assert config.azure_openai_endpoint == "https://example.openai.azure.com"
+    assert config.azure_openai_api_key.get_secret_value() == "test-key"
+    assert config.azure_openai_chat_deployment == "gpt-5-router"
+    assert config.azure_openai_image_deployment == "gpt-image-1.5"
+    assert config.comicbook_db_path == Path("./comicbook.sqlite")
+    assert config.comicbook_image_output_dir == Path("./image_output")
+    assert config.comicbook_runs_dir == Path("./runs")
+    assert config.comicbook_logs_dir == Path("./logs")
+    assert config.comicbook_router_model_fallback == "gpt-5.4-mini"
+    assert config.comicbook_router_model_escalation == "gpt-5.4"
+    assert config.comicbook_router_prompt_version == "ROUTER_SYSTEM_PROMPT_V2"
+    assert config.comicbook_daily_budget_usd == 12.5
+    assert config.comicbook_enable_router_preflight is True
+
+
+def test_environment_overrides_dotenv(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text(
+        "\n".join(
+            [
+                "AZURE_OPENAI_ENDPOINT=https://from-dotenv.example.com",
+                "AZURE_OPENAI_API_KEY=dotenv-key",
+                "AZURE_OPENAI_API_VERSION=2025-04-01-preview",
+                "AZURE_OPENAI_CHAT_DEPLOYMENT=dotenv-router",
+                "AZURE_OPENAI_IMAGE_DEPLOYMENT=dotenv-image",
+                "COMICBOOK_DB_PATH=./from-dotenv.sqlite",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "env-key")
+    monkeypatch.setenv("COMICBOOK_DB_PATH", "./from-env.sqlite")
+
+    config = load_config(dotenv_path=dotenv_path)
+
+    assert config.azure_openai_api_key.get_secret_value() == "env-key"
+    assert config.comicbook_db_path == Path("./from-env.sqlite")
+
+
+def test_load_config_rejects_missing_required_settings(tmp_path: Path) -> None:
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text("AZURE_OPENAI_ENDPOINT=https://example.openai.azure.com\n", encoding="utf-8")
+
+    with pytest.raises(ConfigError) as excinfo:
+        load_config(dotenv_path=dotenv_path)
+
+    message = str(excinfo.value)
+    assert "AZURE_OPENAI_API_KEY" in message
+    assert "AZURE_OPENAI_CHAT_DEPLOYMENT" in message
+    assert "AZURE_OPENAI_IMAGE_DEPLOYMENT" in message
+
+
+def test_state_models_validate_known_good_payload() -> None:
+    template = TemplateSummary.model_validate(
+        {
+            "id": "storybook-soft",
+            "name": "Storybook Soft",
+            "tags": ["storybook", "warm"],
+            "summary": "Soft painterly lighting and warm illustration tones.",
+            "created_at": "2026-04-23T12:00:00Z",
+        }
+    )
+    draft = NewTemplateDraft.model_validate(
+        {
+            "id": "sunlit-portrait",
+            "name": "Sunlit Portrait",
+            "style_text": "Warm, bright, painterly portrait treatment.",
+            "tags": ["portrait", "warm"],
+            "summary": "Portrait style with bright storybook warmth.",
+        }
+    )
+    plan = RouterPlan.model_validate(
+        {
+            "router_model_chosen": "gpt-5.4-mini",
+            "rationale": "The prompt already maps cleanly to the known storybook template.",
+            "template_decision": {
+                "selected_template_ids": [template.id],
+                "extract_new_template": True,
+                "new_template": draft.model_dump(),
+            },
+            "prompts": [
+                {
+                    "subject_text": "Heroic portrait of a traveler at sunrise.",
+                    "template_ids": [template.id, draft.id],
+                    "size": "1024x1536",
+                    "quality": "high",
+                    "image_model": "gpt-image-1.5",
+                }
+            ],
+        }
+    )
+    rendered = RenderedPrompt.model_validate(
+        {
+            "fingerprint": "abc123",
+            "subject_text": "Heroic portrait of a traveler at sunrise.",
+            "template_ids": [template.id, draft.id],
+            "size": "1024x1536",
+            "quality": "high",
+            "image_model": "gpt-image-1.5",
+            "rendered_prompt": "style\n\n---\n\nsubject",
+        }
+    )
+    result = ImageResult.model_validate(
+        {
+            "fingerprint": "abc123",
+            "status": "generated",
+            "file_path": "image_output/run-1/001.png",
+            "bytes": 42,
+            "run_id": "run-1",
+            "created_at": "2026-04-23T12:00:10Z",
+        }
+    )
+    error = WorkflowError.model_validate(
+        {
+            "code": "content_filter",
+            "message": "The image request was blocked.",
+            "node": "generate_images_serial",
+            "retryable": False,
+        }
+    )
+    usage = UsageTotals.model_validate(
+        {
+            "router_calls": 1,
+            "router_input_tokens": 120,
+            "router_output_tokens": 45,
+            "image_calls": 1,
+            "estimated_cost_usd": 0.24,
+        }
+    )
+    summary = RunSummary.model_validate(
+        {
+            "run_id": "run-1",
+            "run_status": "succeeded",
+            "started_at": "2026-04-23T12:00:00Z",
+            "ended_at": "2026-04-23T12:00:20Z",
+            "cache_hits": 0,
+            "generated": 1,
+            "failed": 0,
+            "skipped_rate_limit": 0,
+            "est_cost_usd": 0.24,
+            "router_model": plan.router_model_chosen,
+            "router_escalated": False,
+        }
+    )
+
+    assert template.tags == ["storybook", "warm"]
+    assert isinstance(plan.template_decision, RouterTemplateDecision)
+    assert plan.prompts[0].template_ids == [template.id, draft.id]
+    assert rendered.image_model == "gpt-image-1.5"
+    assert result.status == "generated"
+    assert error.code == "content_filter"
+    assert usage.estimated_cost_usd == pytest.approx(0.24)
+    assert summary.run_status == "succeeded"
+
+
+def test_new_template_draft_requires_lowercase_slug() -> None:
+    with pytest.raises(ValidationError):
+        NewTemplateDraft.model_validate(
+            {
+                "id": "Not-Lowercase",
+                "name": "Broken",
+                "style_text": "Painterly",
+                "tags": [],
+                "summary": "Invalid slug example.",
+            }
+        )
+
+
+def test_deps_is_frozen_container() -> None:
+    config = AppConfig.model_validate(
+        {
+            "azure_openai_endpoint": "https://example.openai.azure.com",
+            "azure_openai_api_key": "test-key",
+            "azure_openai_api_version": "2025-04-01-preview",
+            "azure_openai_chat_deployment": "gpt-5-router",
+            "azure_openai_image_deployment": "gpt-image-1.5",
+        }
+    )
+
+    deps = Deps(
+        config=config,
+        db=object(),
+        http_client=object(),
+        clock=lambda: datetime(2026, 4, 23, 12, 0, 0),
+        uuid_factory=lambda: "run-1",
+        output_dir=Path("image_output"),
+        runs_dir=Path("runs"),
+        logs_dir=Path("logs"),
+        pricing={"image": {}},
+        logger=logging.getLogger("test"),
+        pid_provider=lambda: 123,
+        hostname_provider=lambda: "localhost",
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        deps.output_dir = Path("other")

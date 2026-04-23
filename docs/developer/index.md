@@ -19,4 +19,5 @@ Developer docs make workflows maintainable without relying on tribal knowledge.
 
 ## Workflows
 
+- [Image Prompt Generation Workflow](Image-prompt-gen-workflow/index.md): module boundaries, config contracts, and current test commands for the image-generation workflow.
 - [Implementation Execution Agent](implementation-execution-agent/index.md): invocation, skill reuse, and handoff contract for commit-sized implementation sessions.
