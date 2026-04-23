@@ -9,7 +9,7 @@
 
 This handoff file tracks execution status for the workflow implementation guide.
 
-The first four implementation sessions completed `TG1 Foundation`, `TG2 Persistence and Locking`, and the full `TG3 Router Planning` group across two coherent slices. The repository now contains the initial workflow package, validated config/state/dependency contracts, a reusable SQLite DAO, deterministic template pre-filtering, a reusable Responses API router client, and the router node that handles repair and escalation.
+The latest implementation sessions completed `TG1 Foundation`, `TG2 Persistence and Locking`, the full `TG3 Router Planning` group across two coherent slices, and the full `TG4 Template Persistence and Cache Partitioning` group across two coherent slices. The repository now contains the initial workflow package, validated config/state/dependency contracts, a reusable SQLite DAO, deterministic template pre-filtering, a reusable Responses API router client, the router node that handles repair and escalation, a persist-template node, deterministic fingerprint helpers, and the cache-lookup node that persists prompt rows and partitions cache hits from generation work.
 
 ## TaskGroup progress
 
@@ -18,7 +18,7 @@ The first four implementation sessions completed `TG1 Foundation`, `TG2 Persiste
 | TG1 | Foundation | completed | Package skeleton, config/state/deps contracts, baseline tests, `.env.example`, `.gitignore`, and workflow foundation docs added. |
 | TG2 | Persistence and Locking | completed | Added `comicbook.db`, WAL/schema initialization, one-run-at-a-time lock handling, persistence CRUD helpers, and DAO tests. |
 | TG3 | Router Planning | completed | Schema/prefilter/template-loading cluster and the router transport/repair/escalation cluster are both complete. |
-| TG4 | Template Persistence and Cache Partitioning | not started | Depends on TG3. |
+| TG4 | Template Persistence and Cache Partitioning | completed | Both coherent TG4 clusters are complete: extracted-template persistence plus deterministic fingerprinting, then prompt-row persistence and cache partitioning. |
 | TG5 | Serial Image Execution | not started | Depends on TG4. |
 | TG6 | Graph, CLI, and Reporting | not started | Depends on TG5. |
 | TG7 | Reuse Proof and Repo Protections | not started | Depends on TG6. |
@@ -26,34 +26,29 @@ The first four implementation sessions completed `TG1 Foundation`, `TG2 Persiste
 
 ## Completed in the latest session
 
-- Selected slice: the remaining `TG3 Router Planning` transport cluster.
-- Slice chosen because the previous session had already completed the schema/pre-filter/template-loading half of TG3, leaving one coherent transport-focused cluster: the reusable Responses API client plus the router node that performs repair and escalation.
-- Implemented `ComicBook/comicbook/router_llm.py` with:
-  - router-visible request payload construction
-  - stable system/user request message assembly for the Azure Responses API
-  - response text and token-usage extraction helpers
-  - exactly one repair retry when validation fails
-  - request-time verification that `router_model_chosen` matches the model actually called
-- Implemented `ComicBook/comicbook/nodes/router.py` to:
-  - require `user_prompt` and consume `templates_sent_to_router`
-  - call the fallback router model first
-  - perform one repair retry when the first response is invalid
-  - escalate once from `gpt-5.4-mini` to `gpt-5.4` when the validated first plan sets `needs_escalation=true`
-  - accumulate router usage counters in state without starting prompt materialization or template persistence
-- Added `ComicBook/tests/test_router_node.py` covering request shape, repair-once behavior, and deterministic escalation to the stronger router model.
-- Updated workflow-specific business and developer docs to describe the live router transport, repair policy, escalation behavior, and the new module boundaries.
+- Selected slice: the remaining coherent `TG4 Template Persistence and Cache Partitioning` cache-lookup cluster.
+- Slice chosen because TG4 was already in progress and the remaining work was a single bounded contract boundary: turn canonicalized router plans into persisted prompt rows and ordered cache classification without starting image generation yet.
+- Implemented `ComicBook/comicbook/nodes/cache_lookup.py` to:
+  - require `plan`, `templates`, `run_id`, and `started_at`
+  - resolve canonical template IDs through `deps.db.get_templates_by_ids(...)`
+  - materialize ordered `RenderedPrompt` items by reusing `comicbook.fingerprint.materialize_rendered_prompts(...)`
+  - create prompt rows before generation begins via `deps.db.upsert_prompt_if_absent(...)`
+  - collapse duplicate fingerprints into one ordered work item for `cache_hits` and `to_generate`
+  - classify cache hits only from prior successful generated-image rows, while honoring `force_regenerate`
+- Added `ComicBook/tests/test_node_cache_lookup.py` covering cache-hit partitioning, duplicate-prompt collapse, forced regeneration, and the rule that failed image rows do not count as cache hits.
+- Updated workflow-specific business and developer docs to describe the completed TG4 cache-preparation boundary and the handoff target for TG5 serial image execution.
 
 ## Verification evidence
 
-- `uv run --with pytest --with pydantic python -m pytest -q tests/test_router_node.py tests/test_router_validation.py` from `ComicBook/` → `8 passed`.
-- `uv run --with pytest --with pydantic python -m pytest -q` from `ComicBook/` → `22 passed`.
-- This session followed a direct TDD loop: `tests/test_router_node.py` was added first, the focused scope was run to confirm the missing-module failure, the transport and node modules were implemented, and then both the focused and full current suites were rerun.
+- `uv run --with pytest --with pydantic python -m pytest -q tests/test_node_cache_lookup.py` from `ComicBook/` → initial red phase confirmed the missing `comicbook.nodes.cache_lookup` module, then green rerun passed with `3 passed`.
+- `uv run --with pytest --with pydantic python -m pytest -q tests/test_fingerprint.py tests/test_node_cache_lookup.py tests/test_db.py` from `ComicBook/` → `18 passed`.
+- `uv run --with pytest --with pydantic python -m pytest -q` from `ComicBook/` → `34 passed`.
+- This session followed a direct TDD loop: `tests/test_node_cache_lookup.py` was added first, the focused scope was run to confirm the expected missing-module failure, the node was implemented, and then focused plus broader suites were rerun.
 
 ## Files changed in this session
 
-- `ComicBook/comicbook/router_llm.py`
-- `ComicBook/comicbook/nodes/router.py`
-- `ComicBook/tests/test_router_node.py`
+- `ComicBook/comicbook/nodes/cache_lookup.py`
+- `ComicBook/tests/test_node_cache_lookup.py`
 - `docs/business/Image-prompt-gen-workflow/index.md`
 - `docs/developer/Image-prompt-gen-workflow/index.md`
 - `docs/planning/Image-prompt-gen-workflow/implementation-handoff.md`
@@ -62,10 +57,10 @@ The first four implementation sessions completed `TG1 Foundation`, `TG2 Persiste
 
 - Updated the documentation triad for this slice where required:
   - planning execution status in this handoff file
-  - business-facing router execution, repair, escalation, limits, and troubleshooting notes in `docs/business/Image-prompt-gen-workflow/index.md`
-  - developer-facing transport helpers, router node contract, usage accumulation, and test guidance in `docs/developer/Image-prompt-gen-workflow/index.md`
+  - business-facing cache-preparation, force behavior, and prompt-persistence notes in `docs/business/Image-prompt-gen-workflow/index.md`
+  - developer-facing cache-lookup node contracts, duplicate-fingerprint handling, and updated test guidance in `docs/developer/Image-prompt-gen-workflow/index.md`
 - Index files did not need changes in this session because no new documentation files or slugs were added.
-- No ADR was added in this session because this slice implemented the already-approved router transport and escalation behavior from the planning and implementation docs rather than introducing a new architectural tradeoff.
+- No ADR was added in this session because this slice implemented the already-approved TG4 template-persistence and fingerprint behavior from the planning and implementation docs rather than introducing a new architectural tradeoff.
 
 ## Blockers or open questions
 
@@ -75,17 +70,18 @@ The first four implementation sessions completed `TG1 Foundation`, `TG2 Persiste
 
 ## Next recommended slice
 
-- Eligible TaskGroup: `TG4 Template Persistence and Cache Partitioning`
-- Recommended slice: complete the first coherent TG4 cluster around prompt composition and prompt fingerprinting.
+- Eligible TaskGroup: `TG5 Serial Image Execution`
+- Recommended slice: start the first TG5 serial image execution cluster.
 - Recommended cluster:
-  - `ComicBook/comicbook/fingerprint.py`
-  - `ComicBook/comicbook/nodes/persist_template.py`
-  - `ComicBook/tests/test_fingerprint.py`
-  - initial extracted-template coverage needed for deterministic prompt composition
-- Rationale: with TG3 fully complete, the next dependency boundary is the deterministic transformation from validated router plans plus stored templates into persisted template rows and rendered prompt/fingerprint data. That cluster is still smaller and cleaner than taking the whole of TG4 at once.
+  - `ComicBook/comicbook/image_client.py`
+  - `ComicBook/comicbook/nodes/generate_images_serial.py`
+  - `ComicBook/tests/test_image_client.py`
+  - `ComicBook/tests/test_node_generate_images_serial.py`
+- Rationale: TG4 is complete, so the next smallest coherent slice is the reusable single-image client plus the serial generation node that consumes `to_generate` in order, persists image results, and honors resume behavior without yet doing graph or CLI wiring.
 - Boundaries for the next slice:
-  - do not start image generation, reporting, CLI wiring, or graph assembly yet
-  - reuse `state["plan"]`, `state["templates"]`, and `deps.db.get_templates_by_ids(...)` rather than re-querying router-visible subsets or re-running the router
+  - consume `state["to_generate"]` and `state["rendered_prompts_by_fp"]` from TG4 rather than recomputing fingerprints
+  - keep image generation strictly serial with one in-flight request at a time and `n=1`
+  - add retry, content-filter, and same-run resume handling without starting graph assembly or summary/reporting nodes yet
   - continue using DAO methods only from nodes; do not introduce raw SQL outside `comicbook.db`
 
 ## Session log
@@ -101,3 +97,7 @@ The first four implementation sessions completed `TG1 Foundation`, `TG2 Persiste
 - Verified targeted router-related tests, a full current-suite rerun, and direct imports of the new router modules.
 - Completed the second TG3 Router Planning cluster with the reusable Responses API router client, router-node repair handling, deterministic escalation, and router-node unit tests.
 - Verified the focused router test scope and the full current suite after the transport implementation.
+- Completed the first TG4 cluster with extracted-template persistence, canonical template-ID normalization on dedup hits, deterministic prompt composition helpers, and fingerprint tests.
+- Verified the new focused TG4 test scope, a persistence-coupled focused scope, and the full current suite after the prompt-materialization implementation.
+- Completed the second TG4 cluster with prompt-row persistence, duplicate-fingerprint collapse, ordered cache-hit partitioning, and cache-lookup node tests.
+- Verified the focused cache-lookup scope, a TG4-plus-database focused scope, and the full current suite after the cache partitioning implementation.

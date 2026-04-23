@@ -3,12 +3,12 @@
 ## Status
 
 - Workflow delivery status: in progress
-- Current shipped slice: TG3 router-planning complete, including the live router transport cluster
+- Current shipped slice: TG4 complete, covering template persistence, deterministic prompt materialization, prompt-row persistence, and cache partitioning
 - Last updated: 2026-04-23
 
 ## Scope of this slice
 
-This slice implements the stable foundation contracts that later TaskGroups depend on:
+This slice now covers the TG1-TG3 foundation plus the full TG4 cache-preparation boundary that later image-generation work depends on:
 
 - package and artifact directory layout under `ComicBook/`
 - `pyproject.toml` with pinned workflow dependencies, including `langgraph~=`
@@ -20,8 +20,11 @@ This slice implements the stable foundation contracts that later TaskGroups depe
 - `comicbook.nodes.load_templates` for loading the full template catalog plus the router-visible subset into state
 - `comicbook.router_llm` for the reusable Responses API call path, repair prompt construction, usage extraction, and validated router-plan requests
 - `comicbook.nodes.router` for the workflow node that executes the fallback call, optional repair, optional escalation, and usage accumulation
+- `comicbook.nodes.persist_template` for writing router-extracted templates before prompt composition and normalizing duplicate-template references onto the canonical stored template ID
+- `comicbook.fingerprint` for deterministic rendered-prompt composition and `sha256` fingerprint calculation
+- `comicbook.nodes.cache_lookup` for prompt materialization, prompt-row persistence, duplicate-fingerprint collapse, and cache-hit classification
 
-It intentionally still does **not** add prompt materialization, template persistence, cache lookup, graph wiring, CLI execution, or image-client behavior yet.
+It intentionally still does **not** add graph wiring, CLI execution, reporting, or image-client behavior yet.
 
 ## Module responsibilities
 
@@ -164,11 +167,59 @@ Implementation note:
 
 - the router node intentionally does not compose final rendered prompts or persist new templates; those remain in TG4.
 
+### `comicbook.nodes.persist_template`
+
+The persist-template node is the first TG4 execution step after the router plan becomes authoritative.
+
+Current behavior:
+
+- requires `state["plan"]`, `state["templates"]`, and `state["run_id"]`
+- no-ops when `plan.template_decision.extract_new_template` is false
+- inserts the router-authored `new_template` through `deps.db.insert_template(...)`
+- uses `deps.clock()` for the persisted timestamp and `state["run_id"]` as `created_by_run`
+- appends a new `TemplateSummary` to `state["templates"]` only when the persisted row is genuinely new to the loaded catalog
+- rewrites the in-memory `plan` when insert deduplication returns an existing template row with a different canonical ID
+
+Dedup normalization matters because later prompt composition must resolve every `template_id` through `deps.db.get_templates_by_ids(...)`. If the router proposed `new_template.id="foo"` but the DAO reused an existing row `bar`, the node rewrites prompt references from `foo` to `bar` and collapses accidental duplicates while preserving order.
+
+### `comicbook.fingerprint`
+
+This module now owns deterministic prompt materialization helpers that the later cache-lookup node can reuse directly.
+
+Current public helpers:
+
+- `render_prompt_text(...)` to concatenate ordered template `style_text` blocks with the `---` separator mandated by the implementation guide
+- `compute_prompt_fingerprint(...)` to apply the approved `sha256(rendered_prompt || size || quality || image_model)` formula
+- `materialize_rendered_prompts(...)` to turn a validated `RouterPlan` plus a resolved `TemplateRecord` lookup into ordered `RenderedPrompt` models with fingerprints attached
+
+Failure behavior:
+
+- prompt materialization raises a clear `ValueError` if any referenced template ID cannot be resolved to a full stored template row
+
+### `comicbook.nodes.cache_lookup`
+
+This node completes the TG4 prompt-build stage that feeds later image execution.
+
+Current behavior:
+
+- requires `state["plan"]`, `state["templates"]`, `state["run_id"]`, and `state["started_at"]`
+- resolves the canonical template IDs in the plan through `deps.db.get_templates_by_ids(...)`
+- materializes ordered `RenderedPrompt` items by reusing `comicbook.fingerprint.materialize_rendered_prompts(...)`
+- upserts every prompt fingerprint into the `prompts` table before generation begins, even when a prompt is already cached or duplicated within the same run
+- builds `rendered_prompts_by_fp` from the first occurrence of each fingerprint so later nodes can process unique work items deterministically
+- classifies a prompt as a cache hit only when an existing image row has `status="generated"` and a stored file path
+- respects `state.get("force_regenerate", False)` by bypassing cache-hit classification while still reusing the same persisted prompt fingerprint rows
+
+Ordering and duplicate behavior:
+
+- `rendered_prompts` preserves the router-authored prompt order exactly, including duplicate rendered inputs
+- `cache_hits` and `to_generate` collapse duplicate fingerprints to one ordered work item each so later image generation does not retry the same fingerprint twice in one run
+
 ## Local setup
 
 1. Work from `ComicBook/`.
 2. Copy values from `.env.example` into a local `.env` or export them in the shell.
-3. Use `uv run --with pytest --with pydantic python -m pytest -q tests/test_config.py tests/test_db.py tests/test_router_validation.py tests/test_node_load_templates.py tests/test_router_node.py` for the current focused unit-test scope.
+3. Use `uv run --with pytest --with pydantic python -m pytest -q tests/test_config.py tests/test_db.py tests/test_router_validation.py tests/test_node_load_templates.py tests/test_router_node.py tests/test_fingerprint.py tests/test_node_cache_lookup.py` for the current focused unit-test scope.
 
 ## Tests in this slice
 
@@ -208,9 +259,24 @@ Implementation note:
 - exactly one repair retry occurs when the first router response fails validation
 - deterministic escalation from `gpt-5.4-mini` to `gpt-5.4` updates the authoritative plan and usage counters
 
+`ComicBook/tests/test_fingerprint.py` now verifies:
+
+- fingerprint stability for identical rendered inputs
+- fingerprint sensitivity when rendered text, size, quality, or model changes
+- ordered prompt materialization from ordered template style blocks
+- persistence of router-extracted templates before prompt composition occurs
+- normalization of duplicate extracted-template IDs onto the canonical stored template row
+
+`ComicBook/tests/test_node_cache_lookup.py` now verifies:
+
+- cache-hit partitioning against previously generated image rows
+- duplicate rendered prompts collapse to one ordered generation work item while preserving the full rendered prompt list
+- `force_regenerate=True` bypasses cache hits without rewriting prompt fingerprints
+- failed image rows do not count as cache hits
+
 ## Extension notes for the next slices
 
-- TG4 should reuse `state["plan"]`, `state["templates"]`, and `state["plan_raw"]` instead of re-calling the router.
+- TG5 should consume the ordered unique prompts already exposed by `state["to_generate"]` and `state["rendered_prompts_by_fp"]` rather than recomputing fingerprints.
 - Later nodes should continue to build on DAO methods only, without embedding raw SQL in nodes.
 - Nodes should consume `Deps` instead of reading global state or environment variables directly.
 - New runtime behavior should continue to add narrow, direct unit tests before broader graph tests.

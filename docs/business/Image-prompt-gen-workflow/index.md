@@ -3,7 +3,7 @@
 ## Status
 
 - Workflow delivery status: in progress
-- Current shipped slice: TG3 router planning, including live router transport, repair, and escalation
+- Current shipped slice: TG4 complete, adding cache-ready prompt persistence and cache partitioning on top of router planning
 - Last updated: 2026-04-23
 
 ## What exists today
@@ -22,8 +22,13 @@ The repository now contains the reusable foundation for the image prompt generat
 - a live router call path that sends the constrained JSON payload to the Azure Responses API and validates the structured response before it enters workflow state
 - one automatic repair retry when the router returns invalid JSON or invalid template references
 - deterministic escalation from `gpt-5.4-mini` to `gpt-5.4` when the first valid plan explicitly requests a stronger router pass
+- persistence of a router-extracted template before later prompt composition begins
+- deterministic construction of final rendered prompts from stored template text plus subject text
+- stable prompt fingerprints that change whenever the rendered text, size, quality, or image model changes
+- persistence of prompt fingerprint rows before image generation starts
+- cache classification that reuses previously generated images unless the operator explicitly forces regeneration
 
-This slice still does **not** execute the full workflow end to end, but it now establishes the complete router-planning stage that later template persistence, caching, image generation, and reporting logic will rely on.
+This slice still does **not** execute the full workflow end to end, but it now establishes the router-planning stage plus the full cache-preparation stage that later image generation, graph wiring, and reporting logic will rely on.
 
 ## Expected operator inputs
 
@@ -42,6 +47,13 @@ The workflow now automatically:
 - preserve the full catalog in workflow state so later steps can still resolve selected templates exactly
 - retry the same router model once when the first response fails schema or workflow validation
 - escalate once to the stronger router model when the validated mini-model plan marks the request as needing escalation
+- save a newly extracted template into the database before that template is used for prompt composition
+- reuse the existing stored template row instead of creating a duplicate when the extracted template text already matches an existing template
+- compute a stable fingerprint for every rendered prompt input tuple so later slices can decide whether the image request is already cached
+- create prompt records before later generation begins so repeated runs reuse the same fingerprint history
+- treat an already generated image for the same fingerprint as a cache hit by default
+- keep duplicate prompts from the router from turning into duplicate generation work within the same run
+- let `--force` bypass cache hits while still preserving prompt persistence for auditability and resume support
 
 ## Expected outputs later in the workflow
 
@@ -57,7 +69,11 @@ Those runtime artifacts are not produced yet in the current implementation slice
 
 - Workflow data is stored in a local SQLite database file.
 - Templates are append-only. Duplicate inserts with the same name and style text are ignored.
-- Prompt fingerprints and generated image metadata can now be recorded for later cache and resume behavior.
+- If an extracted template is a duplicate of an existing stored template, the workflow reuses the existing canonical template row instead of storing a second copy.
+- Prompt fingerprints can now be computed deterministically for later cache and resume behavior.
+- Prompt fingerprint rows are now persisted before generation, even when the prompt is already cached.
+- Only previously generated image rows count as cache hits; failed image rows stay eligible for retry in later slices.
+- Generated image metadata can already be recorded by the persistence layer, even though the serial image node is not implemented yet.
 - Only one active workflow run may hold the database lock at a time.
 - If a previous run died on the same host and its PID is no longer alive, the stale lock can be recovered automatically.
 - Daily run rollups are now available from the database for cache-hit and estimated-cost reporting.
@@ -66,7 +82,7 @@ Those runtime artifacts are not produced yet in the current implementation slice
 
 - Secrets are loaded from environment variables first, then `.env`.
 - The workflow package does not modify the read-only reference scripts under `ComicBook/DoNotChange/`.
-- The router stage is implemented, but later slices still need prompt materialization, template persistence, cache partitioning, image generation, graph wiring, and reporting artifacts.
+- The router stage and cache-preparation helpers are implemented, but later slices still need serial image generation, graph wiring, and reporting artifacts.
 - The lock policy is intentionally conservative: one active run per SQLite file.
 - The package layout is intentionally reusable so later workflows can share the same contracts.
 - Large template catalogs are filtered lexically only in v1; the workflow does not yet use semantic retrieval.
@@ -80,5 +96,7 @@ If setup fails at this stage, the most likely causes are:
 - a router response that references template IDs outside the allowed subset, which is now rejected by the validation layer
 - a router response that fails validation twice, which now stops the router stage after the single allowed repair attempt
 - a request that the mini router marks as ambiguous enough to escalate, which now triggers one additional router call on the stronger model before later steps continue
+- an extracted template that matches an existing stored template, which is treated as a safe deduplication hit rather than a hard failure
+- a prompt that was expected to be cached but is still queued for generation, which can happen intentionally when `--force` is enabled or when the only prior image rows were failures
 
 If the lock belongs to a dead process on the same machine, later runtime slices can recover it automatically through the persistence layer added in TG2.
