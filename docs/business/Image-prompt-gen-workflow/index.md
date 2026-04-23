@@ -3,7 +3,7 @@
 ## Status
 
 - Workflow delivery status: in progress
-- Current shipped slice: TG1 foundation
+- Current shipped slice: TG2 persistence and locking
 - Last updated: 2026-04-23
 
 ## What exists today
@@ -14,8 +14,10 @@ The repository now contains the reusable foundation for the image prompt generat
 - validated state and schema contracts for router plans, prompts, image results, and run summaries
 - a frozen dependency container that later workflow nodes will receive explicitly
 - a local project layout for tests, examples, run artifacts, logs, and image outputs
+- a local SQLite persistence layer with schema initialization, prompt/image/template storage, and daily operator rollups
+- one-run-at-a-time protection for a shared workflow database file, including same-host stale-lock recovery when the recorded PID is no longer alive
 
-This slice does **not** yet execute the full workflow. It establishes the contracts that later slices will use for database access, routing, caching, image generation, and reporting.
+This slice still does **not** execute the full workflow, but it now establishes the local persistence and operator-safety rules that later routing, caching, image generation, and reporting logic will rely on.
 
 ## Expected operator inputs
 
@@ -37,13 +39,28 @@ The completed workflow is planned to produce:
 
 Those runtime artifacts are not produced yet in this foundation slice.
 
+## Persistence and operator safety now in place
+
+- Workflow data is stored in a local SQLite database file.
+- Templates are append-only. Duplicate inserts with the same name and style text are ignored.
+- Prompt fingerprints and generated image metadata can now be recorded for later cache and resume behavior.
+- Only one active workflow run may hold the database lock at a time.
+- If a previous run died on the same host and its PID is no longer alive, the stale lock can be recovered automatically.
+- Daily run rollups are now available from the database for cache-hit and estimated-cost reporting.
+
 ## Guardrails and limitations
 
 - Secrets are loaded from environment variables first, then `.env`.
 - The workflow package does not modify the read-only reference scripts under `ComicBook/DoNotChange/`.
-- No router, database, caching, or image API behavior is implemented yet.
+- Router and image API behavior are still not implemented yet.
+- The lock policy is intentionally conservative: one active run per SQLite file.
 - The package layout is intentionally reusable so later workflows can share the same contracts.
 
 ## Plain-language troubleshooting
 
-If setup fails at this stage, the most likely cause is missing Azure configuration. The config loader raises a clear validation error listing the required variables that are absent.
+If setup fails at this stage, the most likely causes are:
+
+- missing Azure configuration, which is reported explicitly by the config loader
+- a currently active run already holding the database lock for the chosen SQLite file
+
+If the lock belongs to a dead process on the same machine, later runtime slices can recover it automatically through the persistence layer added in TG2.

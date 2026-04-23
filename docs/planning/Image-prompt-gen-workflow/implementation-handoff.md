@@ -9,14 +9,14 @@
 
 This handoff file tracks execution status for the workflow implementation guide.
 
-The first implementation session completed the full `TG1 Foundation` slice. The repository now contains the initial `ComicBook/comicbook/` package, baseline tests, environment/config wiring, typed state contracts, the frozen dependency container, and the artifact directory skeleton required for later TaskGroups.
+The first two implementation sessions completed `TG1 Foundation` and `TG2 Persistence and Locking`. The repository now contains the initial workflow package, validated config/state/dependency contracts, and a reusable SQLite DAO with run-lock handling, template/prompt/image persistence helpers, and daily rollup support.
 
 ## TaskGroup progress
 
 | TaskGroup | Title | Status | Notes |
 |---|---|---|---|
 | TG1 | Foundation | completed | Package skeleton, config/state/deps contracts, baseline tests, `.env.example`, `.gitignore`, and workflow foundation docs added. |
-| TG2 | Persistence and Locking | not started | Depends on TG1. |
+| TG2 | Persistence and Locking | completed | Added `comicbook.db`, WAL/schema initialization, one-run-at-a-time lock handling, persistence CRUD helpers, and DAO tests. |
 | TG3 | Router Planning | not started | Depends on TG2. |
 | TG4 | Template Persistence and Cache Partitioning | not started | Depends on TG3. |
 | TG5 | Serial Image Execution | not started | Depends on TG4. |
@@ -26,71 +26,70 @@ The first implementation session completed the full `TG1 Foundation` slice. The 
 
 ## Completed in the latest session
 
-- Selected slice: full `TG1 Foundation`.
-- Chose the full TaskGroup because all remaining TG1 work was tightly related, touched one coherent contract boundary, and could be verified with a narrow test scope in one session.
-- Created the `ComicBook/comicbook/` package skeleton, `nodes/` package, test directory, example/output/log/seed directories, and placeholder pricing data.
-- Implemented `comicbook.config` with env-first loading, `.env` fallback, required Azure validation, default workflow paths, budget parsing, router prompt version defaults, and router preflight boolean parsing.
-- Implemented `comicbook.state` Pydantic models plus the `RunState` typed contract for later workflow phases.
-- Implemented `comicbook.deps` as a frozen dataclass with explicit runtime collaborators and optional test-only transports/filesystem hooks.
-- Added `.env.example`, `.gitignore`, `pyproject.toml`, and baseline unit tests covering config loading, validation failures, known-good model parsing, slug validation, and frozen dependency behavior.
-- Added workflow-specific business and developer documentation for the newly introduced setup and contract surface.
+- Selected slice: full `TG2 Persistence and Locking`.
+- Kept the full TaskGroup together because the remaining work stayed tightly focused on one module boundary (`comicbook.db`) with one direct test surface (`tests/test_db.py`).
+- Implemented `ComicBook/comicbook/db.py` as the workflow SQLite DAO with:
+  - one shared connection per process
+  - WAL startup and idempotent schema creation
+  - required tables, indexes, and `daily_run_rollup` view
+  - run creation, finalization, lock acquisition, lock release, and stale-lock detection/recovery
+  - template insert-with-dedup and append-only lineage support
+  - prompt upsert/lookups and image result persistence/lookups
+  - current-day rollup retrieval for budget reporting
+- Added `ComicBook/tests/test_db.py` covering schema idempotency, WAL mode, template dedup, append-only lineage, run-lock blocking, stale-lock recovery, prompt/image persistence round trips, and rollup math.
+- Updated workflow-specific business and developer docs to describe the new persistence layer and operator lock expectations.
 
 ## Verification evidence
 
-- `uv run --with pytest --with pydantic python -m pytest -q tests/test_config.py` from `ComicBook/` → `6 passed`.
-- `uv run --with pytest --with pydantic python -m pytest -q` from `ComicBook/` → `6 passed`.
-- `uv run python -c "import comicbook"` from `ComicBook/` completed successfully.
-- The targeted red/green loop was adapted slightly for package bootstrap work: tests were written first against a just-created skeleton, then the implementation was added until the new suite passed.
+- `uv run --with pytest --with pydantic python -m pytest -q tests/test_db.py` from `ComicBook/` → `6 passed`.
+- `uv run --with pytest --with pydantic python -m pytest -q` from `ComicBook/` → `12 passed`.
+- `uv run python -c "from comicbook.db import ComicBookDB; import comicbook"` from `ComicBook/` completed successfully.
+- This session followed a direct TDD loop: `tests/test_db.py` was added first, then `comicbook.db` was implemented until the new targeted scope passed, followed by a full current-suite rerun.
 
 ## Files changed in this session
 
-- `ComicBook/pyproject.toml`
-- `ComicBook/.env.example`
-- `ComicBook/.gitignore`
-- `ComicBook/comicbook/__init__.py`
-- `ComicBook/comicbook/config.py`
-- `ComicBook/comicbook/state.py`
-- `ComicBook/comicbook/deps.py`
-- `ComicBook/comicbook/nodes/__init__.py`
-- `ComicBook/comicbook/pricing.json`
-- `ComicBook/tests/test_config.py`
-- `ComicBook/examples/.gitkeep`
-- `ComicBook/runs/.gitkeep`
-- `ComicBook/logs/.gitkeep`
-- `ComicBook/image_output/.gitkeep`
-- `ComicBook/seeds/.gitkeep`
-- `docs/business/index.md`
+- `ComicBook/comicbook/db.py`
+- `ComicBook/tests/test_db.py`
 - `docs/business/Image-prompt-gen-workflow/index.md`
-- `docs/developer/index.md`
 - `docs/developer/Image-prompt-gen-workflow/index.md`
 
 ## Documentation updates
 
 - Updated the documentation triad for this slice where required:
   - planning execution status in this handoff file
-  - business-facing workflow status and setup expectations in `docs/business/Image-prompt-gen-workflow/index.md`
-  - developer-facing module, contract, and test guidance in `docs/developer/Image-prompt-gen-workflow/index.md`
-- Updated `docs/business/index.md` and `docs/developer/index.md` to link the new workflow docs.
-- No ADR was added in this session because TG1 implemented already-approved contracts from the existing planning and implementation docs without introducing a new architectural tradeoff beyond those source documents.
+  - business-facing persistence, lock, and operator safety notes in `docs/business/Image-prompt-gen-workflow/index.md`
+  - developer-facing DAO responsibilities, lock semantics, and test guidance in `docs/developer/Image-prompt-gen-workflow/index.md`
+- Index files did not need changes in this session because the workflow docs created in TG1 were already linked from the top-level business and developer indexes.
+- No ADR was added in this session because TG2 implemented the already-approved SQLite persistence and lock strategy defined in the planning and implementation docs rather than introducing a new architectural tradeoff.
 
 ## Blockers or open questions
 
 - No implementation blocker is currently recorded.
 - The `implementation-slice-guard` skill was not loadable through the skill tool in this environment, so slice selection followed the repository's local skill instructions by reading `.opencode/skills/implementation-slice-guard/SKILL.md` directly before editing.
 - `pytest` is not available as a system module in this environment, so verification used `uv run ...` commands for the test evidence captured above.
+- The active repository working tree still contains uncommitted TG2 changes, as expected for this session, but the slice itself is constrained to `comicbook.db`, `tests/test_db.py`, and matching workflow docs.
 
 ## Next recommended slice
 
-- Eligible TaskGroup: `TG2 Persistence and Locking`
-- Recommended slice: complete the full TG2 if it remains cohesive around `comicbook.db` and its direct tests.
-- Rationale: TG1 exit criteria are now met, and TG2 is a single persistence-focused concern with a narrow unit-test surface before router work begins.
+- Eligible TaskGroup: `TG3 Router Planning`
+- Recommended slice: complete the first TG3 cluster rather than the full group.
+- Recommended cluster:
+  - `ComicBook/comicbook/router_prompts.py`
+  - schema/validation helpers needed for router payloads and rationale leak guarding
+  - deterministic template pre-filtering helpers
+  - `ComicBook/comicbook/nodes/load_templates.py`
+  - `ComicBook/tests/test_router_validation.py`
+  - `ComicBook/tests/test_node_load_templates.py`
+- Rationale: TG3 is the first unfinished TaskGroup, but the full group now spans schema design, prompt building, client transport behavior, repair/escalation logic, and node orchestration. Splitting off the schema + pre-filter + template-loading layer keeps the next slice commit-sized while still unblocking the router client/node work that follows.
 - Expected files for the next slice:
-  - `ComicBook/comicbook/db.py`
-  - `ComicBook/tests/test_db.py`
+  - `ComicBook/comicbook/router_prompts.py`
+  - `ComicBook/comicbook/nodes/load_templates.py`
+  - `ComicBook/tests/test_router_validation.py`
+  - `ComicBook/tests/test_node_load_templates.py`
 - Boundaries for the next slice:
-  - do not start router prompts, router client, or node-level routing logic yet
-  - keep SQL inside DAO methods only
-  - finish lock acquisition, stale-lock recovery, prompt/template/image CRUD, and daily rollup support together only if they remain one coherent persistence commit
+  - do not start prompt composition, template persistence, cache partitioning, or image generation yet
+  - leave `router_llm.py` and `nodes/router.py` for the following slice unless the work remains unusually small after schema/pre-filter implementation
+  - continue using DAO methods only from nodes; do not introduce raw SQL outside `comicbook.db`
 
 ## Session log
 
@@ -99,3 +98,5 @@ The first implementation session completed the full `TG1 Foundation` slice. The 
 - Created the initial handoff ledger before implementation work began.
 - Completed the full TG1 Foundation slice with package scaffolding, validated config/state/deps contracts, baseline tests, and workflow foundation docs.
 - Verified `comicbook` imports locally and that the full current pytest scope passes via `uv run`.
+- Completed the full TG2 Persistence and Locking slice with the SQLite DAO, one-run-at-a-time lock handling, stale-lock recovery, persistence helpers, and database tests.
+- Verified targeted and full current pytest scopes after the persistence implementation.
