@@ -42,6 +42,7 @@ Use the smallest sufficient scope first:
 - prefer targeted test paths or node ids first
 - mock LLM, network, filesystem, and tool boundaries in unit tests
 - keep tests deterministic and readable
+- when this skill is used from the implementation workflow, pytest execution is pre-approved and should not be delayed behind an avoidable permission prompt
 
 ## Step 5: Block or pass completion
 

@@ -34,6 +34,7 @@ Unless the caller supplies a different path, use `implementation-handoff.md` in 
 - docs updated, including planning/business/developer/ADR changes when relevant
 - unfinished work and resume instructions
 - blockers, assumptions, or deviations from the implementation guide
+- any pending approval-gated install, copy, or delete operation
 
 ## Update rules
 
@@ -42,6 +43,7 @@ Unless the caller supplies a different path, use `implementation-handoff.md` in 
 - If a task was partially completed, say exactly what is done and what remains.
 - If repository reality differs from the handoff doc, correct the handoff doc instead of silently continuing.
 - If implementation sequencing changes, record the reason and point back to the implementation guide or ADR.
+- If progress is blocked on an approval-gated install, copy, or delete step, record that explicitly so the next session does not rediscover it.
 
 ## Recommended format
 

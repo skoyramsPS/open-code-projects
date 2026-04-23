@@ -27,6 +27,7 @@ The output must fit a single coherent git commit under normal circumstances.
 6. Bias toward foundational tasks that unblock later work.
 7. Keep tests and necessary doc updates inside the same slice whenever feasible.
 8. Never skip an earlier unfinished TaskGroup just because a later one looks easier.
+9. Call out early when the slice appears to require package installation, copy steps, or delete operations because those still need explicit user approval.
 
 ## Practical heuristics
 
@@ -45,6 +46,7 @@ Return:
 - why the slice is commit-sized
 - the files or modules likely affected
 - the tests and docs expected in the same session
+- any install, copy, or delete approvals that would be required before the slice can finish
 - the boundaries of what should not be touched yet
 
 ## Guidance sources consulted for this repo

@@ -34,6 +34,8 @@ The workflow will:
 - otherwise complete one task or one inseparable task cluster from the next eligible TaskGroup
 - reuse `pytest-tdd-guard` and `docs-update-guard` instead of duplicating their policies
 - maintain an `implementation-handoff.md` file in the same planning folder as the implementation guide so the next session can resume from explicit status
+- auto-approve read-only inspection, safe git read/get commands, tests, and normal in-slice edits or moves
+- require approval for package installation, copy operations, and delete operations
 
 The repository will also expose `/implement-next <implementation-doc> [handoff-doc]` as the normal invocation path.
 
@@ -59,6 +61,7 @@ Benefits:
 - progress can resume from a planning-folder handoff ledger instead of rediscovery
 - testing and documentation expectations are baked into each delivery slice
 - slice-selection and handoff rules are reusable in future workflows
+- the workflow moves faster on routine implementation steps without auto-approving higher-risk install, copy, or delete operations
 
 Tradeoffs and costs:
 

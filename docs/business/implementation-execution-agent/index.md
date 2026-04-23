@@ -28,6 +28,17 @@ Each implementation run should:
 - update any required docs
 - update the handoff file in the same planning folder
 
+## Approval expectations
+
+Most normal implementation work now runs without extra approval prompts.
+
+- reading repository files and inspecting git state is automatic
+- running tests is automatic
+- normal implementation edits and planned file moves are automatic
+- installing packages, deleting files, or copying files still pauses for approval
+
+This keeps routine delivery work moving while preserving explicit approval for higher-risk or less easily reversible operations.
+
 ## Why the handoff file matters
 
 The handoff file prevents lost context between sessions.

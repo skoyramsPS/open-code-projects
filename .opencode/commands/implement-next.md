@@ -11,9 +11,12 @@ Required actions:
 
 1. Inspect the implementation guide, current handoff doc, and relevant repository state.
 2. Use the `implementation-slice-guard` skill to choose the next eligible commit-sized slice.
-3. Complete the whole next TaskGroup only if the remaining work is small and cohesive enough for one commit. Otherwise complete one task or one inseparable task cluster from that TaskGroup.
-4. Use `pytest-tdd-guard` for Python behavior changes or risky refactors.
-5. Use `docs-update-guard` when the slice changes behavior, contracts, workflow docs, or developer/operator expectations.
-6. Run relevant tests, fix issues within the selected slice, and keep the change set clean.
-7. Update the handoff doc with status, changed files, verification evidence, blockers, and the next recommended slice.
-8. Summarize what was completed and what remains.
+3. Treat read-only repository inspection and safe git read/get commands as pre-approved.
+4. Complete the whole next TaskGroup only if the remaining work is small and cohesive enough for one commit. Otherwise complete one task or one inseparable task cluster from that TaskGroup.
+5. Use `pytest-tdd-guard` for Python behavior changes or risky refactors. Test execution is pre-approved.
+6. Use `docs-update-guard` when the slice changes behavior, contracts, workflow docs, or developer/operator expectations.
+7. Creating, editing, modifying, and moving files or folders within the selected slice are pre-approved when they directly follow the implementation guide.
+8. Ask before installing packages or modules, before any delete operation, and before any copy operation.
+9. Run relevant tests, fix issues within the selected slice, and keep the change set clean.
+10. Update the handoff doc with status, changed files, verification evidence, blockers, and the next recommended slice.
+11. Summarize what was completed and what remains.

@@ -60,6 +60,20 @@ Two new skills were added because the current repo did not already define reusab
 
 The command defaults the handoff path to `implementation-handoff.md` beside the implementation guide.
 
+## Permission model
+
+The implementation execution workflow now uses a mixed permission posture.
+
+- read-only repository inspection is auto-approved
+- safe git read/get commands are auto-approved
+- test execution and loading test-related skills are auto-approved
+- creating, editing, modifying, and moving files or folders are auto-approved when they are part of the selected implementation slice
+- package or module installation requires approval
+- delete operations require approval
+- copy operations require approval
+
+OpenCode can enforce most of this directly through the agent permission block. The remaining delete-vs-edit distinction is reinforced in the workflow instructions because edit permissions are path-based rather than operation-type aware.
+
 ## Slice-selection policy
 
 The implementation guide's TaskGroup order remains authoritative.

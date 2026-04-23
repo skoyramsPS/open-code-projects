@@ -37,6 +37,21 @@ Expected sequence:
 7. update the handoff doc with exact resume instructions
 8. stop
 
+## Permission posture
+
+The implementation agent now carries a more granular approval policy.
+
+- `read`, `glob`, and `grep` are auto-approved
+- safe git inspection commands such as `git status`, `git diff`, `git log`, `git show`, `git rev-parse`, `git branch`, `git ls-files`, and `git remote` are auto-approved
+- pytest execution commands are auto-approved
+- `mkdir` and `mv` are auto-approved when used to carry out the selected implementation slice
+- file creation and edits are auto-approved through the agent's `edit` permission
+- package installation commands remain approval-gated
+- copy commands remain approval-gated
+- delete commands remain approval-gated
+
+Important limitation: OpenCode's `edit` permission is path-based, so it can distinguish where edits happen but not whether a particular edit is a create, modify, move, or delete. The workflow therefore enforces the "ask before delete" rule in both the agent prompt and the implementation command text, in addition to the bash permission rules.
+
 ## Skill reuse matrix
 
 Existing skills reused directly:
@@ -49,6 +64,12 @@ New skills introduced for reuse:
 
 - `implementation-slice-guard`
 - `implementation-handoff-guard`
+
+Additional guardrail behavior:
+
+- `implementation-slice-guard` now flags slices that would need install, copy, or delete approval before they can complete
+- `implementation-handoff-guard` now records any approval-gated install, copy, or delete work that blocked or remains for the next session
+- `pytest-tdd-guard` now states that pytest execution is pre-approved when invoked from this workflow
 
 ## Handoff document expectations
 
