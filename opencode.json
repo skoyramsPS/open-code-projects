@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "docs/standards/langgraph-workflow-standards.md",
+    "docs/standards/testing-tdd.md",
+    "docs/standards/code-quality.md",
+    "docs/standards/documentation-standards.md",
+    "docs/standards/repo-structure.md"
+  ],
+  "permission": {
+    "skill": {
+      "*": "allow"
+    },
+    "task": {
+      "langgraph-architect": "allow",
+      "docs-writer": "allow",
+      "test-engineer": "allow"
+    },
+    "webfetch": "allow",
+    "todoread": "allow",
+    "todowrite": "allow"
+  }
+}
