@@ -1,6 +1,6 @@
 # Implementation Handoff: Template Upload Workflow
 
-- Status: TG1 complete, TG2 complete, TG3 complete, TG4 complete, TG5 complete, TG6 pending
+- Status: TG1 complete, TG2 complete, TG3 complete, TG4 complete, TG5 complete, TG6 complete
 - Last updated: 2026-04-24
 - Implementation guide: `docs/planning/template-upload-workflow/implementation.md`
 - Planning index: `docs/planning/template-upload-workflow/index.md`
@@ -23,13 +23,14 @@ Current repository state:
 - `ComicBook/comicbook/upload_graph.py` exists
 - `ComicBook/comicbook/upload_run.py` exists
 - `ComicBook/comicbook.__init__` now re-exports `upload_templates`
+- `ComicBook/comicbook/runtime_deps.py` now holds shared managed-runtime setup/cleanup helpers for both CLI entry points
 - `ComicBook/comicbook/nodes/upload_load_file.py` exists
 - `ComicBook/comicbook/nodes/upload_parse_and_validate.py` exists
 - `ComicBook/comicbook/nodes/upload_resume_filter.py` exists
 - upload-specific contract tests exist under `ComicBook/tests/`
-- there are no workflow-specific business or developer docs yet for this workflow
+- workflow-specific business and developer docs now exist under `docs/business/template-upload-workflow/` and `docs/developer/template-upload-workflow/`
 
-In short: the workflow runtime surface now exists end-to-end through `upload_templates(...)` and `python -m comicbook.upload_run`, and the remaining work is final verification plus the required documentation triad and index sync.
+In short: the upload workflow is now implemented, documented, and verified through the mocked test suite. No further `/implement-next` slice remains for this guide unless the implementation guide is expanded later.
 
 ## TaskGroup status table
 
@@ -40,7 +41,7 @@ In short: the workflow runtime surface now exists end-to-end through `upload_tem
 | TG3 | Implement file ingest, validation, and resumability | completed | Added `upload_load_file`, `upload_parse_and_validate`, and `upload_resume_filter` with direct pytest coverage including stdin, validation behavior, row-limit enforcement, and resume retry-count carry-forward. |
 | TG4 | Implement backfill, write-mode routing, and persistence | completed | Added metadata backfill, write-mode routing, and persistence nodes with focused pytest coverage for insert/update/skip/duplicate and backfill guardrail paths. |
 | TG5 | Wire the graph, CLI, package export, and reporting | completed | Added upload graph, summarize/report node, CLI/library entry point, package re-export, and focused runtime-surface tests including lock/error mapping. |
-| TG6 | Verification, documentation triad, and closeout | pending | Business and developer docs for this workflow have not been created. |
+| TG6 | Verification, documentation triad, and closeout | completed | Added business/developer docs plus index sync, fixed closeout regressions around shared runtime imports and stdin state preservation, verified documented CLI commands, and finished the mocked closeout suite. |
 
 ## What was created or updated in this planning session
 
@@ -61,76 +62,87 @@ In short: the workflow runtime surface now exists end-to-end through `upload_tem
 
 ## Completed work from this session
 
-- Selected the remaining **TG5** runtime-surface cluster from the handoff because it was still the earliest unfinished, tightly related, commit-sized slice after the graph/report sub-slice.
-- Added `ComicBook/comicbook/upload_run.py` with:
-  - CLI argument parsing for the upload workflow surface
-  - `upload_templates(...)` library helper using the locked signature from the guide
-  - managed dependency lifecycle when `deps is None`
-  - import-lock acquisition before graph execution
-  - finalization of running import records on unhandled exceptions
-  - exit-code mapping in `main(...)`
-  - stdout JSON summary for successful and partial runs
-- Updated `ComicBook/comicbook/__init__.py` to re-export `upload_templates`.
-- Extended `ComicBook/tests/test_upload_run_cli.py` with focused coverage for:
-  - additional runtime-surface flags
-  - package re-export and successful library-helper execution with provided deps
-  - stdin-to-helper CLI wiring
-  - import-lock error mapping to exit code `4`
+- Selected the full remaining **TG6** closeout slice because the unfinished work was one cohesive verification-and-documentation pass that fit a single commit-sized delivery.
+- Ran the focused then full pytest progression and found closeout regressions that the earlier narrow scopes had not exposed:
+  - `comicbook.upload_run` imported shared runtime helpers from `comicbook.run`, violating the shared-module boundary and causing the repo-wide architecture test to fail
+  - stdin-driven imports failed end-to-end because `stdin_text` was missing from `ImportRunState`
+  - `--allow-external-path` existed at the CLI/config surface but path-policy enforcement was still missing in `upload_load_file`
+- Fixed the closeout regressions by:
+  - extracting shared managed-runtime setup/cleanup into new `ComicBook/comicbook/runtime_deps.py`
+  - making `comicbook.__init__` lazily expose `upload_templates` so `python -m comicbook.upload_run` no longer emits the runpy warning
+  - adding `stdin_text` to `ImportRunState`
+  - enforcing the current-working-tree path policy in `upload_load_file`, with explicit opt-in via `--allow-external-path`
+- Extended focused regression coverage for:
+  - lazy package re-export behavior
+  - end-to-end stdin use through `upload_templates(...)`
+  - external-path rejection in `upload_load_file`
+- Added the required documentation triad closeout pieces for this workflow:
+  - `docs/business/template-upload-workflow/index.md`
+  - `docs/developer/template-upload-workflow/index.md`
+  - index sync in `docs/index.md`, `docs/business/index.md`, and `docs/developer/index.md`
+- Verified the documented CLI examples against the shipped runtime surface using the checked-in sample input.
 
 ## Files changed this session
 
+- `ComicBook/comicbook/runtime_deps.py`
+- `ComicBook/comicbook/run.py`
 - `ComicBook/comicbook/upload_run.py`
 - `ComicBook/comicbook/__init__.py`
+- `ComicBook/comicbook/state.py`
+- `ComicBook/comicbook/nodes/upload_load_file.py`
+- `ComicBook/tests/test_upload_load_file.py`
+- `ComicBook/tests/test_upload_graph.py`
 - `ComicBook/tests/test_upload_run_cli.py`
+- `docs/business/template-upload-workflow/index.md`
+- `docs/developer/template-upload-workflow/index.md`
+- `docs/index.md`
+- `docs/business/index.md`
+- `docs/developer/index.md`
 - `docs/planning/template-upload-workflow/implementation-handoff.md`
 
 ## Tests run this session
 
 From `ComicBook/`:
 
-1. `uv run python -m pytest -q tests/test_db.py tests/test_config.py`
-   - initial result before implementation: failed as expected on missing import schema/helpers and missing upload state symbols
-   - final result after implementation: **17 passed**
-2. `uv run python -m pytest -q tests/test_db.py tests/test_config.py tests/test_node_load_templates.py tests/test_node_ingest_summarize.py tests/test_budget_guard.py`
-   - final focused regression result: **26 passed**
-3. `uv run python -m pytest -q tests/test_upload_load_file.py tests/test_upload_parse_and_validate.py tests/test_upload_resume_filter.py`
-   - initial result before implementation: failed as expected on missing upload node modules
-   - final result after implementation: **9 passed**
-4. `uv run python -m pytest -q tests/test_db.py tests/test_config.py tests/test_upload_load_file.py tests/test_upload_parse_and_validate.py tests/test_upload_resume_filter.py tests/test_node_load_templates.py tests/test_node_ingest_summarize.py`
-   - final broadened regression result: **30 passed**
-5. `uv run python -m pytest -q tests/test_upload_backfill_metadata.py`
-   - final focused backfill result: **6 passed**
-6. `uv run python -m pytest -q tests/test_upload_backfill_metadata.py tests/test_upload_load_file.py tests/test_upload_parse_and_validate.py tests/test_upload_resume_filter.py tests/test_router_node.py tests/test_router_validation.py tests/test_budget_guard.py`
-   - final broadened backfill/router regression result: **28 passed**
-7. `uv run python -m pytest -q tests/test_upload_persist.py tests/test_upload_decide_write_mode.py`
-   - initial result before implementation: failed as expected on missing persistence/write-mode modules
-   - final focused persistence result: **9 passed**
-8. `uv run python -m pytest -q tests/test_upload_persist.py tests/test_upload_decide_write_mode.py tests/test_upload_backfill_metadata.py tests/test_upload_load_file.py tests/test_upload_parse_and_validate.py tests/test_upload_resume_filter.py tests/test_db.py tests/test_config.py`
-   - final broadened row-flow regression result: **41 passed**
-9. `uv run python -m pytest -q tests/test_upload_graph.py`
-   - initial result before implementation: failed as expected on missing `comicbook.upload_graph`
-   - final focused graph/report result: **3 passed**
-10. `uv run python -m pytest -q tests/test_upload_graph.py tests/test_upload_persist.py tests/test_upload_decide_write_mode.py tests/test_upload_backfill_metadata.py tests/test_upload_load_file.py tests/test_upload_parse_and_validate.py tests/test_upload_resume_filter.py`
-    - final broadened graph + row-flow regression result: **27 passed**
-11. `uv run python -m pytest -q tests/test_upload_graph.py tests/test_upload_persist.py tests/test_upload_decide_write_mode.py tests/test_upload_backfill_metadata.py tests/test_upload_load_file.py tests/test_upload_parse_and_validate.py tests/test_upload_resume_filter.py tests/test_db.py tests/test_config.py`
-    - final extended graph regression result: **44 passed**
-12. `uv run python -m pytest -q tests/test_upload_run_cli.py tests/test_upload_graph.py`
-    - final focused runtime-surface result: **12 passed**
-13. `uv run python -m pytest -q tests/test_upload_run_cli.py tests/test_upload_graph.py tests/test_upload_persist.py tests/test_upload_decide_write_mode.py tests/test_upload_backfill_metadata.py tests/test_upload_load_file.py tests/test_upload_parse_and_validate.py tests/test_upload_resume_filter.py tests/test_db.py tests/test_config.py`
-    - final extended runtime-surface regression result: **53 passed**
+1. `uv run python -m pytest -q tests/test_upload_graph.py tests/test_upload_run_cli.py`
+   - initial TG6 focused result before the new closeout fixes: **12 passed**
+2. `uv run python -m pytest -q`
+   - first full closeout run exposed a repo-wide regression: **1 failed, 110 passed**
+   - failing check: `tests/test_example_single_portrait.py::test_shared_modules_do_not_import_workflow_specific_graph_or_run_modules`
+3. `uv run python -m pytest -q tests/test_upload_run_cli.py -k stdin_text`
+   - regression test added for stdin end-to-end flow; initial result before the state fix: **1 failed**
+4. `uv run python -m pytest -q tests/test_upload_run_cli.py -k lazy`
+   - regression test added for lazy package re-export; initial result before the `__init__` fix: **1 failed**
+5. `uv run python -m pytest -q tests/test_upload_load_file.py -k external_path`
+   - regression test added for path-policy enforcement; initial result before the `upload_load_file` fix: **1 failed**
+6. `uv run python -m pytest -q tests/test_upload_run_cli.py -k "lazy or stdin or reexport"`
+   - focused runtime-surface regression result after fixes: **6 passed**
+7. `uv run python -m pytest -q tests/test_upload_load_file.py tests/test_upload_run_cli.py`
+   - focused file-ingest + CLI result after path-policy updates: **16 passed**
+8. `uv run python -m pytest -q tests/test_upload_load_file.py tests/test_upload_run_cli.py tests/test_upload_graph.py`
+   - final focused upload closeout scope: **19 passed**
+9. `uv run python -m pytest -q`
+   - final broadened mocked suite after all TG6 fixes: **114 passed**
+10. Verified documented CLI examples from `ComicBook/` with temporary local env values:
+    - `uv run python -m comicbook.upload_run --allow-external-path ../docs/planning/template-upload-workflow/sample_input.json` → **succeeded**
+    - `uv run python -m comicbook.upload_run --stdin < ../docs/planning/template-upload-workflow/sample_input.json` → **succeeded**
 
 ## Documentation updated this session
 
-- Updated this handoff document to reflect TG5 completion, verification evidence, and the next recommended slice.
-- Reviewed the docs-update gate for this slice. The workflow now has a user-facing CLI/library runtime surface, so the full business/developer documentation triad is now mandatory before the work can be called complete overall. Per the implementation guide sequence, those documentation updates remain the next TG6 slice; no new indexes or ADRs were added in this runtime-surface increment itself.
+- Docs-update gate triggered: this is a significant workflow change with new CLI/library/runtime/persistence behavior.
+- Added `docs/business/template-upload-workflow/index.md`.
+- Added `docs/developer/template-upload-workflow/index.md`.
+- Updated `docs/index.md`, `docs/business/index.md`, and `docs/developer/index.md`.
+- Updated this handoff document to record TG6 completion.
+- No ADR was added because the shipped implementation still matches the approved persistence, locking, and reporting design closely enough that no new architectural decision record was required.
 
 ## Blockers or open questions
 
-- No blocker prevents TG6.
+- No blocker remains for the implementation guide itself.
 - The `count_prompt_rows_for_template_hash(...)` helper currently counts prompts by scanning persisted prompt rows for template-id membership tied to the current template hash. Revisit only if later fingerprint-drift/report requirements prove a stricter query shape is needed.
 - The backfill budget guard currently uses a best-effort pre-call estimate derived from payload size plus router pricing keys; if later acceptance testing requires a different estimation heuristic, document that before closeout.
-- `upload_persist.py` currently relies on existing DAO helpers that each commit independently. That is enough for the current focused tests, but the intended one-row atomicity guarantee should be re-verified when wiring the graph and summarize/finalization layer in TG5.
-- An opt-in live Azure smoke test is still pending and should only run in TG6 when credentials are available.
+- `upload_persist.py` currently relies on existing DAO helpers that each commit independently. The mocked closeout suite is green, but keep watching this if later work needs a stricter explicit one-row transaction boundary.
+- An opt-in live Azure smoke test remains separate from the default mocked suite and should only run with explicit user approval and real credentials.
 
 ## Locked implementation decisions from the guide
 
@@ -148,7 +160,7 @@ These items were ambiguous or contradictory in `plan.md` and are now locked for 
 
 ## Unresolved assumptions or watchpoints
 
-These are not blockers for starting TG6, but they should be watched during implementation:
+These are not blockers after TG6 closeout, but they should be watched in later follow-up work:
 
 - The final code may show that `router_llm.py` needs a tiny shared helper for generic schema calls. If so, keep that change additive and do not disturb the image-router contract.
 - Fingerprint-drift reporting depends on the exact prompt-table lookup shape in `db.py`; verify it with tests before finalizing report language.
@@ -157,42 +169,39 @@ These are not blockers for starting TG6, but they should be watched during imple
 
 ## Exact next recommended slice
 
-- Start **TG6** from `docs/planning/template-upload-workflow/implementation.md`.
-- Recommended scope: complete the closeout slice if it stays manageable in one session:
-  1. run the focused then broader pytest scopes
-  2. add `docs/business/template-upload-workflow/index.md`
-  3. add `docs/developer/template-upload-workflow/index.md`
-  4. update `docs/index.md`, `docs/business/index.md`, and `docs/developer/index.md`
-  5. verify sample commands/examples against the shipped runtime surface
-  6. decide whether an ADR is needed; add one only if the final implementation materially deviates from the approved persistence/concurrency shape
-- Keep the optional live Azure smoke test separate if credentials are not available in the session.
+- No further `/implement-next` slice remains for `docs/planning/template-upload-workflow/implementation.md`.
+- Optional follow-up outside the current implementation guide closeout:
+  1. run one explicitly approved live Azure smoke import with real credentials
+  2. record that evidence in this handoff if you want operational proof beyond the mocked suite
+  3. optionally run a separate workflow-readiness or release-readiness review if the workflow is about to ship externally
 
-## Suggested verification path for the next implementation slice
+## Suggested verification path for any future follow-up
 
-When TG6 is in progress, follow the guide's closeout progression from focused to broad:
+If a later follow-up changes the upload workflow again, repeat the closeout progression from focused to broad:
 
 ```bash
-uv run python -m pytest -q tests/test_upload_graph.py tests/test_upload_run_cli.py
+uv run python -m pytest -q tests/test_upload_load_file.py tests/test_upload_run_cli.py tests/test_upload_graph.py
 uv run python -m pytest -q
 ```
 
-Run it from `ComicBook/`. Only after the runtime-surface scope is green should you broaden to the full repo test suite and complete the documentation triad updates.
+If the follow-up includes real Azure traffic, keep that smoke run separate and document the exact command, cost assumptions, and result in this handoff.
 
 ## Documentation gate note
 
-- The docs-update gate was reviewed for this TG5 runtime-surface slice.
-- This slice created the user-facing CLI/library surface, so the documentation gate is now fully active for closeout.
-- The required business/developer docs and index maintenance remain pending and must be completed in TG6 before this workflow can be marked complete.
+- The docs-update gate was triggered and satisfied in TG6.
+- Planning, business, and developer coverage now exist for this workflow.
+- Impacted indexes are updated.
+- No ADR was required for the final shipped shape.
 
 ## Permission checkpoint
 
-Implementation must **not** start automatically from this handoff.
+No additional `/implement-next` step is pending for this guide.
 
-Please review the guide and confirm whether you want to proceed with:
+If you want more work beyond this completed slice, please approve a separate follow-up such as:
 
-`/implement-next docs/planning/template-upload-workflow/implementation.md docs/planning/template-upload-workflow/implementation-handoff.md`
-
-Do not begin code, test, or runtime-document changes for this workflow until the user explicitly approves that next step.
+- an explicit live Azure smoke validation
+- a readiness/review pass
+- a new implementation-guide update if requirements have changed
 
 ## Session log
 
@@ -270,5 +279,23 @@ Do not begin code, test, or runtime-document changes for this workflow until the
   - `uv run python -m pytest -q tests/test_upload_run_cli.py tests/test_upload_graph.py`
 - Verified the extended runtime-surface regression scope passes:
   - `uv run python -m pytest -q tests/test_upload_run_cli.py tests/test_upload_graph.py tests/test_upload_persist.py tests/test_upload_decide_write_mode.py tests/test_upload_backfill_metadata.py tests/test_upload_load_file.py tests/test_upload_parse_and_validate.py tests/test_upload_resume_filter.py tests/test_db.py tests/test_config.py`
+
+### 2026-04-24 — TG6 verification, docs, and closeout slice
+
+- Reviewed the implementation guide, current handoff, the local `implementation-slice-guard` instructions, and the docs-update / pytest-TDD gates to confirm TG6 was the next eligible full slice.
+- Selected the full TG6 slice because the remaining work was one cohesive closeout increment: verification, docs/index sync, and any regressions uncovered by the broadened suite.
+- Ran the focused then full pytest progression and found three closeout issues that needed fixing before the workflow could be called complete:
+  - shared-module boundary violation from `upload_run.py` importing helper functions from `run.py`
+  - end-to-end stdin imports dropping `stdin_text` from the graph state contract
+  - missing enforcement for the documented `--allow-external-path` policy
+- Added focused regression tests first for lazy package re-export, stdin end-to-end flow, and external-path rejection, then fixed the implementation.
+- Extracted shared managed-runtime setup/cleanup into `ComicBook/comicbook/runtime_deps.py`, updated `run.py` and `upload_run.py` to use it, and changed `comicbook.__init__` to a lazy `upload_templates` export.
+- Added `stdin_text` to `ImportRunState` so stdin-driven imports survive graph execution.
+- Implemented path-policy enforcement in `upload_load_file.py` and updated upload graph/CLI tests to opt into external paths where appropriate.
+- Added `docs/business/template-upload-workflow/index.md` and `docs/developer/template-upload-workflow/index.md`, then synced `docs/index.md`, `docs/business/index.md`, and `docs/developer/index.md`.
+- Verified the final closeout evidence:
+  - `uv run python -m pytest -q tests/test_upload_load_file.py tests/test_upload_run_cli.py tests/test_upload_graph.py` → **19 passed**
+  - `uv run python -m pytest -q` → **114 passed**
+  - documented CLI sample commands both succeeded with temporary local env values
 
 *End of handoff.*

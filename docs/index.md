@@ -9,6 +9,16 @@ This repository keeps all durable project documentation under `docs/`.
 - [Developer](developer/index.md): maintainer documentation, setup, architecture, debugging, and extension guidance.
 - [Standards](standards/index.md): repo-wide rules that OpenCode loads through `opencode.json`.
 
+## Workflow quick links
+
+- Template Upload Workflow
+  - [Planning](planning/template-upload-workflow/index.md)
+  - [Business](business/template-upload-workflow/index.md)
+  - [Developer](developer/template-upload-workflow/index.md)
+- Image Prompt Generation Workflow
+  - [Business](business/Image-prompt-gen-workflow/index.md)
+  - [Developer](developer/Image-prompt-gen-workflow/index.md)
+
 ## Cross-cutting rules
 
 - Every level maintains an `index.md`.

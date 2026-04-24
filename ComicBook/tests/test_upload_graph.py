@@ -114,13 +114,13 @@ def test_run_upload_workflow_happy_path_backfills_persists_and_finalizes(tmp_pat
     )
 
     final_state = run_upload_workflow(
-        {
-            "import_run_id": import_run.import_run_id,
-            "source_file_path": str(source_file),
-            "allow_external_path": False,
-            "dry_run": False,
-            "no_backfill": False,
-            "allow_missing_optional": False,
+            {
+                "import_run_id": import_run.import_run_id,
+                "source_file_path": str(source_file),
+                "allow_external_path": True,
+                "dry_run": False,
+                "no_backfill": False,
+                "allow_missing_optional": False,
             "budget_usd": None,
             "redact_style_text_in_logs": False,
             "started_at": import_run.started_at,
@@ -181,13 +181,13 @@ def test_run_upload_workflow_partial_success_records_failed_rows(tmp_path: Path,
     )
 
     final_state = run_upload_workflow(
-        {
-            "import_run_id": import_run.import_run_id,
-            "source_file_path": str(source_file),
-            "allow_external_path": False,
-            "dry_run": False,
-            "no_backfill": False,
-            "allow_missing_optional": False,
+            {
+                "import_run_id": import_run.import_run_id,
+                "source_file_path": str(source_file),
+                "allow_external_path": True,
+                "dry_run": False,
+                "no_backfill": False,
+                "allow_missing_optional": False,
             "budget_usd": None,
             "redact_style_text_in_logs": False,
             "started_at": import_run.started_at,
@@ -236,13 +236,13 @@ def test_run_upload_workflow_dry_run_writes_report_without_template_changes(tmp_
     )
 
     final_state = run_upload_workflow(
-        {
-            "import_run_id": import_run.import_run_id,
-            "source_file_path": str(source_file),
-            "allow_external_path": False,
-            "dry_run": True,
-            "no_backfill": False,
-            "allow_missing_optional": False,
+            {
+                "import_run_id": import_run.import_run_id,
+                "source_file_path": str(source_file),
+                "allow_external_path": True,
+                "dry_run": True,
+                "no_backfill": False,
+                "allow_missing_optional": False,
             "budget_usd": None,
             "redact_style_text_in_logs": False,
             "started_at": import_run.started_at,

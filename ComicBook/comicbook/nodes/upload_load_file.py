@@ -38,6 +38,22 @@ def _parse_payload(text: str) -> tuple[list[dict[str, object]], int]:
     raise ValueError("top-level JSON value must be an array or a version-1 envelope with a templates array")
 
 
+def _allow_external_path(state: ImportRunState, deps: Deps) -> bool:
+    return bool(state.get("allow_external_path", deps.config.comicbook_import_allow_external_path))
+
+
+def _enforce_path_policy(resolved_path: Path, *, allow_external_path: bool) -> None:
+    if allow_external_path:
+        return
+
+    allowed_root = Path.cwd().resolve()
+    if not resolved_path.is_relative_to(allowed_root):
+        raise ValueError(
+            f"resolved path {resolved_path} is outside the allowed tree {allowed_root}; "
+            "rerun with --allow-external-path to permit external files"
+        )
+
+
 def _read_source_bytes(state: ImportRunState) -> tuple[bytes, str | None, str]:
     stdin_text = state.get("stdin_text")
     source_file_path = state.get("source_file_path")
@@ -58,6 +74,13 @@ def _read_source_bytes(state: ImportRunState) -> tuple[bytes, str | None, str]:
 
 def upload_load_file(state: ImportRunState, deps: Deps) -> dict[str, Any]:
     """Resolve, read, and parse the import source into raw rows."""
+
+    source_file_path = state.get("source_file_path")
+    if source_file_path is not None:
+        _enforce_path_policy(
+            Path(str(source_file_path)).resolve(),
+            allow_external_path=_allow_external_path(state, deps),
+        )
 
     raw_bytes, source_file_path, source_label = _read_source_bytes(state)
     max_file_bytes = deps.config.comicbook_import_max_file_bytes

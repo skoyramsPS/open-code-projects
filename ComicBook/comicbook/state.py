@@ -175,6 +175,7 @@ class TemplateImportRowResult(TypedDict, total=False):
 class ImportRunState(TypedDict, total=False):
     import_run_id: str
     source_file_path: str | None
+    stdin_text: str | None
     source_label: str
     source_file_hash: str
     input_version: int

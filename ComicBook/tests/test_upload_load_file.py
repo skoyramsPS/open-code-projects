@@ -36,7 +36,7 @@ def test_upload_load_file_accepts_bare_array_input(tmp_path: Path) -> None:
     delta = upload_load_file(
         {
             "source_file_path": str(source_file),
-            "allow_external_path": False,
+            "allow_external_path": True,
         },
         make_deps(),
     )
@@ -67,7 +67,7 @@ def test_upload_load_file_accepts_versioned_envelope_input(tmp_path: Path) -> No
     delta = upload_load_file(
         {
             "source_file_path": str(source_file),
-            "allow_external_path": False,
+            "allow_external_path": True,
         },
         make_deps(),
     )
@@ -110,6 +110,22 @@ def test_upload_load_file_rejects_invalid_top_level_shape(tmp_path: Path) -> Non
     source_file.write_text(json.dumps({"template_id": "not-an-array"}), encoding="utf-8")
 
     with pytest.raises(ValueError, match="top-level"):
+        upload_load_file(
+            {
+                "source_file_path": str(source_file),
+                "allow_external_path": True,
+            },
+            make_deps(),
+        )
+
+
+def test_upload_load_file_rejects_external_path_when_disallowed(tmp_path: Path) -> None:
+    from comicbook.nodes.upload_load_file import upload_load_file
+
+    source_file = tmp_path / "templates.json"
+    source_file.write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="outside the allowed tree"):
         upload_load_file(
             {
                 "source_file_path": str(source_file),

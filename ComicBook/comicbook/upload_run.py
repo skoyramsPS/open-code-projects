@@ -11,7 +11,7 @@ from typing import Sequence
 
 from comicbook.db import RunLockError
 from comicbook.execution import format_timestamp
-from comicbook.run import _close_managed_runtime_deps, _resolve_runtime_deps
+from comicbook.runtime_deps import close_managed_runtime_deps, resolve_runtime_deps
 from comicbook.upload_graph import run_upload_workflow
 
 
@@ -69,7 +69,7 @@ def upload_templates(
 ):
     """Execute one template-upload workflow run from tests or the CLI surface."""
 
-    runtime_deps, managed_db, managed_http_client = _resolve_runtime_deps(
+    runtime_deps, managed_db, managed_http_client = resolve_runtime_deps(
         deps,
         dotenv_path=dotenv_path,
     )
@@ -122,7 +122,7 @@ def upload_templates(
                 )
         raise
     finally:
-        _close_managed_runtime_deps(managed_db, managed_http_client)
+        close_managed_runtime_deps(managed_db, managed_http_client)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import io
+import importlib
 import json
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -138,11 +140,51 @@ def test_upload_templates_is_reexported_and_runs_with_provided_deps(tmp_path: Pa
     source_file = tmp_path / "templates.json"
     source_file.write_text(json.dumps(payload), encoding="utf-8")
 
-    final_state = upload_templates(source_file=source_file, deps=make_deps(tmp_path, db))
+    final_state = upload_templates(
+        source_file=source_file,
+        allow_external_path=True,
+        deps=make_deps(tmp_path, db),
+    )
 
     assert final_state["run_status"] == "succeeded"
     assert final_state["row_results"][0]["status"] == "inserted"
     assert db.get_template_by_id("storybook-soft") is not None
+
+
+def test_package_reexport_is_lazy_until_upload_templates_is_accessed() -> None:
+    sys.modules.pop("comicbook", None)
+    sys.modules.pop("comicbook.upload_run", None)
+
+    package = importlib.import_module("comicbook")
+
+    assert "comicbook.upload_run" not in sys.modules
+
+    upload_templates = package.upload_templates
+
+    assert callable(upload_templates)
+    assert "comicbook.upload_run" in sys.modules
+
+
+def test_upload_templates_accepts_stdin_text_with_provided_deps(tmp_path: Path, db: ComicBookDB) -> None:
+    from comicbook import upload_templates
+
+    stdin_text = json.dumps(
+        [
+            {
+                "template_id": "stdin-template",
+                "name": "STDIN Template",
+                "style_text": "Painterly moonlit linework.",
+                "tags": ["moonlit"],
+                "summary": "Painterly import from stdin.",
+            }
+        ]
+    )
+
+    final_state = upload_templates(stdin_text=stdin_text, deps=make_deps(tmp_path, db))
+
+    assert final_state["run_status"] == "succeeded"
+    assert final_state["row_results"][0]["status"] == "inserted"
+    assert db.get_template_by_id("stdin-template") is not None
 
 
 def test_main_reads_stdin_and_returns_zero_on_partial(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

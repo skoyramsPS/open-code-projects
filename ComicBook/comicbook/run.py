@@ -4,22 +4,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
-import os
-import socket
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
-from uuid import uuid4
+from typing import Sequence
 
-import httpx
-
-from comicbook.config import AppConfig, load_config
-from comicbook.db import ComicBookDB
 from comicbook.deps import Deps
 from comicbook.graph import run_workflow
 from comicbook.input_file import InputFileValidationError, InputPromptRecord, load_input_records
+from comicbook.runtime_deps import close_managed_runtime_deps, resolve_runtime_deps
 from comicbook.state import RunState
 
 
@@ -53,11 +45,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return args
 
 
-def _load_pricing(pricing_path: Path | None = None) -> dict[str, Any]:
-    resolved = pricing_path or Path(__file__).with_name("pricing.json")
-    return json.loads(resolved.read_text(encoding="utf-8"))
-
-
 def _build_initial_state(
     user_prompt: str,
     *,
@@ -79,55 +66,6 @@ def _build_initial_state(
     }
 
 
-def _build_runtime_deps(config: AppConfig, *, pricing_path: Path | None = None) -> tuple[Deps, ComicBookDB, httpx.Client]:
-    db = ComicBookDB.connect(config.comicbook_db_path)
-    http_client = httpx.Client()
-
-    config.comicbook_image_output_dir.mkdir(parents=True, exist_ok=True)
-    config.comicbook_runs_dir.mkdir(parents=True, exist_ok=True)
-    config.comicbook_logs_dir.mkdir(parents=True, exist_ok=True)
-
-    deps = Deps(
-        config=config,
-        db=db,
-        http_client=http_client,
-        clock=lambda: datetime.now(timezone.utc),
-        uuid_factory=lambda: str(uuid4()),
-        output_dir=config.comicbook_image_output_dir,
-        runs_dir=config.comicbook_runs_dir,
-        logs_dir=config.comicbook_logs_dir,
-        pricing=_load_pricing(pricing_path),
-        logger=logging.getLogger("comicbook.run"),
-        pid_provider=os.getpid,
-        hostname_provider=socket.gethostname,
-    )
-    return deps, db, http_client
-
-
-def _resolve_runtime_deps(
-    deps: Deps | None,
-    *,
-    dotenv_path: str | Path,
-) -> tuple[Deps, ComicBookDB | None, httpx.Client | None]:
-    runtime_deps = deps
-    managed_db: ComicBookDB | None = None
-    managed_http_client: httpx.Client | None = None
-    if runtime_deps is None:
-        config = load_config(dotenv_path)
-        runtime_deps, managed_db, managed_http_client = _build_runtime_deps(config)
-    return runtime_deps, managed_db, managed_http_client
-
-
-def _close_managed_runtime_deps(
-    managed_db: ComicBookDB | None,
-    managed_http_client: httpx.Client | None,
-) -> None:
-    if managed_http_client is not None:
-        managed_http_client.close()
-    if managed_db is not None:
-        managed_db.close()
-
-
 def run_once(
     user_prompt: str,
     *,
@@ -142,7 +80,7 @@ def run_once(
 ) -> RunState:
     """Execute one workflow run from either tests or the CLI surface."""
 
-    runtime_deps, managed_db, managed_http_client = _resolve_runtime_deps(
+    runtime_deps, managed_db, managed_http_client = resolve_runtime_deps(
         deps,
         dotenv_path=dotenv_path,
     )
@@ -160,7 +98,7 @@ def run_once(
     try:
         return run_workflow(initial_state, runtime_deps)
     finally:
-        _close_managed_runtime_deps(managed_db, managed_http_client)
+        close_managed_runtime_deps(managed_db, managed_http_client)
 
 
 def run_batch(
@@ -177,7 +115,7 @@ def run_batch(
 ) -> dict[str, object]:
     """Execute a validated prompt batch serially through the single-run workflow."""
 
-    runtime_deps, managed_db, managed_http_client = _resolve_runtime_deps(
+    runtime_deps, managed_db, managed_http_client = resolve_runtime_deps(
         deps,
         dotenv_path=dotenv_path,
     )
@@ -245,7 +183,7 @@ def run_batch(
         summary["run_ids"] = run_ids
         return summary
     finally:
-        _close_managed_runtime_deps(managed_db, managed_http_client)
+        close_managed_runtime_deps(managed_db, managed_http_client)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
