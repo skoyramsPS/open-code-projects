@@ -3,7 +3,7 @@
 ## Status
 
 - Workflow delivery status: in progress
-- Current shipped slice: TG5 complete, covering image-client transport and serial image execution on top of TG4 prompt preparation
+- Current shipped slice: first TG6 graph slice complete, covering ingest/summary nodes and end-to-end graph assembly on top of TG5 execution
 - Last updated: 2026-04-23
 
 ## Scope of this slice
@@ -25,8 +25,11 @@ This slice now covers the TG1-TG3 foundation, the full TG4 cache-preparation bou
 - `comicbook.nodes.cache_lookup` for prompt materialization, prompt-row persistence, duplicate-fingerprint collapse, and cache-hit classification
 - `comicbook.image_client` for reusable single-image Azure generation with `n=1`, bounded retry behavior, and structured success or terminal-failure metadata
 - `comicbook.nodes.generate_images_serial` for ordered image execution, same-run resume detection, per-image persistence, and the two-consecutive-429 circuit breaker
+- `comicbook.nodes.ingest` for normalizing run input into the initial `RunState` boundary
+- `comicbook.nodes.summarize` for deriving final counters, run status, and persisted `runs`-table finalization
+- `comicbook.graph` for the ordered LangGraph assembly plus the current library entry point that acquires the run lock and invokes the workflow
 
-It intentionally still does **not** add graph wiring, CLI execution, budget guards, or reporting artifacts yet.
+It intentionally still does **not** add CLI execution, dry-run/budget guards, or report artifacts yet.
 
 ## Module responsibilities
 
@@ -246,11 +249,75 @@ Current behavior:
 - increments `usage.image_calls` by the number of actual Azure request attempts, including retries
 - stops the remaining serial loop after two consecutive retry-exhausted `429` prompt failures and records the rest as `skipped_rate_limit`
 
+### `comicbook.nodes.ingest`
+
+This node now defines the first in-graph state boundary for TG6.
+
+Current behavior:
+
+- requires `state["user_prompt"]`
+- preserves a caller-provided `run_id` and `started_at` when present, otherwise fills them from `deps.uuid_factory()` and `deps.clock()`
+- normalizes default workflow flags for `dry_run`, `force_regenerate`, `budget_usd`, `exact_image_count`, and `redact_prompts`
+- initializes `usage`, `errors`, `image_results`, and `rate_limit_consecutive_failures` so later nodes can append state predictably
+
+### `comicbook.nodes.summarize`
+
+This node now defines the terminal TG6 summary and reporting boundary.
+
+Current behavior:
+
+- requires `state["run_id"]` and `state["started_at"]`
+- derives terminal counters from `state["cache_hits"]` and `state["image_results"]`
+- marks the run as `failed` when the runtime budget guard blocked image generation before the serial loop started
+- marks the run as `succeeded` when all planned prompts were cache hits or generated successfully
+- marks the run as `partial` when any prompt failed or was skipped by the rate-limit circuit breaker
+- writes `runs/<run_id>/report.md` from the persisted plan, rendered prompts, image results, and summary counts
+- writes `logs/<run_id>.summary.json` with the structured run summary, usage, errors, and per-prompt statuses
+- hashes prompt text in both artifacts when `state["redact_prompts"]` is true
+- persists the final `runs` row counters, router metadata, plan JSON, and lock release via `deps.db.finalize_run(...)`
+- returns `ended_at`, `summary`, and `run_status` back into graph state
+
+### `comicbook.graph`
+
+This module now owns the complete TG6 workflow orchestration path for the project.
+
+Current public helpers:
+
+- `build_workflow_graph(deps)` compiles the ordered graph sequence
+- `runtime_gate(state, deps)` estimates remaining image cost, applies the per-run and daily budget guards, and records a workflow error when generation is blocked
+- `run_workflow(initial_state, deps)` acquires the single-run SQLite lock, invokes the compiled graph, and finalizes a failed run if an exception escapes before the summary node completes
+
+Current graph order:
+
+1. `ingest`
+2. `load_templates`
+3. `router`
+4. `persist_template`
+5. `cache_lookup`
+6. `runtime_gate`
+7. conditional branch: `summarize` for dry-run or budget-blocked runs, otherwise `generate_images_serial`
+8. `summarize`
+
+Current scope boundary:
+
+- dry-run and budget overflow now short-circuit before image generation while still reaching the shared summary node
+- report artifacts are emitted from the summary boundary so the graph remains the authoritative source of run outputs
+
+### `comicbook.run`
+
+This module now provides the workflow-specific CLI and test-friendly library entry point required by TG6.
+
+Current public helpers:
+
+- `parse_args(argv)` supports positional `user_prompt`, `--run-id`, `--dry-run`, `--force`, `--panels`, `--budget-usd`, and `--redact-prompts`
+- `run_once(...)` maps runtime arguments into the initial `RunState`, loads config and dependencies when needed, and delegates execution to `comicbook.graph.run_workflow(...)`
+- `main(argv)` executes one CLI run and prints a small JSON status payload
+
 ## Local setup
 
 1. Work from `ComicBook/`.
 2. Copy values from `.env.example` into a local `.env` or export them in the shell.
-3. Use `uv run --with pytest --with pydantic --with httpx python -m pytest -q tests/test_config.py tests/test_db.py tests/test_router_validation.py tests/test_node_load_templates.py tests/test_router_node.py tests/test_fingerprint.py tests/test_node_cache_lookup.py tests/test_image_client.py tests/test_node_generate_images_serial.py` for the current focused unit-test scope.
+3. Use `uv run --with pytest --with pydantic --with httpx python -m pytest -q tests/test_config.py tests/test_db.py tests/test_router_validation.py tests/test_node_load_templates.py tests/test_router_node.py tests/test_fingerprint.py tests/test_node_cache_lookup.py tests/test_image_client.py tests/test_node_generate_images_serial.py tests/test_graph_happy.py tests/test_graph_cache_hit.py tests/test_graph_new_template.py tests/test_graph_resume.py tests/test_budget_guard.py` for the current focused scope.
 
 ## Tests in this slice
 
@@ -275,6 +342,7 @@ Current behavior:
 - valid router payload parsing into `RouterPlan`
 - rationale leak redaction
 - rejection of unknown prompt template IDs
+- acceptance of a router-selected new template ID when the same response defines that extracted template
 - exact-image-count validation
 - deterministic template pre-filter ranking and all-zero fallback behavior
 
@@ -317,9 +385,37 @@ Current behavior:
 - non-retryable per-image failures do not abort the remaining serial work
 - two consecutive retry-exhausted `429` prompt failures trigger the circuit breaker and mark remaining prompts as `skipped_rate_limit`
 
+`ComicBook/tests/test_graph_happy.py` now verifies:
+
+- the minimal library entry point acquires the run lock, executes the graph in order, and generates multiple images successfully
+- the final `runs` row is persisted with `status="succeeded"`, counters, and cleared lock ownership
+
+`ComicBook/tests/test_graph_cache_hit.py` now verifies:
+
+- a repeated run with the same rendered prompt reuses the persisted image as a cache hit
+- the second run performs zero image API calls while still finalizing a successful run summary
+
+`ComicBook/tests/test_graph_resume.py` now verifies:
+
+- a same-run output file on disk is treated as a resumed success inside the full graph path
+- only the missing image is sent to Azure during resume, while the final run still succeeds
+
+`ComicBook/tests/test_graph_new_template.py` now verifies:
+
+- the full graph persists exactly one router-extracted template row before prompt composition continues
+- report and summary artifacts are still emitted on the extracted-template path
+
+`ComicBook/tests/test_budget_guard.py` now verifies:
+
+- per-run budget overflow stops before any image API call and finalizes the run as failed
+- daily budget overflow also stops before any image API call
+- `run_once(..., dry_run=True)` writes report artifacts, redacts prompt text, and skips image generation
+- `run_once(..., panels=N)` forwards the exact-image-count constraint into the router input and executes the matching prompt count
+- `parse_args(...)` accepts the required TG6 runtime flags
+
 ## Extension notes for the next slices
 
-- TG6 should assemble the graph and CLI around the existing node boundaries rather than folding transport or persistence logic back into orchestration files.
+- TG6 is now complete; later work should keep reuse-oriented orchestration concerns in `graph.py` and `run.py` without folding transport or persistence logic back into them.
 - Later nodes should continue to build on DAO methods only, without embedding raw SQL in nodes.
 - Nodes should consume `Deps` instead of reading global state or environment variables directly.
 - New runtime behavior should continue to add narrow, direct unit tests before broader graph tests.

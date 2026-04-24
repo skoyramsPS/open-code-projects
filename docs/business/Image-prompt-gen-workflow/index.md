@@ -3,7 +3,7 @@
 ## Status
 
 - Workflow delivery status: in progress
-- Current shipped slice: TG5 complete, adding serial image execution on top of router planning and cache preparation
+- Current shipped slice: TG6 graph, CLI, and reporting complete, adding the operator-facing runtime surface on top of the earlier graph assembly
 - Last updated: 2026-04-23
 
 ## What exists today
@@ -29,18 +29,22 @@ The repository now contains the reusable foundation for the image prompt generat
 - cache classification that reuses previously generated images unless the operator explicitly forces regeneration
 - a reusable single-image Azure client that always sends one prompt per request with `n=1`
 - serial image execution that processes uncached prompts in router order and persists an image result row for each prompt outcome
+- a complete end-to-end workflow graph that runs ingest, template loading, router planning, template persistence, cache lookup, runtime gating, serial generation, and summary finalization in one ordered execution path
+- a CLI and library runtime surface that accepts run IDs, dry-run mode, forced regeneration, exact panel counts, per-run budgets, and prompt redaction
+- a runtime guard that estimates remaining image cost, stops generation when a configured per-run or daily budget would be exceeded, and records the failure in the persisted run summary
+- human-readable `runs/<run_id>/report.md` artifacts and structured `logs/<run_id>.summary.json` files for every summarized run, including dry runs and budget-blocked runs
 
-This slice still does **not** execute the full workflow end to end, but it now establishes the router-planning stage, the full cache-preparation stage, and the serial image-execution stage that later graph wiring and reporting logic will rely on.
+This slice now completes the full TG6 operator runtime surface. The next work can move on to the reuse proof, example graph, and repository protections in TG7.
 
 ## Expected operator inputs
 
-When later slices are added, operators will provide:
+Operators can now provide:
 
 - a free-form user prompt
 - Azure OpenAI connection settings
-- optional workflow controls such as dry-run, panel count, budget, and resume identifiers
+- optional workflow controls such as dry-run, forced regeneration, exact panel count, per-run budget, prompt redaction, and resume identifiers
 
-For now, the only supported operational setup is preparing the environment variables documented in `ComicBook/.env.example`.
+The supported operational setup is still preparing the environment variables documented in `ComicBook/.env.example`.
 
 The workflow now automatically:
 
@@ -60,38 +64,47 @@ The workflow now automatically:
 - stop retrying immediately when Azure rejects a prompt with a content-filter response
 - resume a partially completed run by skipping the API call when `image_output/<run_id>/<fingerprint>.png` already exists
 - stop the remaining serial loop after two consecutive prompts fully exhaust retries on `429` and mark the rest as skipped for rate-limit protection
+- normalize workflow input into a tracked run ID and start timestamp before the graph proceeds
+- estimate remaining image cost before serial generation begins
+- stop before image generation when `--budget-usd` or `COMICBOOK_DAILY_BUDGET_USD` would be exceeded
+- stop after router planning and cache classification when `--dry-run` is enabled, while still writing the report artifacts
+- pass `--panels N` through to the router as a hard exact-image-count constraint
+- hash prompt text in reports and summaries when `--redact-prompts` is enabled
+- finalize each completed graph run with persisted cache-hit, generated, failed, and skipped counters plus the terminal run status
+- write a shareable markdown report and JSON summary for every summarized run
 
-## Expected outputs later in the workflow
+## Workflow outputs
 
-The completed workflow is planned to produce:
+The workflow now produces:
 
 - generated images under `image_output/<run_id>/`
 - human-readable run reports under `runs/<run_id>/report.md`
 - structured summaries under `logs/<run_id>.summary.json`
-
-Those runtime artifacts are not produced yet in the current implementation slice.
 
 ## Persistence and operator safety now in place
 
 - Workflow data is stored in a local SQLite database file.
 - Templates are append-only. Duplicate inserts with the same name and style text are ignored.
 - If an extracted template is a duplicate of an existing stored template, the workflow reuses the existing canonical template row instead of storing a second copy.
-- Prompt fingerprints can now be computed deterministically for later cache and resume behavior.
-- Prompt fingerprint rows are now persisted before generation, even when the prompt is already cached.
-- Only previously generated image rows count as cache hits; failed image rows stay eligible for retry in later slices.
-- Generated image rows are now written for successful generations, resumed same-run file hits, terminal failures, and rate-limit circuit-breaker skips.
+- Prompt fingerprints are computed deterministically for cache and resume behavior.
+- Prompt fingerprint rows are persisted before generation, even when the prompt is already cached.
+- Only previously generated image rows count as cache hits; failed image rows stay eligible for retry in later runs.
+- Generated image rows are written for successful generations, resumed same-run file hits, terminal failures, and rate-limit circuit-breaker skips.
 - Only one active workflow run may hold the database lock at a time.
 - If a previous run died on the same host and its PID is no longer alive, the stale lock can be recovered automatically.
-- Daily run rollups are now available from the database for cache-hit and estimated-cost reporting.
+- Daily run rollups are available from the database for cache-hit and estimated-cost reporting.
+- Completed graph runs release the SQLite lock by finalizing the `runs` row with the terminal status and counters.
+- Budget-blocked runs fail before any image API call and still emit the same summary artifacts as successful runs.
+- Dry runs stop before any image API call while still writing the operator-facing report and JSON summary.
 
 ## Guardrails and limitations
 
 - Secrets are loaded from environment variables first, then `.env`.
 - The workflow package does not modify the read-only reference scripts under `ComicBook/DoNotChange/`.
-- The router stage, cache-preparation helpers, and serial image execution are implemented, but later slices still need graph wiring, CLI entry points, budget enforcement, and reporting artifacts.
+- The graph orchestration, CLI entry point, dry-run path, budget guards, and report artifacts are now implemented.
 - The lock policy is intentionally conservative: one active run per SQLite file.
 - The package layout is intentionally reusable so later workflows can share the same contracts.
-- Large template catalogs are filtered lexically only in v1; the workflow does not yet use semantic retrieval.
+- Large template catalogs are filtered lexically only in v1; the workflow does not use semantic retrieval.
 
 ## Plain-language troubleshooting
 
@@ -99,12 +112,15 @@ If setup fails at this stage, the most likely causes are:
 
 - missing Azure configuration, which is reported explicitly by the config loader
 - a currently active run already holding the database lock for the chosen SQLite file
-- a router response that references template IDs outside the allowed subset, which is now rejected by the validation layer
-- a router response that fails validation twice, which now stops the router stage after the single allowed repair attempt
-- a request that the mini router marks as ambiguous enough to escalate, which now triggers one additional router call on the stronger model before later steps continue
+- a router response that references template IDs outside the allowed subset, which is rejected by the validation layer
+- a router response that fails validation twice, which stops the router stage after the single allowed repair attempt
+- a request that the mini router marks as ambiguous enough to escalate, which triggers one additional router call on the stronger model before later steps continue
 - an extracted template that matches an existing stored template, which is treated as a safe deduplication hit rather than a hard failure
 - a prompt that was expected to be cached but is still queued for generation, which can happen intentionally when `--force` is enabled or when the only prior image rows were failures
-- an image prompt that Azure content filters, which now records a per-image failure and lets the remaining serial work continue
-- repeated `429` responses from Azure, which now trigger a stop after two consecutive prompts fully exhaust their retries so the run does not keep hammering the endpoint
+- an image prompt that Azure content filters, which records a per-image failure and lets the remaining serial work continue
+- repeated `429` responses from Azure, which trigger a stop after two consecutive prompts fully exhaust their retries so the run does not keep hammering the endpoint
+- a resume run that should have reused a finished same-run file, which inserts a generated image row from the existing file and avoids re-calling Azure for that fingerprint
+- a dry run that wrote a report but no images, which is expected behavior when `--dry-run` is enabled
+- a run that stops before image generation because the configured per-run or daily budget would be exceeded
 
-If the lock belongs to a dead process on the same machine, later runtime slices can recover it automatically through the persistence layer added in TG2.
+If the lock belongs to a dead process on the same machine, the runtime can recover it automatically through the persistence layer added in TG2.

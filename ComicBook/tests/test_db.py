@@ -218,7 +218,7 @@ def test_daily_run_rollup_calculates_cache_hit_rate(db: ComicBookDB) -> None:
     db.finalize_run(
         run_id=second.run_id,
         ended_at="2026-04-23T09:05:00Z",
-        status="partial_success",
+        status="partial",
         cache_hits=1,
         generated=3,
         failed=1,

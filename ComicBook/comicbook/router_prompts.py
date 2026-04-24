@@ -121,6 +121,9 @@ def _normalize_payload(raw_plan: Mapping[str, Any] | str) -> dict[str, Any]:
 
 def _validate_template_usage(plan: RouterPlan, available_templates: Sequence[TemplateSummary]) -> None:
     available_ids = {template.id for template in available_templates}
+    if plan.template_decision.new_template is not None:
+        available_ids.add(plan.template_decision.new_template.id)
+
     selected_ids = list(plan.template_decision.selected_template_ids)
     unknown_selected = [template_id for template_id in selected_ids if template_id not in available_ids]
     if unknown_selected:
@@ -129,8 +132,7 @@ def _validate_template_usage(plan: RouterPlan, available_templates: Sequence[Tem
         )
 
     prompt_allowed_ids = set(selected_ids)
-    if plan.template_decision.new_template is not None:
-        prompt_allowed_ids.add(plan.template_decision.new_template.id)
+    prompt_allowed_ids.update(available_ids)
 
     unknown_prompt_template_ids = sorted(
         {

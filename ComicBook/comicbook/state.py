@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 ImageSize = Literal["1024x1024", "1024x1536", "1536x1024"]
 ImageQuality = Literal["low", "medium", "high", "auto"]
 RouterModel = Literal["gpt-5.4", "gpt-5.4-mini"]
-RunStatus = Literal["running", "succeeded", "partial_success", "failed", "dry_run", "cancelled"]
+RunStatus = Literal["running", "succeeded", "partial", "failed", "dry_run", "cancelled"]
 ImageResultStatus = Literal["generated", "cached", "failed", "skipped_rate_limit"]
 
 
@@ -168,6 +168,7 @@ class RunState(TypedDict, total=False):
     errors: list[WorkflowError]
     rate_limit_consecutive_failures: int
     usage: UsageTotals
+    budget_blocked: bool
     ended_at: str
     summary: RunSummary
     run_status: str
