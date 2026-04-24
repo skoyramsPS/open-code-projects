@@ -94,6 +94,79 @@ def test_import_lock_blocks_second_active_import_until_release(db: ComicBookDB) 
     assert acquired.status == "running"
 
 
+def test_import_run_records_and_latest_row_results_round_trip(db: ComicBookDB) -> None:
+    acquired = db.acquire_import_lock(
+        import_run_id="import-run-1",
+        source_file_path="templates.json",
+        source_file_hash="hash-123",
+        started_at="2026-04-23T12:00:00Z",
+        dry_run=True,
+        pid=101,
+        host="host-a",
+        pid_is_alive=lambda pid: True,
+    )
+
+    first_result = db.record_import_row_result(
+        import_run_id=acquired.import_run_id,
+        source_file_hash="hash-123",
+        row_index=0,
+        template_id="storybook-soft",
+        status="failed",
+        reason="validation_error",
+        warnings=["unknown_field:notes"],
+        retry_count=1,
+        created_at="2026-04-23T12:00:01Z",
+    )
+    db.finalize_import_run(
+        import_run_id=acquired.import_run_id,
+        ended_at="2026-04-23T12:00:02Z",
+        status="partial",
+        total_rows=1,
+        failed=1,
+        warnings=1,
+    )
+
+    replacement = db.acquire_import_lock(
+        import_run_id="import-run-2",
+        source_file_path="templates.json",
+        source_file_hash="hash-123",
+        started_at="2026-04-23T12:05:00Z",
+        dry_run=False,
+        pid=202,
+        host="host-a",
+        pid_is_alive=lambda pid: True,
+    )
+    second_result = db.record_import_row_result(
+        import_run_id=replacement.import_run_id,
+        source_file_hash="hash-123",
+        row_index=0,
+        template_id="storybook-soft",
+        status="updated",
+        diff={"summary": {"before": "Old", "after": "New"}},
+        retry_count=2,
+        created_at="2026-04-23T12:05:01Z",
+    )
+    finalized = db.finalize_import_run(
+        import_run_id=replacement.import_run_id,
+        ended_at="2026-04-23T12:05:02Z",
+        status="succeeded",
+        total_rows=1,
+        updated=1,
+        est_cost_usd=0.12,
+    )
+
+    latest = db.get_terminal_row_results_by_hash("hash-123")
+
+    assert first_result.status == "failed"
+    assert second_result.status == "updated"
+    assert second_result.diff == {"summary": {"after": "New", "before": "Old"}}
+    assert finalized.status == "succeeded"
+    assert finalized.dry_run is False
+    assert finalized.updated == 1
+    assert finalized.est_cost_usd == pytest.approx(0.12)
+    assert latest == [second_result]
+
+
 def test_insert_template_deduplicates_and_supports_append_only_lineage(db: ComicBookDB) -> None:
     original = db.insert_template(
         template_id="storybook-soft",
@@ -132,6 +205,51 @@ def test_insert_template_deduplicates_and_supports_append_only_lineage(db: Comic
     assert [summary.id for summary in summaries] == [revision.id, original.id]
     assert [row.id for row in full_rows] == [revision.id, original.id]
     assert full_rows[0].supersedes_id == original.id
+
+
+def test_update_template_in_place_refreshes_hash_and_supports_prompt_drift_count(db: ComicBookDB) -> None:
+    original = db.insert_template(
+        template_id="storybook-soft",
+        name="Storybook Soft",
+        style_text="Soft painterly linework and warm lighting.",
+        tags=["storybook", "warm"],
+        summary="Soft painterly linework with warm light.",
+        created_at="2026-04-23T12:00:00Z",
+        created_by_run="run-1",
+    )
+    prompt = RenderedPrompt.model_validate(
+        {
+            "fingerprint": "fp-drift-123",
+            "subject_text": "Traveler portrait at sunrise.",
+            "template_ids": [original.id],
+            "size": "1024x1536",
+            "quality": "high",
+            "image_model": "gpt-image-1.5",
+            "rendered_prompt": "style\n\n---\n\ntraveler portrait",
+        }
+    )
+    db.upsert_prompt_if_absent(
+        prompt=prompt,
+        first_seen_run="run-1",
+        created_at="2026-04-23T12:00:01Z",
+    )
+
+    updated = db.update_template_in_place(
+        template_id=original.id,
+        name="Storybook Soft",
+        style_text="Soft painterly linework with richer ink texture.",
+        tags=["storybook", "warm", "ink"],
+        summary="Updated summary.",
+        created_at="2026-04-23T12:05:00Z",
+        created_by_run="workflow_import",
+    )
+    looked_up = db.get_template_by_id(original.id)
+
+    assert looked_up == updated
+    assert updated.style_text_hash != original.style_text_hash
+    assert updated.created_by_run == "workflow_import"
+    assert db.count_prompt_rows_for_template_hash(original.style_text_hash) == 0
+    assert db.count_prompt_rows_for_template_hash(updated.style_text_hash) == 1
 
 
 def test_run_lock_blocks_second_active_run_until_release(db: ComicBookDB) -> None:

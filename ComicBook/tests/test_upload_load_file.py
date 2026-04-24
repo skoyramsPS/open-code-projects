@@ -76,6 +76,33 @@ def test_upload_load_file_accepts_versioned_envelope_input(tmp_path: Path) -> No
     assert delta["raw_rows"] == payload["templates"]
 
 
+def test_upload_load_file_accepts_stdin_payload() -> None:
+    from comicbook.nodes.upload_load_file import upload_load_file
+
+    stdin_text = json.dumps(
+        [
+            {
+                "template_id": "storybook-soft",
+                "name": "Storybook Soft",
+                "style_text": "Soft painterly linework.",
+            }
+        ]
+    )
+
+    delta = upload_load_file(
+        {
+            "stdin_text": stdin_text,
+            "allow_external_path": False,
+        },
+        make_deps(),
+    )
+
+    assert delta["source_file_path"] is None
+    assert delta["source_label"] == "<stdin>"
+    assert delta["source_file_hash"] == hashlib.sha256(stdin_text.encode("utf-8")).hexdigest()
+    assert delta["raw_rows"][0]["template_id"] == "storybook-soft"
+
+
 def test_upload_load_file_rejects_invalid_top_level_shape(tmp_path: Path) -> None:
     from comicbook.nodes.upload_load_file import upload_load_file
 

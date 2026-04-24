@@ -38,6 +38,129 @@ class FakeDB:
         self.row_result_calls.append(dict(kwargs))
 
 
+def test_upload_persist_inserts_new_templates_and_records_inserted() -> None:
+    from comicbook.nodes.upload_persist import upload_persist
+
+    deps = SimpleNamespace(db=FakeDB())
+
+    delta = upload_persist(
+        {
+            "import_run_id": "import-run-1",
+            "source_file_hash": "hash-123",
+            "dry_run": False,
+            "row_results": [],
+            "parsed_rows": [
+                {
+                    "row_index": 0,
+                    "template_id": "storybook-soft",
+                    "name": "Storybook Soft",
+                    "style_text": "Soft painterly linework.",
+                    "tags": ["storybook"],
+                    "summary": "Warm storybook lighting.",
+                    "created_at": "2026-04-23T12:00:00Z",
+                    "requested_supersedes_id": None,
+                    "resolved_supersedes_id": None,
+                    "warnings": [],
+                    "validation_errors": [],
+                    "write_mode": "insert",
+                    "retry_count": 0,
+                }
+            ],
+            "rows_to_process": [0],
+        },
+        deps,
+    )
+
+    assert deps.db.inserted_calls[0]["created_by_run"] == "workflow_import"
+    assert deps.db.row_result_calls[0]["status"] == "inserted"
+    assert delta["row_results"][0]["status"] == "inserted"
+
+
+def test_upload_persist_updates_changed_templates_and_records_diff() -> None:
+    from comicbook.nodes.upload_persist import upload_persist
+
+    deps = SimpleNamespace(
+        db=FakeDB(
+            existing_template={
+                "id": "storybook-soft",
+                "name": "Storybook Soft",
+                "style_text": "Soft painterly linework.",
+                "tags": ["storybook"],
+                "summary": "Warm storybook lighting.",
+                "created_at": "2026-04-23T12:00:00Z",
+                "created_by_run": "seed",
+                "supersedes_id": None,
+            }
+        )
+    )
+
+    delta = upload_persist(
+        {
+            "import_run_id": "import-run-1",
+            "source_file_hash": "hash-123",
+            "dry_run": False,
+            "row_results": [],
+            "parsed_rows": [
+                {
+                    "row_index": 0,
+                    "template_id": "storybook-soft",
+                    "name": "Storybook Soft",
+                    "style_text": "Soft painterly linework with richer ink texture.",
+                    "tags": ["storybook", "ink"],
+                    "summary": "Warm storybook lighting with richer texture.",
+                    "created_at": "2026-04-23T12:05:00Z",
+                    "requested_supersedes_id": None,
+                    "resolved_supersedes_id": None,
+                    "warnings": [],
+                    "validation_errors": [],
+                    "write_mode": "update",
+                    "retry_count": 0,
+                }
+            ],
+            "rows_to_process": [0],
+        },
+        deps,
+    )
+
+    assert deps.db.updated_calls[0]["created_by_run"] == "workflow_import"
+    assert deps.db.row_result_calls[0]["status"] == "updated"
+    assert delta["row_results"][0]["status"] == "updated"
+    assert "summary" in delta["row_results"][0]["diff"]
+
+
+def test_upload_persist_turns_skip_write_mode_into_failed_row_result() -> None:
+    from comicbook.nodes.upload_persist import upload_persist
+
+    deps = SimpleNamespace(db=FakeDB())
+
+    delta = upload_persist(
+        {
+            "import_run_id": "import-run-1",
+            "source_file_hash": "hash-123",
+            "dry_run": False,
+            "row_results": [],
+            "parsed_rows": [
+                {
+                    "row_index": 0,
+                    "template_id": "storybook-soft",
+                    "warnings": [],
+                    "validation_errors": ["missing_required_field:name"],
+                    "write_mode": "skip",
+                    "retry_count": 0,
+                }
+            ],
+            "rows_to_process": [0],
+        },
+        deps,
+    )
+
+    assert deps.db.inserted_calls == []
+    assert deps.db.updated_calls == []
+    assert deps.db.row_result_calls[0]["status"] == "failed"
+    assert deps.db.row_result_calls[0]["reason"] == "missing_required_field:name"
+    assert delta["row_results"][0]["status"] == "failed"
+
+
 def test_upload_persist_turns_zero_diff_update_into_skipped_duplicate() -> None:
     from comicbook.nodes.upload_persist import upload_persist
 

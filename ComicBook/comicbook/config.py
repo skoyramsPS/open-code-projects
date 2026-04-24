@@ -31,6 +31,10 @@ OPTIONAL_ENV_DEFAULTS: Final[dict[str, str]] = {
     "COMICBOOK_IMAGE_OUTPUT_DIR": "./image_output",
     "COMICBOOK_RUNS_DIR": "./runs",
     "COMICBOOK_LOGS_DIR": "./logs",
+    "COMICBOOK_IMPORT_MAX_ROWS_PER_FILE": "1000",
+    "COMICBOOK_IMPORT_MAX_FILE_BYTES": "5000000",
+    "COMICBOOK_IMPORT_ALLOW_EXTERNAL_PATH": "0",
+    "COMICBOOK_IMPORT_BACKFILL_MODEL": "gpt-5.4-mini",
     "COMICBOOK_ROUTER_MODEL_FALLBACK": "gpt-5.4-mini",
     "COMICBOOK_ROUTER_MODEL_ESCALATION": "gpt-5.4",
     "COMICBOOK_ROUTER_PROMPT_VERSION": "ROUTER_SYSTEM_PROMPT_V2",
@@ -115,6 +119,10 @@ class AppConfig(BaseModel):
     comicbook_image_output_dir: Path = Field(default=Path("./image_output"))
     comicbook_runs_dir: Path = Field(default=Path("./runs"))
     comicbook_logs_dir: Path = Field(default=Path("./logs"))
+    comicbook_import_max_rows_per_file: int = 1000
+    comicbook_import_max_file_bytes: int = 5_000_000
+    comicbook_import_allow_external_path: bool = False
+    comicbook_import_backfill_model: str = Field(default="gpt-5.4-mini")
     comicbook_router_model_fallback: str = Field(default="gpt-5.4-mini")
     comicbook_router_model_escalation: str = Field(default="gpt-5.4")
     comicbook_daily_budget_usd: float | None = None
@@ -126,6 +134,7 @@ class AppConfig(BaseModel):
         "azure_openai_api_version",
         "azure_openai_chat_deployment",
         "azure_openai_image_deployment",
+        "comicbook_import_backfill_model",
         "comicbook_router_model_fallback",
         "comicbook_router_model_escalation",
         "comicbook_router_prompt_version",
@@ -143,10 +152,17 @@ class AppConfig(BaseModel):
     def _normalize_endpoint(cls, value: str) -> str:
         return value.rstrip("/")
 
-    @field_validator("comicbook_enable_router_preflight", mode="before")
+    @field_validator("comicbook_enable_router_preflight", "comicbook_import_allow_external_path", mode="before")
     @classmethod
     def _normalize_bool(cls, value: str | bool) -> bool:
         return _parse_bool(value)
+
+    @field_validator("comicbook_import_max_rows_per_file", "comicbook_import_max_file_bytes")
+    @classmethod
+    def _require_positive_int(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("value must be greater than zero")
+        return value
 
 
 def load_config(dotenv_path: str | Path = ".env") -> AppConfig:
@@ -184,6 +200,26 @@ def load_config(dotenv_path: str | Path = ".env") -> AppConfig:
             "COMICBOOK_LOGS_DIR",
             dotenv_values,
             OPTIONAL_ENV_DEFAULTS["COMICBOOK_LOGS_DIR"],
+        ),
+        "comicbook_import_max_rows_per_file": _config_value(
+            "COMICBOOK_IMPORT_MAX_ROWS_PER_FILE",
+            dotenv_values,
+            OPTIONAL_ENV_DEFAULTS["COMICBOOK_IMPORT_MAX_ROWS_PER_FILE"],
+        ),
+        "comicbook_import_max_file_bytes": _config_value(
+            "COMICBOOK_IMPORT_MAX_FILE_BYTES",
+            dotenv_values,
+            OPTIONAL_ENV_DEFAULTS["COMICBOOK_IMPORT_MAX_FILE_BYTES"],
+        ),
+        "comicbook_import_allow_external_path": _config_value(
+            "COMICBOOK_IMPORT_ALLOW_EXTERNAL_PATH",
+            dotenv_values,
+            OPTIONAL_ENV_DEFAULTS["COMICBOOK_IMPORT_ALLOW_EXTERNAL_PATH"],
+        ),
+        "comicbook_import_backfill_model": _config_value(
+            "COMICBOOK_IMPORT_BACKFILL_MODEL",
+            dotenv_values,
+            OPTIONAL_ENV_DEFAULTS["COMICBOOK_IMPORT_BACKFILL_MODEL"],
         ),
         "comicbook_router_model_fallback": _config_value(
             "COMICBOOK_ROUTER_MODEL_FALLBACK",

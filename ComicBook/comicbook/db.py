@@ -7,7 +7,7 @@ import json
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence
 
 from comicbook.state import RenderedPrompt, TemplateSummary
 
@@ -67,7 +67,49 @@ CREATE TABLE IF NOT EXISTS runs (
     est_cost_usd          REAL DEFAULT 0.0
 );
 
+CREATE TABLE IF NOT EXISTS import_runs (
+    import_run_id        TEXT PRIMARY KEY,
+    source_file_path     TEXT,
+    source_file_hash     TEXT NOT NULL,
+    started_at           TEXT NOT NULL,
+    ended_at             TEXT,
+    status               TEXT NOT NULL,
+    pid                  INTEGER,
+    host                 TEXT,
+    dry_run              INTEGER NOT NULL DEFAULT 0,
+    total_rows           INTEGER NOT NULL DEFAULT 0,
+    inserted             INTEGER NOT NULL DEFAULT 0,
+    updated              INTEGER NOT NULL DEFAULT 0,
+    skipped_duplicate    INTEGER NOT NULL DEFAULT 0,
+    skipped_resume       INTEGER NOT NULL DEFAULT 0,
+    failed               INTEGER NOT NULL DEFAULT 0,
+    backfilled           INTEGER NOT NULL DEFAULT 0,
+    warnings             INTEGER NOT NULL DEFAULT 0,
+    est_cost_usd         REAL NOT NULL DEFAULT 0.0
+);
+
+CREATE TABLE IF NOT EXISTS import_row_results (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    import_run_id           TEXT NOT NULL REFERENCES import_runs(import_run_id),
+    source_file_hash        TEXT NOT NULL,
+    row_index               INTEGER NOT NULL,
+    template_id             TEXT,
+    status                  TEXT NOT NULL,
+    reason                  TEXT,
+    warnings_json           TEXT,
+    requested_supersedes_id TEXT,
+    persisted_supersedes_id TEXT,
+    diff_json               TEXT,
+    backfill_raw            TEXT,
+    retry_count             INTEGER NOT NULL DEFAULT 0,
+    created_at              TEXT NOT NULL,
+    UNIQUE(import_run_id, row_index)
+);
+
 CREATE INDEX IF NOT EXISTS ix_images_run ON images(run_id);
+CREATE INDEX IF NOT EXISTS ix_import_runs_status ON import_runs(status);
+CREATE INDEX IF NOT EXISTS ix_import_row_results_hash_row ON import_row_results(source_file_hash, row_index);
+CREATE INDEX IF NOT EXISTS ix_import_row_results_template ON import_row_results(template_id);
 CREATE INDEX IF NOT EXISTS ix_prompts_first_seen ON prompts(first_seen_run);
 CREATE INDEX IF NOT EXISTS ix_runs_status ON runs(status);
 
@@ -154,6 +196,46 @@ class RunRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class ImportRunRecord:
+    import_run_id: str
+    source_file_path: str | None
+    source_file_hash: str
+    started_at: str
+    ended_at: str | None
+    status: str
+    pid: int | None
+    host: str | None
+    dry_run: bool
+    total_rows: int
+    inserted: int
+    updated: int
+    skipped_duplicate: int
+    skipped_resume: int
+    failed: int
+    backfilled: int
+    warnings: int
+    est_cost_usd: float
+
+
+@dataclass(frozen=True, slots=True)
+class ImportRowResultRecord:
+    id: int
+    import_run_id: str
+    source_file_hash: str
+    row_index: int
+    template_id: str | None
+    status: str
+    reason: str | None
+    warnings: list[str]
+    requested_supersedes_id: str | None
+    persisted_supersedes_id: str | None
+    diff: dict[str, Any] | None
+    backfill_raw: str | None
+    retry_count: int
+    created_at: str
+
+
+@dataclass(frozen=True, slots=True)
 class DailyRunRollup:
     run_date: str
     total_runs: int
@@ -200,6 +282,16 @@ class ComicBookDB:
         if pid is None or host is None or host != current_host:
             return False
         return not pid_is_alive(pid)
+
+    @staticmethod
+    def _style_text_hash(style_text: str) -> str:
+        return hashlib.sha256(style_text.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _serialize_json(value: Any) -> str | None:
+        if value is None:
+            return None
+        return json.dumps(value, sort_keys=True)
 
     def create_run(
         self,
@@ -345,6 +437,248 @@ class ComicBookDB:
         row = self.connection.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         return self._row_to_run_record(row) if row is not None else None
 
+    def create_import_run(
+        self,
+        *,
+        import_run_id: str,
+        source_file_path: str | None,
+        source_file_hash: str,
+        started_at: str,
+        status: str,
+        dry_run: bool,
+        pid: int | None = None,
+        host: str | None = None,
+    ) -> ImportRunRecord:
+        self.connection.execute(
+            """
+            INSERT INTO import_runs (
+                import_run_id, source_file_path, source_file_hash, started_at, status, dry_run, pid, host
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(import_run_id) DO UPDATE SET
+                source_file_path=excluded.source_file_path,
+                source_file_hash=excluded.source_file_hash,
+                started_at=excluded.started_at,
+                status=excluded.status,
+                dry_run=excluded.dry_run,
+                pid=excluded.pid,
+                host=excluded.host
+            """,
+            (import_run_id, source_file_path, source_file_hash, started_at, status, int(dry_run), pid, host),
+        )
+        self.connection.commit()
+        record = self.get_import_run(import_run_id)
+        if record is None:  # pragma: no cover - defensive after an INSERT/UPDATE
+            raise RuntimeError(f"Failed to create import run record for {import_run_id}")
+        return record
+
+    def acquire_import_lock(
+        self,
+        *,
+        import_run_id: str,
+        source_file_path: str | None,
+        source_file_hash: str,
+        started_at: str,
+        dry_run: bool,
+        pid: int,
+        host: str,
+        pid_is_alive: PidIsAlive,
+    ) -> ImportRunRecord:
+        active = self.connection.execute(
+            """
+            SELECT *
+            FROM import_runs
+            WHERE status = ? AND pid IS NOT NULL AND host IS NOT NULL AND import_run_id != ?
+            ORDER BY started_at
+            LIMIT 1
+            """,
+            ("running", import_run_id),
+        ).fetchone()
+
+        if active is not None:
+            if self.is_stale_lock(active["pid"], active["host"], host, pid_is_alive):
+                self.connection.execute(
+                    """
+                    UPDATE import_runs
+                    SET status = ?, ended_at = ?, pid = NULL, host = NULL
+                    WHERE import_run_id = ?
+                    """,
+                    ("failed", started_at, active["import_run_id"]),
+                )
+                self.connection.commit()
+            else:
+                raise RunLockError(
+                    "Database import lock is held by run "
+                    f"{active['import_run_id']} on host {active['host']} pid {active['pid']}"
+                )
+
+        return self.create_import_run(
+            import_run_id=import_run_id,
+            source_file_path=source_file_path,
+            source_file_hash=source_file_hash,
+            started_at=started_at,
+            status="running",
+            dry_run=dry_run,
+            pid=pid,
+            host=host,
+        )
+
+    def release_import_lock(self, import_run_id: str) -> None:
+        self.connection.execute(
+            "UPDATE import_runs SET pid = NULL, host = NULL WHERE import_run_id = ?",
+            (import_run_id,),
+        )
+        self.connection.commit()
+
+    def finalize_import_run(
+        self,
+        *,
+        import_run_id: str,
+        ended_at: str,
+        status: str,
+        total_rows: int = 0,
+        inserted: int = 0,
+        updated: int = 0,
+        skipped_duplicate: int = 0,
+        skipped_resume: int = 0,
+        failed: int = 0,
+        backfilled: int = 0,
+        warnings: int = 0,
+        est_cost_usd: float = 0.0,
+    ) -> ImportRunRecord:
+        self.connection.execute(
+            """
+            UPDATE import_runs
+            SET ended_at = ?,
+                status = ?,
+                total_rows = ?,
+                inserted = ?,
+                updated = ?,
+                skipped_duplicate = ?,
+                skipped_resume = ?,
+                failed = ?,
+                backfilled = ?,
+                warnings = ?,
+                est_cost_usd = ?,
+                pid = NULL,
+                host = NULL
+            WHERE import_run_id = ?
+            """,
+            (
+                ended_at,
+                status,
+                total_rows,
+                inserted,
+                updated,
+                skipped_duplicate,
+                skipped_resume,
+                failed,
+                backfilled,
+                warnings,
+                est_cost_usd,
+                import_run_id,
+            ),
+        )
+        self.connection.commit()
+        record = self.get_import_run(import_run_id)
+        if record is None:  # pragma: no cover - defensive after UPDATE
+            raise RuntimeError(f"Failed to finalize import run record for {import_run_id}")
+        return record
+
+    def get_import_run(self, import_run_id: str) -> ImportRunRecord | None:
+        row = self.connection.execute(
+            "SELECT * FROM import_runs WHERE import_run_id = ?",
+            (import_run_id,),
+        ).fetchone()
+        return self._row_to_import_run_record(row) if row is not None else None
+
+    def get_terminal_row_results_by_hash(self, source_file_hash: str) -> list[ImportRowResultRecord]:
+        rows = self.connection.execute(
+            """
+            SELECT *
+            FROM import_row_results
+            WHERE source_file_hash = ?
+            ORDER BY row_index ASC, created_at DESC, id DESC
+            """,
+            (source_file_hash,),
+        ).fetchall()
+        latest_by_row_index: dict[int, ImportRowResultRecord] = {}
+        for row in rows:
+            row_index = int(row["row_index"])
+            if row_index not in latest_by_row_index:
+                latest_by_row_index[row_index] = self._row_to_import_row_result_record(row)
+        return [latest_by_row_index[row_index] for row_index in sorted(latest_by_row_index)]
+
+    def record_import_row_result(
+        self,
+        *,
+        import_run_id: str,
+        source_file_hash: str,
+        row_index: int,
+        template_id: str | None,
+        status: str,
+        created_at: str,
+        reason: str | None = None,
+        warnings: list[str] | None = None,
+        requested_supersedes_id: str | None = None,
+        persisted_supersedes_id: str | None = None,
+        diff: dict[str, Any] | None = None,
+        backfill_raw: str | None = None,
+        retry_count: int = 0,
+    ) -> ImportRowResultRecord:
+        self.connection.execute(
+            """
+            INSERT INTO import_row_results (
+                import_run_id,
+                source_file_hash,
+                row_index,
+                template_id,
+                status,
+                reason,
+                warnings_json,
+                requested_supersedes_id,
+                persisted_supersedes_id,
+                diff_json,
+                backfill_raw,
+                retry_count,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(import_run_id, row_index) DO UPDATE SET
+                template_id=excluded.template_id,
+                status=excluded.status,
+                reason=excluded.reason,
+                warnings_json=excluded.warnings_json,
+                requested_supersedes_id=excluded.requested_supersedes_id,
+                persisted_supersedes_id=excluded.persisted_supersedes_id,
+                diff_json=excluded.diff_json,
+                backfill_raw=excluded.backfill_raw,
+                retry_count=excluded.retry_count,
+                created_at=excluded.created_at
+            """,
+            (
+                import_run_id,
+                source_file_hash,
+                row_index,
+                template_id,
+                status,
+                reason,
+                self._serialize_json(warnings or []),
+                requested_supersedes_id,
+                persisted_supersedes_id,
+                self._serialize_json(diff),
+                backfill_raw,
+                retry_count,
+                created_at,
+            ),
+        )
+        self.connection.commit()
+        row = self.connection.execute(
+            "SELECT * FROM import_row_results WHERE import_run_id = ? AND row_index = ?",
+            (import_run_id, row_index),
+        ).fetchone()
+        if row is None:  # pragma: no cover - defensive after insert/update
+            raise RuntimeError(f"Failed to fetch import row result for {import_run_id}:{row_index}")
+        return self._row_to_import_row_result_record(row)
+
     def list_template_summaries(self) -> list[TemplateSummary]:
         rows = self.connection.execute(
             "SELECT id, name, tags, summary, created_at FROM templates ORDER BY created_at DESC, id DESC"
@@ -373,6 +707,10 @@ class ComicBookDB:
         records_by_id = {row["id"]: self._row_to_template_record(row) for row in rows}
         return [records_by_id[template_id] for template_id in template_ids if template_id in records_by_id]
 
+    def get_template_by_id(self, template_id: str) -> TemplateRecord | None:
+        row = self.connection.execute("SELECT * FROM templates WHERE id = ?", (template_id,)).fetchone()
+        return self._row_to_template_record(row) if row is not None else None
+
     def insert_template(
         self,
         *,
@@ -385,7 +723,7 @@ class ComicBookDB:
         created_by_run: str | None,
         supersedes_id: str | None = None,
     ) -> TemplateRecord:
-        style_text_hash = hashlib.sha256(style_text.encode("utf-8")).hexdigest()
+        style_text_hash = self._style_text_hash(style_text)
         tags_json = json.dumps(list(tags), sort_keys=True)
         cursor = self.connection.execute(
             """
@@ -418,6 +756,69 @@ class ComicBookDB:
         if row is None:  # pragma: no cover - defensive after insert
             raise RuntimeError(f"Failed to fetch template record for {template_id}")
         return self._row_to_template_record(row)
+
+    def update_template_in_place(
+        self,
+        *,
+        template_id: str,
+        name: str,
+        style_text: str,
+        tags: Iterable[str],
+        summary: str,
+        created_at: str,
+        created_by_run: str | None,
+        supersedes_id: str | None = None,
+    ) -> TemplateRecord:
+        style_text_hash = self._style_text_hash(style_text)
+        tags_json = json.dumps(list(tags), sort_keys=True)
+        self.connection.execute(
+            """
+            UPDATE templates
+            SET name = ?,
+                style_text = ?,
+                style_text_hash = ?,
+                tags = ?,
+                summary = ?,
+                supersedes_id = ?,
+                created_at = ?,
+                created_by_run = ?
+            WHERE id = ?
+            """,
+            (
+                name,
+                style_text,
+                style_text_hash,
+                tags_json,
+                summary,
+                supersedes_id,
+                created_at,
+                created_by_run,
+                template_id,
+            ),
+        )
+        self.connection.commit()
+        row = self.connection.execute("SELECT * FROM templates WHERE id = ?", (template_id,)).fetchone()
+        if row is None:
+            raise RuntimeError(f"Failed to fetch updated template record for {template_id}")
+        return self._row_to_template_record(row)
+
+    def count_prompt_rows_for_template_hash(self, style_text_hash: str) -> int:
+        template_ids = [
+            row["id"]
+            for row in self.connection.execute(
+                "SELECT id FROM templates WHERE style_text_hash = ?",
+                (style_text_hash,),
+            ).fetchall()
+        ]
+        if not template_ids:
+            return 0
+
+        count = 0
+        for row in self.connection.execute("SELECT template_ids FROM prompts").fetchall():
+            prompt_template_ids = json.loads(row["template_ids"])
+            if any(template_id in prompt_template_ids for template_id in template_ids):
+                count += 1
+        return count
 
     def upsert_prompt_if_absent(self, *, prompt: RenderedPrompt, first_seen_run: str, created_at: str) -> PromptRecord:
         fingerprint = prompt.fingerprint
@@ -504,6 +905,50 @@ class ComicBookDB:
         )
 
     @staticmethod
+    def _row_to_import_run_record(row: sqlite3.Row) -> ImportRunRecord:
+        return ImportRunRecord(
+            import_run_id=row["import_run_id"],
+            source_file_path=row["source_file_path"],
+            source_file_hash=row["source_file_hash"],
+            started_at=row["started_at"],
+            ended_at=row["ended_at"],
+            status=row["status"],
+            pid=row["pid"],
+            host=row["host"],
+            dry_run=bool(row["dry_run"]),
+            total_rows=row["total_rows"],
+            inserted=row["inserted"],
+            updated=row["updated"],
+            skipped_duplicate=row["skipped_duplicate"],
+            skipped_resume=row["skipped_resume"],
+            failed=row["failed"],
+            backfilled=row["backfilled"],
+            warnings=row["warnings"],
+            est_cost_usd=row["est_cost_usd"],
+        )
+
+    @staticmethod
+    def _row_to_import_row_result_record(row: sqlite3.Row) -> ImportRowResultRecord:
+        warnings_json = row["warnings_json"]
+        diff_json = row["diff_json"]
+        return ImportRowResultRecord(
+            id=row["id"],
+            import_run_id=row["import_run_id"],
+            source_file_hash=row["source_file_hash"],
+            row_index=row["row_index"],
+            template_id=row["template_id"],
+            status=row["status"],
+            reason=row["reason"],
+            warnings=json.loads(warnings_json) if warnings_json else [],
+            requested_supersedes_id=row["requested_supersedes_id"],
+            persisted_supersedes_id=row["persisted_supersedes_id"],
+            diff=json.loads(diff_json) if diff_json else None,
+            backfill_raw=row["backfill_raw"],
+            retry_count=row["retry_count"],
+            created_at=row["created_at"],
+        )
+
+    @staticmethod
     def _row_to_template_record(row: sqlite3.Row) -> TemplateRecord:
         return TemplateRecord(
             id=row["id"],
@@ -568,6 +1013,8 @@ class ComicBookDB:
 __all__ = [
     "ComicBookDB",
     "DailyRunRollup",
+    "ImportRowResultRecord",
+    "ImportRunRecord",
     "ImageRecord",
     "PromptRecord",
     "RunLockError",

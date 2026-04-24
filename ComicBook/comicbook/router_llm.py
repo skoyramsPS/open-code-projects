@@ -153,28 +153,23 @@ def build_router_request_messages(
     ]
 
 
-def call_router_response(
+def call_structured_response(
     *,
     http_client: Any,
     config: AppConfig,
     model: str,
-    router_input: Mapping[str, Any],
+    response_format: Mapping[str, Any],
+    messages: Sequence[Mapping[str, str]],
     transport: Any | None = None,
-    validation_error: str | None = None,
-    previous_response: str | None = None,
     timeout: float = 60.0,
 ) -> RouterCallResult:
-    """Send one structured router request and return the extracted text plus usage."""
+    """Send one structured Responses API request with caller-provided messages/schema."""
 
     payload = {
         "model": model,
         "temperature": 0,
-        "response_format": ROUTER_RESPONSE_FORMAT,
-        "input": build_router_request_messages(
-            router_input,
-            validation_error=validation_error,
-            previous_response=previous_response,
-        ),
+        "response_format": dict(response_format),
+        "input": [dict(message) for message in messages],
     }
     url = f"{config.azure_openai_endpoint}/openai/responses?api-version={config.azure_openai_api_version}"
     headers = {
@@ -202,6 +197,34 @@ def call_router_response(
         output_text=output_text,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
+    )
+
+
+def call_router_response(
+    *,
+    http_client: Any,
+    config: AppConfig,
+    model: str,
+    router_input: Mapping[str, Any],
+    transport: Any | None = None,
+    validation_error: str | None = None,
+    previous_response: str | None = None,
+    timeout: float = 60.0,
+) -> RouterCallResult:
+    """Send one structured router request and return the extracted text plus usage."""
+
+    return call_structured_response(
+        http_client=http_client,
+        config=config,
+        model=model,
+        response_format=ROUTER_RESPONSE_FORMAT,
+        messages=build_router_request_messages(
+            router_input,
+            validation_error=validation_error,
+            previous_response=previous_response,
+        ),
+        transport=transport,
+        timeout=timeout,
     )
 
 
@@ -287,6 +310,7 @@ __all__ = [
     "RouterTransportError",
     "build_router_input_payload",
     "build_router_request_messages",
+    "call_structured_response",
     "call_router_response",
     "extract_responses_output_text",
     "extract_responses_usage",

@@ -4,6 +4,7 @@ import logging
 from dataclasses import FrozenInstanceError
 from datetime import datetime
 from pathlib import Path
+from typing import get_args
 
 import pytest
 from pydantic import ValidationError
@@ -11,12 +12,16 @@ from pydantic import ValidationError
 from comicbook.config import AppConfig, ConfigError, load_config
 from comicbook.deps import Deps
 from comicbook.state import (
+    ImportRowStatus,
+    ImportRunState,
     ImageResult,
     NewTemplateDraft,
     RenderedPrompt,
     RouterPlan,
     RouterTemplateDecision,
     RunSummary,
+    TemplateImportRow,
+    TemplateImportRowResult,
     TemplateSummary,
     UsageTotals,
     WorkflowError,
@@ -34,6 +39,10 @@ ALL_ENV_VARS = (
     "COMICBOOK_IMAGE_OUTPUT_DIR",
     "COMICBOOK_RUNS_DIR",
     "COMICBOOK_LOGS_DIR",
+    "COMICBOOK_IMPORT_MAX_ROWS_PER_FILE",
+    "COMICBOOK_IMPORT_MAX_FILE_BYTES",
+    "COMICBOOK_IMPORT_ALLOW_EXTERNAL_PATH",
+    "COMICBOOK_IMPORT_BACKFILL_MODEL",
     "COMICBOOK_ROUTER_MODEL_FALLBACK",
     "COMICBOOK_ROUTER_MODEL_ESCALATION",
     "COMICBOOK_DAILY_BUDGET_USD",
@@ -76,6 +85,10 @@ def test_load_config_reads_dotenv_and_defaults(tmp_path: Path) -> None:
     assert config.comicbook_image_output_dir == Path("./image_output")
     assert config.comicbook_runs_dir == Path("./runs")
     assert config.comicbook_logs_dir == Path("./logs")
+    assert config.comicbook_import_max_rows_per_file == 1000
+    assert config.comicbook_import_max_file_bytes == 5_000_000
+    assert config.comicbook_import_allow_external_path is False
+    assert config.comicbook_import_backfill_model == "gpt-5.4-mini"
     assert config.comicbook_router_model_fallback == "gpt-5.4-mini"
     assert config.comicbook_router_model_escalation == "gpt-5.4"
     assert config.comicbook_router_prompt_version == "ROUTER_SYSTEM_PROMPT_V2"
@@ -105,6 +118,33 @@ def test_environment_overrides_dotenv(monkeypatch: pytest.MonkeyPatch, tmp_path:
 
     assert config.azure_openai_api_key.get_secret_value() == "env-key"
     assert config.comicbook_db_path == Path("./from-env.sqlite")
+
+
+def test_load_config_reads_upload_guardrail_overrides(tmp_path: Path) -> None:
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text(
+        "\n".join(
+            [
+                "AZURE_OPENAI_ENDPOINT=https://example.openai.azure.com/",
+                "AZURE_OPENAI_API_KEY=test-key",
+                "AZURE_OPENAI_API_VERSION=2025-04-01-preview",
+                "AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-5-router",
+                "AZURE_OPENAI_IMAGE_DEPLOYMENT=gpt-image-1.5",
+                "COMICBOOK_IMPORT_MAX_ROWS_PER_FILE=42",
+                "COMICBOOK_IMPORT_MAX_FILE_BYTES=2048",
+                "COMICBOOK_IMPORT_ALLOW_EXTERNAL_PATH=true",
+                "COMICBOOK_IMPORT_BACKFILL_MODEL=gpt-5.4",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(dotenv_path=dotenv_path)
+
+    assert config.comicbook_import_max_rows_per_file == 42
+    assert config.comicbook_import_max_file_bytes == 2048
+    assert config.comicbook_import_allow_external_path is True
+    assert config.comicbook_import_backfill_model == "gpt-5.4"
 
 
 def test_load_config_rejects_missing_required_settings(tmp_path: Path) -> None:
@@ -221,6 +261,71 @@ def test_state_models_validate_known_good_payload() -> None:
     assert error.code == "content_filter"
     assert usage.estimated_cost_usd == pytest.approx(0.24)
     assert summary.run_status == "succeeded"
+
+
+def test_upload_state_contract_symbols_are_available() -> None:
+    assert set(get_args(ImportRowStatus)) == {
+        "inserted",
+        "updated",
+        "failed",
+        "skipped_resume",
+        "skipped_duplicate",
+        "dry_run_ok",
+    }
+
+    parsed_row: TemplateImportRow = {
+        "row_index": 0,
+        "template_id": "storybook-soft",
+        "name": "Storybook Soft",
+        "style_text": "Soft painterly linework.",
+        "tags": [],
+        "summary": "Warm storybook lighting.",
+        "requested_supersedes_id": None,
+        "resolved_supersedes_id": None,
+        "validation_errors": [],
+        "warnings": [],
+        "needs_backfill_tags": False,
+        "needs_backfill_summary": False,
+        "backfill_raw": None,
+        "write_mode": "insert",
+        "retry_count": 0,
+    }
+    row_result: TemplateImportRowResult = {
+        "row_index": 0,
+        "template_id": "storybook-soft",
+        "status": "inserted",
+        "reason": None,
+        "warnings": [],
+        "diff": None,
+        "retry_count": 0,
+    }
+    import_state: ImportRunState = {
+        "import_run_id": "import-run-1",
+        "source_file_path": "templates.json",
+        "source_label": "templates.json",
+        "source_file_hash": "hash-123",
+        "input_version": 1,
+        "dry_run": False,
+        "no_backfill": False,
+        "allow_missing_optional": False,
+        "allow_external_path": False,
+        "budget_usd": None,
+        "redact_style_text_in_logs": False,
+        "started_at": "2026-04-23T12:00:00Z",
+        "raw_rows": [],
+        "parsed_rows": [parsed_row],
+        "rows_to_process": [0],
+        "deferred_rows": [],
+        "rows_skipped_by_resume": [],
+        "row_results": [row_result],
+        "usage": UsageTotals(),
+        "errors": [],
+        "run_status": "running",
+        "report_path": None,
+    }
+
+    assert import_state["parsed_rows"][0]["write_mode"] == "insert"
+    assert import_state["row_results"][0]["status"] == "inserted"
 
 
 def test_new_template_draft_requires_lowercase_slug() -> None:
