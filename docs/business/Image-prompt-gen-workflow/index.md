@@ -3,7 +3,7 @@
 ## Status
 
 - Workflow delivery status: in progress
-- Current shipped slice: TG6 graph, CLI, and reporting complete, adding the operator-facing runtime surface on top of the earlier graph assembly
+- Current shipped slice: first TG7 reuse-proof slice complete, adding an alternate single-portrait example graph on top of the shipped TG6 runtime surface
 - Last updated: 2026-04-23
 
 ## What exists today
@@ -33,8 +33,9 @@ The repository now contains the reusable foundation for the image prompt generat
 - a CLI and library runtime surface that accepts run IDs, dry-run mode, forced regeneration, exact panel counts, per-run budgets, and prompt redaction
 - a runtime guard that estimates remaining image cost, stops generation when a configured per-run or daily budget would be exceeded, and records the failure in the persisted run summary
 - human-readable `runs/<run_id>/report.md` artifacts and structured `logs/<run_id>.summary.json` files for every summarized run, including dry runs and budget-blocked runs
+- an alternate `examples/single_portrait_graph.py` example that proves the reusable modules can support a different graph shape without depending on the main CLI or workflow-specific graph assembly
 
-This slice now completes the full TG6 operator runtime surface. The next work can move on to the reuse proof, example graph, and repository protections in TG7.
+This slice now completes the first TG7 reuse-proof step. The remaining work can move on to repository protections and final validation.
 
 ## Expected operator inputs
 
@@ -100,10 +101,11 @@ The workflow now produces:
 ## Guardrails and limitations
 
 - Secrets are loaded from environment variables first, then `.env`.
-- The workflow package does not modify the read-only reference scripts under `ComicBook/DoNotChange/`.
+- The workflow package does not modify the read-only reference scripts under `ComicBook/DoNotChange/`, and the repository now includes a commit-time protection check that rejects edits to those files.
 - The graph orchestration, CLI entry point, dry-run path, budget guards, and report artifacts are now implemented.
 - The lock policy is intentionally conservative: one active run per SQLite file.
 - The package layout is intentionally reusable so later workflows can share the same contracts.
+- The repository now includes one alternate portrait-only example graph to demonstrate that the shared modules are not locked to a single orchestration entry point.
 - Large template catalogs are filtered lexically only in v1; the workflow does not use semantic retrieval.
 
 ## Plain-language troubleshooting
@@ -122,5 +124,6 @@ If setup fails at this stage, the most likely causes are:
 - a resume run that should have reused a finished same-run file, which inserts a generated image row from the existing file and avoids re-calling Azure for that fingerprint
 - a dry run that wrote a report but no images, which is expected behavior when `--dry-run` is enabled
 - a run that stops before image generation because the configured per-run or daily budget would be exceeded
+- a commit attempt that fails immediately because a file under `ComicBook/DoNotChange/` was edited, which is expected repository protection behavior rather than a workflow runtime failure
 
 If the lock belongs to a dead process on the same machine, the runtime can recover it automatically through the persistence layer added in TG2.

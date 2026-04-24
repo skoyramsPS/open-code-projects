@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: protect-comicbook-do-not-change
+        name: Protect ComicBook DoNotChange files
+        entry: uv run --project ComicBook python ComicBook/scripts/check_do_not_change.py
+        language: system
+        pass_filenames: false
+        always_run: true

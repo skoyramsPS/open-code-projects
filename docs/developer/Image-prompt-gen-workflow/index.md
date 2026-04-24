@@ -3,12 +3,12 @@
 ## Status
 
 - Workflow delivery status: in progress
-- Current shipped slice: first TG6 graph slice complete, covering ingest/summary nodes and end-to-end graph assembly on top of TG5 execution
+- Current shipped slice: first TG7 reuse-proof slice complete, adding a reusable execution helper plus an alternate single-portrait graph example on top of the completed TG6 runtime surface
 - Last updated: 2026-04-23
 
 ## Scope of this slice
 
-This slice now covers the TG1-TG3 foundation, the full TG4 cache-preparation boundary, and the first complete TG5 serial-image-execution boundary:
+This slice now covers the TG1-TG6 implementation plus the first TG7 reuse-proof boundary:
 
 - package and artifact directory layout under `ComicBook/`
 - `pyproject.toml` with pinned workflow dependencies, including `langgraph~=`
@@ -27,9 +27,13 @@ This slice now covers the TG1-TG3 foundation, the full TG4 cache-preparation bou
 - `comicbook.nodes.generate_images_serial` for ordered image execution, same-run resume detection, per-image persistence, and the two-consecutive-429 circuit breaker
 - `comicbook.nodes.ingest` for normalizing run input into the initial `RunState` boundary
 - `comicbook.nodes.summarize` for deriving final counters, run status, and persisted `runs`-table finalization
-- `comicbook.graph` for the ordered LangGraph assembly plus the current library entry point that acquires the run lock and invokes the workflow
+- `comicbook.execution` for reusable node binding, run-state preparation, lock acquisition, and crash finalization helpers that multiple graph entry points can share
+- `comicbook.repo_protection` for git-backed detection of protected reference-file edits under `ComicBook/DoNotChange/`
+- `comicbook.graph` for the ordered LangGraph assembly plus the current library entry point for the full workflow runtime
+- `examples.single_portrait_graph` for an alternate one-image graph that reuses shared modules without importing `comicbook.graph` or `comicbook.run`
+- `.pre-commit-config.yaml` plus `ComicBook/scripts/check_do_not_change.py` for the repo-local hook that runs the protection check through `uv`
 
-It intentionally still does **not** add CLI execution, dry-run/budget guards, or report artifacts yet.
+TG7 is now complete. Remaining work is limited to TG8 final validation, live-smoke evidence, README usage guidance, and documentation closeout.
 
 ## Module responsibilities
 
@@ -277,15 +281,26 @@ Current behavior:
 - persists the final `runs` row counters, router metadata, plan JSON, and lock release via `deps.db.finalize_run(...)`
 - returns `ended_at`, `summary`, and `run_status` back into graph state
 
+### `comicbook.execution`
+
+This shared runtime helper module was added in the first TG7 slice so alternate graphs can reuse the same execution contract without importing the workflow-specific `comicbook.graph` module.
+
+Current public helpers:
+
+- `bind_node(node, deps)` binds a shared `Deps` container into any LangGraph node
+- `prepare_initial_state(initial_state, deps)` normalizes caller input through the shared ingest boundary before lock acquisition
+- `run_graph_with_lock(initial_state, deps, graph_factory=...)` acquires the SQLite run lock, invokes an arbitrary compiled graph, and safely finalizes failed runs when exceptions escape before summary completion
+- `format_timestamp(...)` and `pid_is_alive(...)` keep the runtime bookkeeping behavior shared and deterministic across entry points
+
 ### `comicbook.graph`
 
-This module now owns the complete TG6 workflow orchestration path for the project.
+This module now owns the complete TG6 workflow orchestration path for the primary workflow runtime while delegating shared execution concerns to `comicbook.execution`.
 
 Current public helpers:
 
 - `build_workflow_graph(deps)` compiles the ordered graph sequence
 - `runtime_gate(state, deps)` estimates remaining image cost, applies the per-run and daily budget guards, and records a workflow error when generation is blocked
-- `run_workflow(initial_state, deps)` acquires the single-run SQLite lock, invokes the compiled graph, and finalizes a failed run if an exception escapes before the summary node completes
+- `run_workflow(initial_state, deps)` invokes the primary workflow graph through the reusable execution helper
 
 Current graph order:
 
@@ -313,11 +328,23 @@ Current public helpers:
 - `run_once(...)` maps runtime arguments into the initial `RunState`, loads config and dependencies when needed, and delegates execution to `comicbook.graph.run_workflow(...)`
 - `main(argv)` executes one CLI run and prints a small JSON status payload
 
+### `examples.single_portrait_graph`
+
+This example proves the reusable-module boundary required by TG7.
+
+Current behavior:
+
+- assembles an alternate LangGraph topology locally under `examples/` rather than inside `comicbook.graph`
+- reuses `comicbook.nodes.ingest`, `load_templates`, `router`, `persist_template`, `cache_lookup`, `generate_images_serial`, and `summarize`
+- inserts a local `enforce_single_portrait` node that pins `exact_image_count=1` before router planning
+- executes through `comicbook.execution.run_graph_with_lock(...)` so lock handling and crash finalization remain shared runtime behavior
+- does not depend on `comicbook.run` or import the workflow-specific `comicbook.graph` module
+
 ## Local setup
 
 1. Work from `ComicBook/`.
 2. Copy values from `.env.example` into a local `.env` or export them in the shell.
-3. Use `uv run --with pytest --with pydantic --with httpx python -m pytest -q tests/test_config.py tests/test_db.py tests/test_router_validation.py tests/test_node_load_templates.py tests/test_router_node.py tests/test_fingerprint.py tests/test_node_cache_lookup.py tests/test_image_client.py tests/test_node_generate_images_serial.py tests/test_graph_happy.py tests/test_graph_cache_hit.py tests/test_graph_new_template.py tests/test_graph_resume.py tests/test_budget_guard.py` for the current focused scope.
+3. Use `uv run --with pytest --with pydantic --with httpx --with langgraph python -m pytest -q` for the current full mocked suite, or narrow the path list during TDD.
 
 ## Tests in this slice
 
@@ -413,9 +440,22 @@ Current public helpers:
 - `run_once(..., panels=N)` forwards the exact-image-count constraint into the router input and executes the matching prompt count
 - `parse_args(...)` accepts the required TG6 runtime flags
 
+`ComicBook/tests/test_example_single_portrait.py` now verifies:
+
+- the alternate example graph runs end to end with mocked HTTP while forcing exactly one planned image
+- the router input for the example graph is constrained to `exact_image_count=1` even when the caller supplied a different value
+- shared package modules do not import the workflow-specific `comicbook.graph` or `comicbook.run` modules
+
+`ComicBook/tests/test_repo_protection.py` now verifies:
+
+- clean repositories pass the protection check without false positives
+- unstaged edits under `ComicBook/DoNotChange/` make the CLI protection check fail
+- staged edits under `ComicBook/DoNotChange/` are also detected so the pre-commit hook blocks those commits
+
 ## Extension notes for the next slices
 
-- TG6 is now complete; later work should keep reuse-oriented orchestration concerns in `graph.py` and `run.py` without folding transport or persistence logic back into them.
+- TG6 and TG7 are complete; later work should keep reusable execution concerns in `comicbook.execution` instead of duplicating them across example or production graphs.
 - Later nodes should continue to build on DAO methods only, without embedding raw SQL in nodes.
 - Nodes should consume `Deps` instead of reading global state or environment variables directly.
+- The repository protection hook should continue to point at `uv run --project ComicBook python ComicBook/scripts/check_do_not_change.py` so it does not depend on a bare `python` binary being present on `PATH`.
 - New runtime behavior should continue to add narrow, direct unit tests before broader graph tests.

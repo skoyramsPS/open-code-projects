@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import os
-from datetime import datetime, timezone
-from typing import Callable
-
 from langgraph.graph import END, START, StateGraph
 
 from comicbook.deps import Deps
+from comicbook.execution import bind_node, run_graph_with_lock
 from comicbook.nodes.cache_lookup import cache_lookup
 from comicbook.nodes.generate_images_serial import generate_images_serial
 from comicbook.nodes.ingest import ingest
@@ -17,35 +14,6 @@ from comicbook.nodes.persist_template import persist_template
 from comicbook.nodes.router import router
 from comicbook.nodes.summarize import summarize
 from comicbook.state import RunState, UsageTotals, WorkflowError
-
-
-NodeCallable = Callable[[RunState, Deps], dict[str, object]]
-
-
-def _bind(node: NodeCallable, deps: Deps) -> Callable[[RunState], dict[str, object]]:
-    return lambda state, fn=node: fn(state, deps)
-
-
-def _pid_is_alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
-
-
-def _format_timestamp(value: datetime) -> str:
-    normalized = value.astimezone(timezone.utc) if value.tzinfo is not None else value
-    rendered = normalized.replace(microsecond=0).isoformat()
-    return rendered.replace("+00:00", "Z") if value.tzinfo is not None else f"{rendered}Z"
-
-
-def _prepare_initial_state(state: RunState, deps: Deps) -> RunState:
-    prepared = dict(state)
-    prepared.update(ingest(state, deps))
-    return prepared
 
 
 def _coerce_price(value: object) -> float | None:
@@ -183,14 +151,14 @@ def build_workflow_graph(deps: Deps):
     """Compile the ordered v1 workflow graph from the current reusable nodes."""
 
     workflow = StateGraph(RunState)
-    workflow.add_node("ingest", _bind(ingest, deps))
-    workflow.add_node("load_templates", _bind(load_templates, deps))
-    workflow.add_node("router", _bind(router, deps))
-    workflow.add_node("persist_template", _bind(persist_template, deps))
-    workflow.add_node("cache_lookup", _bind(cache_lookup, deps))
-    workflow.add_node("runtime_gate", _bind(runtime_gate, deps))
-    workflow.add_node("generate_images_serial", _bind(generate_images_serial, deps))
-    workflow.add_node("summarize", _bind(summarize, deps))
+    workflow.add_node("ingest", bind_node(ingest, deps))
+    workflow.add_node("load_templates", bind_node(load_templates, deps))
+    workflow.add_node("router", bind_node(router, deps))
+    workflow.add_node("persist_template", bind_node(persist_template, deps))
+    workflow.add_node("cache_lookup", bind_node(cache_lookup, deps))
+    workflow.add_node("runtime_gate", bind_node(runtime_gate, deps))
+    workflow.add_node("generate_images_serial", bind_node(generate_images_serial, deps))
+    workflow.add_node("summarize", bind_node(summarize, deps))
 
     workflow.add_edge(START, "ingest")
     workflow.add_edge("ingest", "load_templates")
@@ -214,39 +182,7 @@ def build_workflow_graph(deps: Deps):
 def run_workflow(initial_state: RunState, deps: Deps) -> RunState:
     """Run the current workflow graph with lock acquisition and failure finalization."""
 
-    prepared_state = _prepare_initial_state(initial_state, deps)
-    run_id = prepared_state["run_id"]
-    user_prompt = prepared_state["user_prompt"]
-    started_at = prepared_state["started_at"]
-
-    deps.db.acquire_run_lock(
-        run_id=run_id,
-        user_prompt=user_prompt,
-        started_at=started_at,
-        pid=deps.pid_provider(),
-        host=deps.hostname_provider(),
-        router_prompt_version=deps.config.comicbook_router_prompt_version,
-        pid_is_alive=_pid_is_alive,
-    )
-
-    graph = build_workflow_graph(deps)
-    try:
-        return graph.invoke(prepared_state)
-    except Exception:
-        run_record = deps.db.get_run(run_id)
-        if run_record is not None and run_record.status == "running":
-            deps.db.finalize_run(
-                run_id=run_id,
-                ended_at=_format_timestamp(deps.clock()),
-                status="failed",
-                cache_hits=0,
-                generated=0,
-                failed=0,
-                skipped_rate_limit=0,
-                est_cost_usd=0.0,
-                router_prompt_version=deps.config.comicbook_router_prompt_version,
-            )
-        raise
+    return run_graph_with_lock(initial_state, deps, graph_factory=build_workflow_graph)
 
 
 __all__ = ["build_workflow_graph", "run_workflow", "runtime_gate"]
