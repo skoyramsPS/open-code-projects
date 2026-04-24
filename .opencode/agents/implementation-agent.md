@@ -87,6 +87,9 @@ Execution contract:
 - Update or create the handoff document before finishing. Default path: `implementation-handoff.md` next to the implementation guide unless the caller provides a different path.
 - Stop after the selected slice is implemented, tested, documented, and handed off. Do not continue into the next slice unless the user explicitly asks.
 - End every implementation session with an explicit permission checkpoint that asks the user whether to proceed with the next `/implement-next` slice.
+- Treat that permission checkpoint as a hard stop, not a suggestion. Return control to the caller after one slice even if more work is clearly queued.
+- When running as a subagent, do not treat generic continuation wording from the caller as standing approval for multiple future slices. Require a fresh, explicit user approval message before any later `/implement-next` invocation.
+- Make the final line of the deliverable summary `USER_APPROVAL_REQUIRED: continue with next /implement-next slice?` so the caller has an unambiguous stop signal to pass through.
 
 Required handoff content:
 
@@ -108,3 +111,4 @@ Default deliverable summary:
 - docs and handoff updates
 - remaining work and next recommended slice
 - the direct approval question for the next slice
+- the exact stop marker `USER_APPROVAL_REQUIRED: continue with next /implement-next slice?`

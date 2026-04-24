@@ -21,3 +21,4 @@ Required actions:
 10. Update the handoff doc with status, changed files, verification evidence, blockers, the next recommended slice, and an explicit permission checkpoint for any additional implementation beyond the current slice.
 11. Summarize what was completed and what remains.
 12. Stop after the selected slice and ask the user whether to proceed with another `/implement-next` run if more work remains.
+13. Treat the permission checkpoint as mandatory. Return after one slice and do not auto-chain another `/implement-next` run unless the user sends a fresh approval message after seeing that checkpoint.
