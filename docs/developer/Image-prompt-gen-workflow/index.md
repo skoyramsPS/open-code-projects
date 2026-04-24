@@ -28,6 +28,7 @@ This slice now covers the shipped TG1-TG7 implementation plus the first TG8 clos
 - `comicbook.nodes.ingest` for normalizing run input into the initial `RunState` boundary
 - `comicbook.nodes.summarize` for deriving final counters, run status, and persisted `runs`-table finalization
 - `comicbook.execution` for reusable node binding, run-state preparation, lock acquisition, and crash finalization helpers that multiple graph entry points can share
+- `comicbook.input_file` for strict JSON/CSV prompt-file parsing, validation, duplicate detection, and record normalization ahead of batch execution
 - `comicbook.repo_protection` for git-backed detection of protected reference-file edits under `ComicBook/DoNotChange/`
 - `comicbook.graph` for the ordered LangGraph assembly plus the current library entry point for the full workflow runtime
 - `examples.single_portrait_graph` for an alternate one-image graph that reuses shared modules without importing `comicbook.graph` or `comicbook.run`
@@ -325,9 +326,30 @@ This module now provides the workflow-specific CLI and test-friendly library ent
 
 Current public helpers:
 
-- `parse_args(argv)` supports positional `user_prompt`, `--run-id`, `--dry-run`, `--force`, `--panels`, `--budget-usd`, and `--redact-prompts`
+- `parse_args(argv)` supports exactly one prompt source: positional `user_prompt` or `--input-file`, plus `--run-id`, `--dry-run`, `--force`, `--panels`, `--budget-usd`, and `--redact-prompts`
 - `run_once(...)` maps runtime arguments into the initial `RunState`, loads config and dependencies when needed, and delegates execution to `comicbook.graph.run_workflow(...)`
-- `main(argv)` executes one CLI run and prints a small JSON status payload
+- `run_batch(...)` executes validated input-file records serially, pre-resolves per-record `run_id` values, and returns a batch summary JSON-ready payload
+- `main(argv)` executes either one CLI run or one validated serial batch and prints the corresponding JSON status payload
+
+Locked runtime behaviors now in place:
+
+- `--run-id` is rejected in `--input-file` mode
+- the graph and `RunState` remain single-prompt
+- file validation completes before the first record runs
+- batch mode reuses one managed dependency set per CLI invocation and preserves per-record artifact paths
+
+### `comicbook.input_file`
+
+This module owns the new prompt-file boundary for the CLI batch wrapper.
+
+Current responsibilities:
+
+- validate supported file extensions as `.json` or `.csv`
+- parse UTF-8 JSON arrays of strict input-record objects
+- parse UTF-8 or BOM-prefixed CSV files with `user_prompt` and optional `run_id` columns
+- trim prompt and run-ID strings
+- reject blank prompts, blank run IDs, duplicate run IDs, unsupported fields, and unsupported columns
+- return validated `InputPromptRecord` values in file order for later serial execution
 
 ### `examples.single_portrait_graph`
 
@@ -353,11 +375,12 @@ Current behavior:
 Latest recorded mocked regression evidence:
 
 - command: `uv run --with pytest --with pydantic --with httpx --with langgraph python -m pytest -q`
-- result: `55 passed`
+- result: `70 passed`
 
 Acceptance-check evidence currently mapped:
 
-- CLI entry point and runtime flags: `tests/test_budget_guard.py`, `comicbook/run.py`
+- CLI entry point and runtime flags: `tests/test_budget_guard.py`, `tests/test_input_file_support.py`, `comicbook/run.py`
+- input-file parsing, batch ordering, and batch exit semantics: `tests/test_input_file_support.py`, `comicbook/input_file.py`, `comicbook/run.py`
 - serial image execution with `n=1`: `tests/test_image_client.py`, `tests/test_node_generate_images_serial.py`
 - cache-hit reuse without new image calls: `tests/test_graph_cache_hit.py`
 - dry-run reporting without image generation: `tests/test_budget_guard.py`
@@ -389,6 +412,15 @@ Remaining TG8 validation gap:
 - stale-lock recovery for dead same-host PIDs
 - prompt/image persistence round trips
 - daily run rollup and cache-hit-rate calculation
+
+`ComicBook/tests/test_input_file_support.py` now verifies:
+
+- prompt-source exclusivity for positional prompts vs. `--input-file`
+- rejection of `--run-id` in file mode
+- JSON input-file parsing, trimming, and duplicate-ID validation
+- CSV input-file parsing, column validation, and blank-prompt rejection
+- serial batch execution order and uniform forwarding of global runtime flags
+- non-zero batch exit behavior when any record finishes `partial` or `failed`
 
 `ComicBook/tests/test_router_validation.py` now verifies:
 

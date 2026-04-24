@@ -1,1044 +1,717 @@
-# Technical Implementation Guide: Image Prompt Generation Workflow
+# Technical Implementation Guide: Input File Support for the Image Prompt Generation Workflow
 
-**Status:** Draft for implementation
-**Date:** 2026-04-23
-**Source:** `docs/planning/Image-prompt-gen-workflow/plan.md`
-**Audience:** implementation team
-**Authority:** This is the execution document for delivery. If this document conflicts with `plan.md`, this document wins for implementation sequencing, module boundaries, and acceptance expectations.
-
----
-
-## 1. Purpose
-
-This document translates the approved workflow plan into a single, standalone implementation guide that an engineering team can execute without needing to infer missing details from `plan.md`.
-
-Use this document for:
-
-- repository layout
-- module boundaries
-- runtime contracts
-- database schema and persistence behavior
-- router and image-generation behavior
-- test requirements
-- implementation order
-- task grouping and delivery dependencies
-
-Do not use this document for product brainstorming or alternative architecture exploration. Those belong in `plan.md` or a future ADR.
+**Status:** Draft for implementation  
+**Date:** 2026-04-23  
+**Source planning document:** `docs/planning/Image-prompt-gen-workflow/input-file-support-design.md`  
+**Audience:** delivery team  
+**Authority:** This document is the primary build document for the JSON/CSV input-file-support change. It is written to be executable without reopening the source planning document during implementation.
 
 ---
 
-## 2. Scope
+## 1. Purpose and scope
 
-This v1 implementation delivers a local Python workflow that:
+This guide defines how to add JSON and CSV prompt-file support to the already shipped `ComicBook` workflow runtime.
 
-- accepts a free-form prompt
-- loads stored style templates from SQLite
-- asks a router LLM for a structured generation plan
-- optionally persists a newly extracted template
-- deterministically builds final image prompts
-- deduplicates by prompt fingerprint
-- generates uncached images serially, one image API call at a time
-- writes outputs, run records, and operator-friendly reports to disk
-- supports resume after interruption using persisted state and output files
+The current repository already has a working single-prompt workflow with these stable characteristics:
 
-This v1 does **not** deliver:
+- the graph and `RunState` are single-prompt
+- `comicbook.run.run_once(...)` executes one prompt at a time
+- each run has one `run_id`
+- per-run artifacts are written to `runs/<run_id>/report.md`, `logs/<run_id>.summary.json`, and `image_output/<run_id>/`
+- persistence uses the existing SQLite schema and one-active-run-per-database lock policy
 
-- a web UI
-- a REST service
-- parallel image generation
-- multimodal image input
-- vector retrieval
-- image editing / inpainting
-- garbage collection of old generated images
+This change adds a **CLI/runtime entry-layer batch wrapper** that reads a file, validates it completely, and then invokes the existing single-prompt workflow once per record in serial order.
+
+This change does **not** redesign the graph, add batch tables, add parallel execution, or change cache/persistence semantics.
 
 ---
 
-## 3. Locked Decisions
+## 2. Current baseline in the repository
 
-The source plan contains a few deliberate tradeoff discussions and a small number of contradictions. The following decisions are locked for implementation and should not be re-opened during build unless a blocker is found.
+Implementation must align with the current codebase, not with a hypothetical clean-slate design.
 
-### 3.1 Execution model
+Relevant current modules and surfaces:
 
-- Image generation is strictly serial.
-- Only one image request may be in flight at a time.
-- Every image request uses `n=1`.
-- No concurrency knob is exposed in v1.
+- `ComicBook/comicbook/run.py`
+  - `parse_args(...)` currently accepts one positional `user_prompt`
+  - `run_once(...)` is the single-prompt library entry point
+  - `main(...)` prints a small JSON payload with `run_id` and `run_status`
+- `ComicBook/comicbook/graph.py`
+  - assembles the existing single-prompt LangGraph workflow
+- `ComicBook/comicbook/execution.py`
+  - prepares input state, acquires the run lock, and finalizes crash cases
+- `ComicBook/comicbook/state.py`
+  - keeps the graph contract single-prompt today
+- `ComicBook/tests/`
+  - already contains runtime, CLI, and graph tests
+- `ComicBook/README.md`
+  - documents the current single-prompt CLI
 
-### 3.2 Router call policy
-
-- The main router path starts with `COMICBOOK_ROUTER_MODEL_FALLBACK`, default `gpt-5.4-mini`.
-- The router schema includes `needs_escalation: bool` and optional `escalation_reason: str | null`.
-- If the first valid plan sets `needs_escalation=true` and the current model is `gpt-5.4-mini`, the workflow performs one second router call on `gpt-5.4` with the same input and uses the second plan as authoritative.
-- Schema repair is separate from escalation. A repair retry does not count as an escalation.
-- The earlier statement in `plan.md` that the router is called exactly once is superseded by this section.
-
-### 3.3 Template behavior
-
-- Templates are append-only.
-- Existing template rows are never mutated in place.
-- Duplicate inserts are ignored using `(name, style_text_hash)`.
-- Future template revisions create a new row with `supersedes_id` pointing to the previous row.
-
-### 3.4 One-run-at-a-time database policy
-
-- Only one active workflow run may execute against a given SQLite database file at a time.
-- A startup lock check is required before graph execution begins.
-- A stale lock may be recovered only if the recorded PID is no longer alive on the same host.
-
-### 3.5 Budget and cost guards
-
-- The CLI exposes `--budget-usd`.
-- The process also honors `COMICBOOK_DAILY_BUDGET_USD`.
-- If the estimated run cost exceeds a configured budget, the run terminates before image generation.
-
-### 3.6 Template pre-filtering
-
-- If stored templates count is `<= 30`, send all template summaries to the router.
-- If stored templates count is `> 30`, pre-filter deterministically before the router call.
-- v1 pre-filter is lexical only: score templates by case-insensitive overlap between prompt tokens and template `name`, `tags`, and `summary`.
-- Pass the top 15 templates by score. Break ties by newest `created_at`, then by `id`.
-- If all scores are zero, pass the newest 15 templates.
-
-### 3.7 Reporting artifacts
-
-- Human-readable report path: `runs/<run_id>/report.md`
-- Structured run summary path: `logs/<run_id>.summary.json`
-- Failure trace path: `logs/<run_id>.log`
-
-### 3.8 Reference scripts policy
-
-- Files under `ComicBook/DoNotChange/` are read-only.
-- New code may copy patterns from those scripts but must not import mutable behavior from them except for study/reference.
-- A repository protection check must fail if those files are modified.
+The implementation must preserve those existing contracts unless this guide explicitly changes them.
 
 ---
 
-## 4. End-to-End Flow
+## 3. Resolved ambiguities and locked decisions
 
-The implemented workflow must execute in the following order:
+The planning addendum contains a few places where the intended runtime surface could be interpreted more than one way. These decisions are locked for implementation.
 
-1. Parse CLI or library input.
-2. Load configuration and validate required secrets.
-3. Open SQLite, enable WAL mode, and acquire the single-run lock.
-4. Initialize a `runs` row with `status='running'`.
-5. Normalize run input into `RunState`.
-6. Load and optionally pre-filter template summaries.
-7. Call the router model.
-8. Validate router output against the schema.
-9. If validation fails, perform one repair attempt.
-10. If the valid plan requests escalation, re-run the router once on the stronger model.
-11. Persist any new template before prompt materialization.
-12. Build deterministic `rendered_prompt` strings.
-13. Compute fingerprints and partition prompts into cache hits vs. prompts to generate.
-14. If `--dry-run`, stop after writing the plan and report artifacts.
-15. If budget checks fail, stop before image generation.
-16. Iterate over `to_generate` in order and call the image API serially.
-17. Save each successful image to disk and persist image metadata.
-18. Record failures without aborting the remaining serial loop.
-19. Write summary metrics, report artifacts, and final run status.
-20. Release the run lock.
+### 3.1 Prompt-source contract
+
+**Decision:** keep the existing positional prompt argument and add `--input-file`; do **not** introduce `--user-prompt` in this change.
+
+Why:
+
+- the shipped CLI already uses a positional prompt
+- the acceptance criteria later in the planning addendum refer to positional prompt or `--input-file`
+- keeping the positional argument is the smallest backward-compatible change
+
+Final CLI contract:
+
+- `python -m comicbook.run "<prompt>"`
+- `python -m comicbook.run --input-file <path>`
+
+Exactly one prompt source must be provided.
+
+### 3.2 Graph boundary
+
+**Decision:** keep the graph, nodes, and `RunState` single-prompt.
+
+Implementation must not:
+
+- add batch fields to `RunState`
+- add graph nodes for file parsing
+- add batch-aware persistence to `comicbook.db`
+- make `run_once(...)` sometimes return a list and sometimes a single state
+
+### 3.3 Batch helper location
+
+**Decision:** keep `run_once(...)` unchanged and add a separate `run_batch(...)` helper in `ComicBook/comicbook/run.py`.
+
+Why:
+
+- it preserves the stable single-prompt library API
+- it lets the CLI and tests share one batch execution path
+- it avoids reopening config, HTTP clients, and DB connections once per record when a batch is run in one process
+
+### 3.4 Validation timing
+
+**Decision:** parse and validate the entire input file before the first workflow run starts.
+
+That validation must catch, before execution:
+
+- unsupported file extension
+- unreadable file / malformed JSON / malformed CSV
+- invalid top-level JSON shape
+- missing required fields or columns
+- blank `user_prompt`
+- blank `run_id`
+- duplicate `run_id` values within the file
+- unsupported JSON fields or CSV columns
+
+### 3.5 Run ID handling in file mode
+
+**Decision:** pre-resolve a `run_id` for every record before invoking the workflow.
+
+Rules:
+
+- if the record supplies `run_id`, use it
+- otherwise generate it in the batch wrapper before calling `run_once(...)`
+- CLI `--run-id` is rejected whenever `--input-file` is used
+
+Why this is required:
+
+- batch summary reporting needs a stable `run_id` even if one record later crashes
+- `run_once(...)` currently lets the graph assign a run ID; that is fine for single runs but too late for reliable batch bookkeeping
+
+### 3.6 Exit semantics
+
+**Decision:** file mode continues through all validated records even if one record fails at runtime, then returns a final batch summary.
+
+Exit status rules:
+
+- prompt-source contract errors use `argparse` validation and exit with CLI usage failure semantics
+- input-file parse/validation failures exit non-zero before any run starts
+- batch execution exits non-zero if any record ends `failed` or `partial`
+- `dry_run` counts as a non-failing outcome for batch summary purposes
+
+### 3.7 Scope boundaries
+
+This change does **not** include:
+
+- stdin support
+- per-record overrides for `panels`, `force`, `budget_usd`, `dry_run`, or `redact_prompts`
+- batch-level SQLite tables or batch-level report files
+- concurrent execution
+- changes to fingerprinting, router behavior, image generation, or artifact paths
 
 ---
 
-## 5. Repository Layout
+## 4. Repository impact and module boundaries
 
-The implementation team should create and maintain the following layout.
+Implementation should stay concentrated at the CLI/runtime boundary.
+
+### 4.1 Files expected to change
 
 ```text
 ComicBook/
-  DoNotChange/
-    hello_azure_openai.py
-    generate_image_gpt_image_1_5.py
   comicbook/
-    __init__.py
-    config.py
-    deps.py
-    state.py
-    db.py
-    pricing.json
-    fingerprint.py
-    router_prompts.py
-    router_llm.py
-    image_client.py
-    graph.py
-    run.py
-    nodes/
-      __init__.py
-      ingest.py
-      load_templates.py
-      router.py
-      persist_template.py
-      cache_lookup.py
-      generate_images_serial.py
-      summarize.py
+    run.py                     # update: CLI contract, batch helper, batch summary
+    input_file.py              # new: JSON/CSV parsing + validation models/helpers
   examples/
-    single_portrait_graph.py
-  seeds/
-    .gitkeep
+    prompts.sample.json        # new: reference input file
+    prompts.sample.csv         # new: reference input file
   tests/
-    test_config.py
-    test_db.py
-    test_fingerprint.py
-    test_router_validation.py
-    test_router_node.py
-    test_node_load_templates.py
-    test_node_cache_lookup.py
-    test_image_client.py
-    test_node_generate_images_serial.py
-    test_graph_happy.py
-    test_graph_cache_hit.py
-    test_graph_new_template.py
-    test_graph_resume.py
-    test_budget_guard.py
-    test_example_single_portrait.py
-  runs/
-  logs/
-  image_output/
-  .env.example
-  .gitignore
-  pyproject.toml
+    test_input_file_support.py # new: focused contract, parser, and batch tests
+  README.md                    # update when implementation lands
+docs/
+  planning/
+    Image-prompt-gen-workflow/
+      implementation.md        # this guide
+      index.md                 # update description if needed
+  business/
+    Image-prompt-gen-workflow/index.md   # update when runtime surface changes
+  developer/
+    Image-prompt-gen-workflow/index.md   # update when runtime surface changes
 ```
 
-Only `graph.py` and `run.py` are workflow-specific orchestration files. All other modules should be reusable by a future graph.
+### 4.2 Files expected to remain unchanged
+
+Unless testing reveals a genuine integration gap, do **not** change:
+
+- `ComicBook/comicbook/graph.py`
+- `ComicBook/comicbook/execution.py`
+- `ComicBook/comicbook/db.py`
+- `ComicBook/comicbook/fingerprint.py`
+- `ComicBook/comicbook/router_*`
+- `ComicBook/comicbook/image_client.py`
+- `ComicBook/comicbook/nodes/*`
+
+The design is specifically intended to avoid touching the workflow graph internals.
+
+### 4.3 Module responsibilities
+
+#### `comicbook/input_file.py` (new)
+
+Owns all file-format concerns:
+
+- input-record model(s)
+- JSON loading
+- CSV loading
+- normalization and trimming
+- duplicate detection
+- unsupported-field / unsupported-column rejection
+- path/extension validation
+- error messages suitable for CLI display and pytest assertions
+
+This module must be pure parsing/validation code. It must not execute workflow runs, open HTTP clients, or talk to the database.
+
+#### `comicbook/run.py` (updated)
+
+Owns runtime entry concerns:
+
+- CLI argument parsing for prompt source selection
+- batch orchestration over validated records
+- reuse of one managed config/DB/http-client set per CLI invocation
+- per-record invocation of `run_once(...)`
+- batch summary JSON emission
+- final process exit code
+
+`run.py` must remain the only place that knows how to bridge CLI input-file mode into repeated single-run workflow calls.
 
 ---
 
-## 6. Runtime Contracts
+## 5. Runtime contracts
 
-### 6.1 Node contract
+### 5.1 CLI contract
 
-Every graph node must follow this shape:
+The final CLI surface for this change is:
+
+```bash
+uv run python -m comicbook.run "A four-panel comic of a wandering sage at sunrise"
+uv run python -m comicbook.run --input-file ComicBook/examples/prompts.sample.json
+uv run python -m comicbook.run --input-file ComicBook/examples/prompts.sample.csv --dry-run
+```
+
+Argument rules:
+
+- positional `user_prompt` becomes optional in argparse (`nargs="?"`)
+- add `--input-file <path>`
+- require exactly one of positional `user_prompt` or `--input-file`
+- keep existing `--dry-run`, `--force`, `--panels`, `--budget-usd`, and `--redact-prompts`
+- reject `--run-id` when `--input-file` is present
+
+Implementation note:
+
+- `argparse` mutual-exclusion groups do not cleanly support the current positional prompt shape, so enforce the exclusivity rules with post-parse validation in `parse_args(...)`
+
+### 5.2 Input-record contract
+
+Add a strict record model in `comicbook/input_file.py`.
+
+Recommended shape:
 
 ```python
-def node_name(state: RunState, deps: Deps) -> dict:
-    """Return a partial state delta."""
+class InputPromptRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_prompt: str
+    run_id: str | None = None
+
+    @field_validator("user_prompt")
+    @classmethod
+    def validate_user_prompt(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("user_prompt must not be blank")
+        return normalized
+
+    @field_validator("run_id")
+    @classmethod
+    def validate_run_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("run_id must not be blank when provided")
+        return normalized
 ```
 
-Rules:
+Required behaviors:
 
-- Read only from `state` and `deps`.
-- Return only the fields changed by the node.
-- Do not read module-level globals for runtime data.
-- Do not perform hidden side effects outside explicit `deps` collaborators.
-- Keep one responsibility per node file.
+- reject unknown JSON keys
+- reject unsupported CSV columns
+- trim whitespace from JSON strings and CSV cell values
+- preserve file order after validation
+- reject duplicate non-null `run_id` values within the file before execution begins
 
-### 6.2 Shared dependencies
+### 5.3 Supported file formats
 
-`Deps` must be a frozen dataclass containing explicit runtime dependencies.
+### JSON
 
-Required fields:
+- file must decode as UTF-8 text
+- top-level value must be a list
+- each item must be an object validated as `InputPromptRecord`
 
-- `config`
-- `db`
-- `http_client`
-- `clock`
-- `uuid_factory`
-- `output_dir`
-- `runs_dir`
-- `logs_dir`
-- `pricing`
-- `logger`
-- `pid_provider`
-- `hostname_provider`
+Supported shape:
 
-Optional fields for tests:
-
-- fake router transport
-- fake image transport
-- fake filesystem abstraction if needed
-
-### 6.3 State model
-
-Implement `RunState` as a typed model boundary. `TypedDict` is acceptable for graph state, but use Pydantic models for structured payload validation.
-
-Required state keys by phase:
-
-| Phase | Required keys |
-|---|---|
-| Ingest | `run_id`, `user_prompt`, `dry_run`, `force_regenerate`, `started_at` |
-| Template load | `templates`, `template_catalog_size`, `templates_sent_to_router` |
-| Router | `router_model`, `plan`, `plan_raw`, `plan_repair_attempts`, `router_escalated` |
-| Prompt build | `rendered_prompts`, `rendered_prompts_by_fp`, `cache_hits`, `to_generate` |
-| Image generation | `image_results`, `errors`, `rate_limit_consecutive_failures` |
-| Summary | `usage`, `ended_at`, `summary`, `run_status` |
-
-### 6.4 Pydantic models
-
-Implement at minimum:
-
-- `TemplateSummary`
-- `NewTemplateDraft`
-- `PromptPlanItem`
-- `RouterTemplateDecision`
-- `RouterPlan`
-- `RenderedPrompt`
-- `ImageResult`
-- `WorkflowError`
-- `UsageTotals`
-- `RunSummary`
-
-`RouterPlan` must contain:
-
-- `router_model_chosen: Literal["gpt-5.4", "gpt-5.4-mini"]`
-- `rationale: str`
-- `needs_escalation: bool = False`
-- `escalation_reason: str | None = None`
-- `template_decision: RouterTemplateDecision`
-- `prompts: list[PromptPlanItem]`
-
----
-
-## 7. Database Design
-
-### 7.1 SQLite requirements
-
-- Use SQLite in WAL mode.
-- Use parameterized queries only.
-- Open one shared DB connection per process.
-- Keep schema creation idempotent.
-- Prefer explicit DAO methods over inline SQL in nodes.
-
-### 7.2 Tables
-
-The implementation must create the following tables.
-
-```sql
-CREATE TABLE IF NOT EXISTS templates (
-    id               TEXT PRIMARY KEY,
-    name             TEXT NOT NULL,
-    style_text       TEXT NOT NULL,
-    style_text_hash  TEXT NOT NULL,
-    tags             TEXT NOT NULL,
-    summary          TEXT NOT NULL,
-    supersedes_id    TEXT NULL REFERENCES templates(id),
-    created_at       TEXT NOT NULL,
-    created_by_run   TEXT,
-    UNIQUE(name, style_text_hash)
-);
-
-CREATE TABLE IF NOT EXISTS prompts (
-    fingerprint      TEXT PRIMARY KEY,
-    rendered_prompt  TEXT NOT NULL,
-    subject_text     TEXT NOT NULL,
-    template_ids     TEXT NOT NULL,
-    size             TEXT NOT NULL,
-    quality          TEXT NOT NULL,
-    image_model      TEXT NOT NULL,
-    first_seen_run   TEXT NOT NULL,
-    created_at       TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS images (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    fingerprint      TEXT NOT NULL REFERENCES prompts(fingerprint),
-    file_path        TEXT,
-    bytes            INTEGER NOT NULL DEFAULT 0,
-    run_id           TEXT NOT NULL,
-    created_at       TEXT NOT NULL,
-    status           TEXT NOT NULL,
-    failure_reason   TEXT
-);
-
-CREATE TABLE IF NOT EXISTS runs (
-    run_id                TEXT PRIMARY KEY,
-    user_prompt           TEXT NOT NULL,
-    router_model          TEXT,
-    router_prompt_version TEXT,
-    plan_json             TEXT,
-    started_at            TEXT NOT NULL,
-    ended_at              TEXT,
-    status                TEXT NOT NULL,
-    pid                   INTEGER,
-    host                  TEXT,
-    cache_hits            INTEGER DEFAULT 0,
-    generated             INTEGER DEFAULT 0,
-    failed                INTEGER DEFAULT 0,
-    skipped_rate_limit    INTEGER DEFAULT 0,
-    est_cost_usd          REAL DEFAULT 0.0
-);
-
-CREATE INDEX IF NOT EXISTS ix_images_run ON images(run_id);
-CREATE INDEX IF NOT EXISTS ix_prompts_first_seen ON prompts(first_seen_run);
-CREATE INDEX IF NOT EXISTS ix_runs_status ON runs(status);
+```json
+[
+  {
+    "user_prompt": "A cinematic portrait of a forest guardian in moonlight"
+  },
+  {
+    "run_id": "sample-batch-002",
+    "user_prompt": "A three-panel comic of a clockmaker fixing time itself"
+  }
+]
 ```
 
-### 7.3 Daily rollup view
+### CSV
 
-Create a view for operator summary metrics.
+- file must decode as UTF-8 text; use `utf-8-sig` when opening so BOM-prefixed CSVs still parse cleanly
+- header row is required
+- supported columns are exactly `user_prompt` and optional `run_id`
+- any extra column fails validation
 
-```sql
-CREATE VIEW IF NOT EXISTS daily_run_rollup AS
-SELECT
-    substr(started_at, 1, 10) AS run_date,
-    COUNT(*) AS total_runs,
-    SUM(cache_hits) AS total_cache_hits,
-    SUM(generated) AS total_generated,
-    SUM(failed) AS total_failed,
-    SUM(est_cost_usd) AS total_est_cost_usd,
-    CASE
-        WHEN SUM(cache_hits) + SUM(generated) = 0 THEN 0.0
-        ELSE CAST(SUM(cache_hits) AS REAL) / CAST(SUM(cache_hits) + SUM(generated) AS REAL)
-    END AS cache_hit_rate
-FROM runs
-GROUP BY substr(started_at, 1, 10);
+Supported shape:
+
+```csv
+run_id,user_prompt
+sample-batch-001,"A cinematic portrait of a forest guardian in moonlight"
+sample-batch-002,"A three-panel comic of a clockmaker fixing time itself"
 ```
 
-### 7.4 Required DAO methods
+### 5.4 Batch execution contract
 
-`db.py` must expose methods for:
-
-- schema initialization
-- WAL configuration
-- run lock acquisition and release
-- stale lock detection
-- run creation and finalization
-- template summary listing
-- template full-text lookup by IDs
-- template insert with dedup
-- prompt upsert-if-absent by fingerprint
-- prompt lookup by fingerprint
-- image result insert
-- existing image lookup by fingerprint
-- budget rollup lookup for the current day
-
-Nodes must not execute ad hoc SQL directly.
-
----
-
-## 8. Configuration and Environment
-
-### 8.1 Required environment variables
-
-- `AZURE_OPENAI_ENDPOINT`
-- `AZURE_OPENAI_API_KEY`
-- `AZURE_OPENAI_API_VERSION`
-- `AZURE_OPENAI_CHAT_DEPLOYMENT` or equivalent router deployment mapping
-- `AZURE_OPENAI_IMAGE_DEPLOYMENT`
-
-### 8.2 Workflow-specific environment variables
-
-- `COMICBOOK_DB_PATH=./comicbook.sqlite`
-- `COMICBOOK_IMAGE_OUTPUT_DIR=./image_output`
-- `COMICBOOK_RUNS_DIR=./runs`
-- `COMICBOOK_LOGS_DIR=./logs`
-- `COMICBOOK_ROUTER_MODEL_FALLBACK=gpt-5.4-mini`
-- `COMICBOOK_ROUTER_MODEL_ESCALATION=gpt-5.4`
-- `COMICBOOK_DAILY_BUDGET_USD=` optional
-- `COMICBOOK_ROUTER_PROMPT_VERSION=ROUTER_SYSTEM_PROMPT_V2`
-- `COMICBOOK_ENABLE_ROUTER_PREFLIGHT=0`
-
-### 8.3 CLI flags
-
-`run.py` must support:
-
-- positional `user_prompt`
-- `--run-id`
-- `--dry-run`
-- `--force`
-- `--panels N`
-- `--budget-usd X`
-- `--redact-prompts`
-
-Behavior:
-
-- `--run-id` is required for resume testing but optional during normal runs.
-- `--force` bypasses cache lookup only for image generation. It does not suppress prompt persistence or run logging.
-- `--panels N` becomes `constraints.exact_image_count` in the router input.
-- `--redact-prompts` hashes prompt text in logs and reports, but not in the prompts table.
-
----
-
-## 9. Router Design
-
-### 9.1 Router input
-
-The router receives a single JSON payload containing:
-
-- `user_prompt`
-- `known_templates`
-- `constraints`
-- `available_router_models`
-
-`known_templates` entries contain only:
-
-- `id`
-- `name`
-- `tags`
-- `summary`
-
-Never send full `style_text` values to the router in v1.
-
-### 9.2 Router schema rules
-
-Validation rules:
-
-- `prompts` count must be between 1 and 12 unless `--panels N` is set, in which case the count must equal `N`
-- template IDs in prompt items must exist in the selected subset or match the new template ID created in the same response
-- `new_template.id` must be a lowercase slug
-- `rationale` length must be `<= 600`
-- `subject_text` must not be empty and must be subject-focused, not style-only
-
-### 9.3 Repair logic
-
-If schema validation fails:
-
-1. record the raw response
-2. build a repair prompt that includes the validation error
-3. call the same model once more
-4. validate again
-5. fail the run if still invalid
-
-Only one repair attempt is allowed.
-
-### 9.4 Rationale leak guard
-
-Before persisting the final plan:
-
-- truncate `rationale` to 600 chars
-- compare it against the first 40 chars of `ROUTER_SYSTEM_PROMPT_V2`
-- if the rationale contains that substring, replace the rationale with `[redacted: potential prompt-leak]`
-
-### 9.5 Prompt materialization
-
-The router does **not** return final `rendered_prompt` strings.
-
-The application constructs them deterministically:
+Add a separate helper:
 
 ```python
-style_block = "\n\n".join(selected_template.style_text for selected_template in ordered_templates)
-rendered_prompt = f"{style_block}\n\n---\n\n{subject_text}" if style_block else subject_text
-```
-
-Template order rules:
-
-- preserve the order supplied in each plan item
-- if the new template is referenced, resolve it as if it were already part of the template library
-
----
-
-## 10. Fingerprinting, Caching, and Resume
-
-### 10.1 Fingerprint formula
-
-```text
-sha256(rendered_prompt || size || quality || image_model)
-```
-
-### 10.2 Cache lookup behavior
-
-For each rendered prompt:
-
-1. compute fingerprint
-2. ensure a `prompts` row exists
-3. if `--force` is false and a successful image already exists for that fingerprint, classify as cache hit
-4. otherwise append to `to_generate`
-
-### 10.3 Resume behavior
-
-Resume is determined by both the database and the filesystem.
-
-For each fingerprint in `to_generate`:
-
-- if `image_output/<run_id>/<fingerprint>.png` already exists, record a resumed success and skip the API call
-- otherwise continue to generation
-
-Do not delete failed rows during resume.
-
-### 10.4 Force behavior
-
-`--force` means:
-
-- ignore successful prior image rows during cache classification
-- still reuse existing prompt fingerprints
-- still persist new run metadata
-- still skip an existing file for the same `run_id` during a resume of that exact run to avoid overwriting a completed artifact mid-resume
-
----
-
-## 11. Image Client Design
-
-### 11.1 Reusable client contract
-
-`image_client.py` must expose a reusable single-image function.
-
-```python
-async def generate_one(
+def run_batch(
+    records: Sequence[InputPromptRecord],
     *,
-    prompt: str,
-    size: str,
-    quality: str,
-    image_model: str,
-    out_path: Path,
-) -> ImageClientResult:
+    input_file: str | Path | None = None,
+    dry_run: bool = False,
+    force: bool = False,
+    panels: int | None = None,
+    budget_usd: float | None = None,
+    redact_prompts: bool = False,
+    deps: Deps | None = None,
+    dotenv_path: str | Path = ".env",
+) -> dict[str, object]:
     ...
 ```
 
-Rules:
+Contract rules:
 
-- one prompt per request
-- `n=1` pinned internally
-- caller cannot override `n`
-- create parent directories before writing
-- return structured success/failure metadata
-- do not depend on LangGraph or SQLite
+- `run_once(...)` remains the authoritative single-prompt executor
+- `run_batch(...)` loops over records in validated file order
+- all global CLI flags apply identically to every record
+- each record executes as its own normal workflow run with its own `run_id`
+- when `deps is None`, create managed runtime deps once and reuse them for the whole batch
+- if a record does not provide `run_id`, generate one before calling `run_once(...)`
+- catch per-record exceptions, record them as failed outcomes, and continue to the next validated record
 
-### 11.2 Retry policy
+The summary returned by `run_batch(...)` and printed by `main(...)` in file mode must include at least:
 
-- retry on HTTP `408`, `429`, and `5xx`
-- maximum 3 attempts
-- fixed 120-second backoff in v1 to match the approved plan
-- do not retry content filter failures
-- do not retry other `4xx` responses
+- `input_file`
+- `total_records`
+- `succeeded`
+- `partial`
+- `dry_run`
+- `failed`
+- `run_ids`
 
-### 11.3 Rate-limit circuit breaker
+No batch-level SQLite rows or report files are created in v1.
 
-Inside the serial generation node, maintain a count of consecutive prompts that exhausted retries due to `429`.
+### 5.5 Persistence contract
 
-Behavior:
+Persistence behavior is unchanged:
 
-- after one retry-exhausted `429`, continue to the next prompt
-- after two consecutive retry-exhausted `429` prompt failures, stop calling the image API for the remainder of the run
-- record the remaining prompts as `status='skipped_rate_limit'`
-- mark the run `partial`
+- one input-file record == one normal workflow run
+- each record acquires/releases the existing per-run SQLite lock through the current runtime path
+- each record writes the existing `runs`, `logs`, and `image_output` artifacts
+- resume remains per run, not per batch
+- rerunning a file resumes prior work only for records whose `run_id` values are stable and repeated
 
----
+### 5.6 Observability contract
 
-## 12. Reporting, Logging, and Summary
+The implementation must make file-mode behavior observable without inventing new durable storage.
 
-### 12.1 JSON logs
+Required visibility:
 
-Every node should emit structured log events with:
+- validation failures identify file path and record/row context when possible
+- per-record execution order is deterministic and follows file order
+- final stdout contains the batch summary JSON
+- existing per-run logs/reports remain the source of detailed run diagnostics
 
-- `run_id`
-- `node`
-- `event`
-- `duration_ms`
-- `ok`
-- optional `error`
+Recommended non-persisted log lines from `run.py`:
 
-Do not log authorization headers.
-
-### 12.2 Human-readable report
-
-`runs/<run_id>/report.md` must contain:
-
-- run metadata
-- original user prompt or redacted hash
-- router rationale
-- router model used and whether escalation occurred
-- template decision
-- each prompt item in order
-- each final rendered prompt in order
-- cache-hit vs generated vs failed status for each fingerprint
-- generated file paths
-- cost estimate summary
-
-### 12.3 Final run status rules
-
-- `succeeded`: all planned images either came from cache or completed successfully
-- `partial`: at least one image failed or was skipped, but the workflow reached summary
-- `failed`: router/setup/budget/lock failure prevented meaningful completion
+- `starting batch record 2/5 run_id=...`
+- `completed batch record 2/5 run_id=... status=...`
+- `batch record 2/5 run_id=... failed: ...`
 
 ---
 
-## 13. Testing Requirements
+## 6. Failure handling rules
 
-The implementation is not complete without tests.
+Implementation must treat failure classes differently.
 
-### 13.1 Unit tests
+### 6.1 CLI contract failures
 
-Required unit coverage:
+Examples:
 
-- config loading and validation
-- fingerprint stability and change sensitivity
-- router schema validation
-- router repair handling
-- template pre-filter ranking
-- template dedup and append-only lineage
-- cache lookup partitioning
-- image client retry behavior
-- serial generation ordering
-- rate-limit circuit breaker
-- budget guard
+- neither prompt source provided
+- both prompt sources provided
+- `--run-id` combined with `--input-file`
 
-### 13.2 Node isolation tests
+Handling:
 
-Every file under `comicbook/nodes/` must have at least one direct test that imports the node module and invokes it without importing `graph.py`.
+- reject in `parse_args(...)`
+- present as CLI usage errors
+- start no workflow runs
 
-This is a release gate, not a suggestion.
+### 6.2 Input-file validation failures
 
-### 13.3 Integration tests
+Examples:
 
-Required graph-level tests:
+- unreadable file
+- malformed JSON/CSV
+- unsupported fields/columns
+- blank prompt
+- duplicate `run_id`
 
-- happy path with multiple prompts
-- repeated run yields cache hits and zero image API calls
-- `extract_new` path persists exactly one template row
-- resume after mid-run interruption
-- `--dry-run` never calls image generation
-- `--panels N` constrains output count
-- budget overflow stops before image generation
+Handling:
 
-### 13.4 Modularity proof
+- fail before the first workflow run
+- return non-zero exit code
+- do not create any per-run artifacts
 
-`examples/single_portrait_graph.py` and `tests/test_example_single_portrait.py` are required deliverables.
+### 6.3 Per-record runtime failures
 
-The example graph must reuse shared modules without editing them.
+Examples:
+
+- router failure after repair exhaustion
+- lock acquisition failure for a record
+- budget-blocked run
+- image-generation partial failure
+- unexpected exception escaping `run_once(...)`
+
+Handling:
+
+- keep already validated later records eligible to run
+- classify the record result using the final run status when available
+- if an exception escapes before a final state is returned, count that record as `failed` using the pre-resolved `run_id`
+- overall batch exit is non-zero if any record is `failed` or `partial`
 
 ---
 
-## 14. Implementation Sequence
+## 7. Testing requirements
 
-TaskGroups are intentionally sequential. A later TaskGroup must not begin until the prior TaskGroup exit criteria are satisfied. Tasks within a TaskGroup may be split across engineers if the shared contract for that group has already been agreed and committed.
+When the delivery team implements this guide, the Python testing gate applies. The code change is user-visible runtime behavior in Python, so implementation must follow `pytest-tdd-guard`.
 
-### TaskGroup dependency chain
+### 7.1 Required test coverage
 
-```text
-TG1 Foundation
-  -> TG2 Persistence and Locking
-    -> TG3 Router Planning
-      -> TG4 Template Persistence and Cache Partitioning
-        -> TG5 Serial Image Execution
-          -> TG6 Graph, CLI, and Reporting
-            -> TG7 Reuse Proof and Repo Protections
-              -> TG8 Final Validation and Documentation Closeout
+Add focused tests for:
+
+1. CLI prompt-source validation
+   - positional prompt only succeeds
+   - `--input-file` only succeeds
+   - both prompt sources fail
+   - neither prompt source fails
+   - `--run-id` with `--input-file` fails
+
+2. JSON parsing and validation
+   - valid list of records parses in order
+   - non-list top level fails
+   - blank `user_prompt` fails
+   - duplicate `run_id` fails
+   - unknown field fails
+
+3. CSV parsing and validation
+   - valid CSV parses in order
+   - missing `user_prompt` column fails
+   - blank prompt cell fails
+   - duplicate `run_id` fails
+   - unsupported extra column fails
+
+4. Batch runtime behavior
+   - records execute serially in file order
+   - all global flags are passed to every `run_once(...)` invocation
+   - omitted `run_id` values are generated before execution
+   - a failing record does not stop later validated records
+   - summary counts are correct
+   - exit code is non-zero when any record is `partial` or `failed`
+
+5. Single-run regression safety
+   - existing positional single-prompt CLI still works unchanged
+   - existing `run_once(...)` behavior and return shape stay single-prompt
+
+### 7.2 Suggested pytest layout
+
+Prefer one new focused test module:
+
+- `ComicBook/tests/test_input_file_support.py`
+
+Only touch existing test modules if necessary for shared fixtures.
+
+### 7.3 Suggested pytest command progression
+
+From `ComicBook/`:
+
+```bash
+uv run --with pytest --with pydantic --with httpx --with langgraph python -m pytest -q tests/test_input_file_support.py
+uv run --with pytest --with pydantic --with httpx --with langgraph python -m pytest -q tests/test_input_file_support.py tests/test_budget_guard.py
+uv run --with pytest --with pydantic --with httpx --with langgraph python -m pytest -q
 ```
 
 ---
 
-## 15. TaskGroups
+## 8. Ordered implementation plan
 
-### TaskGroup 1: Foundation
+Implement the change as the following sequential `TaskGroup`s.
 
-**Depends on:** none
-**Goal:** establish package layout, configuration loading, core state contracts, and project wiring so all later groups can build against stable interfaces.
+### TaskGroup TG1 - Lock the contract with tests first
 
-#### Tasks
+**Goal**  
+Create failing tests that define the new CLI and file-validation behavior before production code changes begin.
 
-1. Create the package skeleton under `ComicBook/comicbook/`, `tests/`, `examples/`, `runs/`, and `logs/`.
-2. Add `pyproject.toml` dependencies and pin `langgraph` with `~=`.
-3. Implement `config.py` with env-first loading, `.env` fallback, and validation of all required Azure settings.
-4. Implement `state.py` Pydantic models and the `RunState` typed contract.
-5. Implement `deps.py` with the frozen `Deps` dataclass and test doubles strategy.
-6. Add `.env.example` and `.gitignore` entries for `.env`, SQLite artifacts, logs, generated runs, and images.
-7. Add baseline unit tests for config and state validation.
+**Dependencies**  
+None.
 
-#### Files created or updated
+**Detailed tasks**
 
-- `ComicBook/comicbook/__init__.py`
-- `ComicBook/comicbook/config.py`
-- `ComicBook/comicbook/state.py`
-- `ComicBook/comicbook/deps.py`
-- `ComicBook/.env.example`
-- `ComicBook/.gitignore`
-- `ComicBook/pyproject.toml`
-- `ComicBook/tests/test_config.py`
+1. Add `ComicBook/tests/test_input_file_support.py`.
+2. Write tests for CLI argument exclusivity and `--run-id` rejection in file mode.
+3. Write tests for JSON and CSV happy paths plus the required validation failures.
+4. Write tests for batch serial ordering and summary counting using fake execution behavior or monkeypatched `run_once(...)`.
+5. Keep tests narrow and deterministic; do not involve the real graph or real Azure traffic for parser/CLI contract tests.
 
-#### Exit criteria
+**Expected files or modules**
 
-- local import of `comicbook` succeeds
-- config validation fails cleanly when secrets are absent
-- state models parse and validate known-good payloads
-- repository layout matches Section 5
+- `ComicBook/tests/test_input_file_support.py`
 
-#### Notes for the next group
+**Exit criteria**
 
-- No SQLite or router logic should be embedded here.
-- Keep these modules generic enough for reuse by the example graph later.
+- the new tests exist and fail for the expected reasons against the current runtime
+- the failing tests capture all locked decisions in Sections 3-7 of this guide
 
-### TaskGroup 2: Persistence and Locking
+**Handoff notes for TG2**
 
-**Depends on:** TaskGroup 1
-**Goal:** create the SQLite schema, DAO, run-lock behavior, and budget rollup support.
+- TG2 should implement only enough parsing/validation code to turn the TG1 parser tests green
+- do not mix CLI orchestration changes into the parser module work yet
 
-#### Tasks
+### TaskGroup TG2 - Implement input-file parsing and validation
 
-1. Implement schema initialization in `db.py`.
-2. Enable WAL mode at startup and expose a DAO initialization path.
-3. Implement `runs` lock acquisition, stale lock detection, and lock release.
-4. Implement CRUD methods for templates, prompts, images, and run summaries.
-5. Create the `daily_run_rollup` SQL view.
-6. Add tests for template dedup, append-only lineage support, run lock behavior, and rollup calculations.
+**Goal**  
+Add a standalone parsing module that fully validates JSON and CSV files into ordered in-memory records before any workflow execution begins.
 
-#### Files created or updated
+**Dependencies**  
+TG1 complete.
 
-- `ComicBook/comicbook/db.py`
-- `ComicBook/tests/test_db.py`
+**Detailed tasks**
 
-#### Exit criteria
+1. Create `ComicBook/comicbook/input_file.py`.
+2. Add `InputPromptRecord` and a dedicated validation/error type.
+3. Implement file-type dispatch by path suffix for `.json` and `.csv` only.
+4. Implement JSON loader with top-level-list enforcement and per-item validation.
+5. Implement CSV loader with header enforcement, trimming, exact-column validation, and per-row validation.
+6. Add duplicate `run_id` detection across the full validated record list.
+7. Keep all parsing functions free of DB, HTTP, or graph dependencies.
+8. Make validation errors include enough context for debugging, such as file path and row/item index when available.
 
-- schema init is idempotent
-- only one active run can acquire the lock for the same DB
-- stale lock recovery is covered by tests
-- rollup view returns cache-hit-rate correctly
+**Expected files or modules**
 
-#### Notes for the next group
+- `ComicBook/comicbook/input_file.py`
+- `ComicBook/tests/test_input_file_support.py`
 
-- The router implementation must call only DAO methods, not raw SQL.
+**Exit criteria**
 
-### TaskGroup 3: Router Planning
+- all parser-specific TG1 tests pass
+- loading a valid JSON or CSV file returns ordered validated records
+- no workflow run can start after a file validation failure
 
-**Depends on:** TaskGroup 2
-**Goal:** implement router prompts, schema validation, repair handling, template pre-filtering, and the reusable router client.
+**Handoff notes for TG3**
 
-#### Tasks
+- TG3 should treat TG2's parser output as authoritative input
+- do not duplicate file validation logic inside `run.py`
 
-1. Implement `router_prompts.py` with `ROUTER_SYSTEM_PROMPT_V2` and the authoritative JSON schema.
-2. Add `needs_escalation` and `escalation_reason` to the schema.
-3. Implement deterministic template pre-filtering for catalogs larger than 30 entries.
-4. Implement `router_llm.py` using the Azure Responses API pattern.
-5. Implement validation, repair retry, and rationale leak guard.
-6. Implement `nodes/load_templates.py` and `nodes/router.py`.
-7. Add unit tests for schema validation, bad template IDs, repair behavior, escalation behavior, and pre-filter ranking.
+### TaskGroup TG3 - Add batch runtime orchestration to the CLI boundary
 
-#### Files created or updated
+**Goal**  
+Teach the runtime to accept either a direct prompt or an input file while preserving the single-prompt workflow internals.
 
-- `ComicBook/comicbook/router_prompts.py`
-- `ComicBook/comicbook/router_llm.py`
-- `ComicBook/comicbook/nodes/load_templates.py`
-- `ComicBook/comicbook/nodes/router.py`
-- `ComicBook/tests/test_router_validation.py`
-- `ComicBook/tests/test_router_node.py`
-- `ComicBook/tests/test_node_load_templates.py`
+**Dependencies**  
+TG2 complete.
 
-#### Exit criteria
+**Detailed tasks**
 
-- valid router output parses into `RouterPlan`
-- exactly one repair attempt occurs on invalid schema output
-- escalation to the stronger router model is tested and deterministic
-- template catalogs over 30 entries are filtered deterministically
+1. Update `parse_args(...)` in `ComicBook/comicbook/run.py`:
+   - make positional `user_prompt` optional
+   - add `--input-file`
+   - enforce exactly one prompt source
+   - reject `--run-id` with `--input-file`
+2. Add `run_batch(...)` in `ComicBook/comicbook/run.py`.
+3. Reuse one managed `Deps`/DB/http-client set for the full batch when the caller did not inject deps.
+4. Pre-resolve a `run_id` for every record before calling `run_once(...)`.
+5. Execute records serially in validated file order.
+6. Pass `dry_run`, `force`, `panels`, `budget_usd`, and `redact_prompts` to every record run unchanged.
+7. Catch per-record exceptions, mark those records failed in the batch summary, and continue.
+8. Update `main(...)` so:
+   - single-prompt mode keeps the existing `{run_id, run_status}` output
+   - file mode prints the batch summary JSON
+   - file mode returns non-zero when any record is `partial` or `failed`
 
-#### Notes for the next group
+**Expected files or modules**
 
-- Do not compose final rendered prompts inside the router node.
-- Persisting a new template belongs to the next group.
-
-### TaskGroup 4: Template Persistence and Cache Partitioning
-
-**Depends on:** TaskGroup 3
-**Goal:** persist extracted templates, deterministically compose prompts, compute fingerprints, and partition work into cache hits vs. uncached prompts.
-
-#### Tasks
-
-1. Implement `nodes/persist_template.py` for optional template insertion.
-2. Implement `fingerprint.py` for prompt composition and `sha256` fingerprinting.
-3. Implement `nodes/cache_lookup.py`.
-4. Ensure prompt rows are created before generation begins.
-5. Respect `--force` in cache classification without breaking resume semantics.
-6. Add tests for fingerprint determinism, duplicate prompts, cache hits, and extracted-template flows.
-
-#### Files created or updated
-
-- `ComicBook/comicbook/fingerprint.py`
-- `ComicBook/comicbook/nodes/persist_template.py`
-- `ComicBook/comicbook/nodes/cache_lookup.py`
-- `ComicBook/tests/test_fingerprint.py`
-- `ComicBook/tests/test_node_cache_lookup.py`
-
-#### Exit criteria
-
-- identical rendered inputs produce identical fingerprints
-- any size, quality, model, or text change alters the fingerprint
-- cache hits are separated from generation work correctly
-- extracted templates are persisted before prompt composition
-
-#### Notes for the next group
-
-- `to_generate` ordering must remain identical to router output ordering.
-
-### TaskGroup 5: Serial Image Execution
-
-**Depends on:** TaskGroup 4
-**Goal:** implement the reusable image client and the serial generation node with retry, resume, and circuit-breaker behavior.
-
-#### Tasks
-
-1. Implement `image_client.py` as a reusable single-image client.
-2. Implement `nodes/generate_images_serial.py`.
-3. Add content-filter handling and terminal failure recording.
-4. Add resume logic based on existing output files for the same `run_id`.
-5. Add the two-consecutive-429 circuit breaker.
-6. Persist image success and failure rows.
-7. Add unit tests for retry behavior, failure handling, serial ordering, and circuit breaking.
-
-#### Files created or updated
-
-- `ComicBook/comicbook/image_client.py`
-- `ComicBook/comicbook/nodes/generate_images_serial.py`
-- `ComicBook/tests/test_image_client.py`
-- `ComicBook/tests/test_node_generate_images_serial.py`
-
-#### Exit criteria
-
-- image calls are provably serial in tests
-- every request uses `n=1`
-- the node continues after a single prompt failure
-- the node stops remaining API calls after two consecutive retry-exhausted `429` prompt failures
-
-#### Notes for the next group
-
-- Summary/reporting logic must consume `ImageResult` records rather than infer status from the filesystem.
-
-### TaskGroup 6: Graph, CLI, and Reporting
-
-**Depends on:** TaskGroup 5
-**Goal:** assemble the workflow graph, expose the CLI and library entry points, implement reports, summaries, and budget guards.
-
-#### Tasks
-
-1. Implement `nodes/ingest.py` and `nodes/summarize.py`.
-2. Implement `graph.py` wiring with the ordered node sequence from Section 4.
-3. Implement `run.py` CLI parsing and library callable entry point.
-4. Implement `--dry-run`, `--panels`, `--budget-usd`, `--run-id`, and `--redact-prompts` behavior.
-5. Implement run summary persistence and final `runs` status updates.
-6. Implement `runs/<run_id>/report.md` and `logs/<run_id>.summary.json` generation.
-7. Add integration tests for happy path, cache-hit path, resume path, dry-run path, budget overflow, and exact panel counts.
-
-#### Files created or updated
-
-- `ComicBook/comicbook/nodes/ingest.py`
-- `ComicBook/comicbook/nodes/summarize.py`
-- `ComicBook/comicbook/graph.py`
 - `ComicBook/comicbook/run.py`
-- `ComicBook/tests/test_graph_happy.py`
-- `ComicBook/tests/test_graph_cache_hit.py`
-- `ComicBook/tests/test_graph_new_template.py`
-- `ComicBook/tests/test_graph_resume.py`
-- `ComicBook/tests/test_budget_guard.py`
+- `ComicBook/comicbook/input_file.py`
+- `ComicBook/tests/test_input_file_support.py`
 
-#### Exit criteria
+**Exit criteria**
 
-- CLI works for dry-run and normal execution
-- run reports are written to disk
-- budget overflow stops before any image call
-- `--panels N` is enforced end-to-end
+- single-prompt CLI behavior remains backward compatible
+- file mode executes one normal workflow run per record in order
+- file mode never mutates the graph or DB schema
+- batch summary counts and exit codes match the contract in this guide
 
-#### Notes for the next group
+**Handoff notes for TG4**
 
-- The example graph must import reusable modules only; it must not depend on `run.py` or internal CLI behavior.
+- TG4 must treat TG3's runtime surface as the source of truth for docs and sample files
+- if TG3 required any unplanned runtime-contract deviation, document and resolve it before writing user-facing docs
 
-### TaskGroup 7: Reuse Proof and Repo Protections
+### TaskGroup TG4 - Add reference files, docs, and acceptance closeout
 
-**Depends on:** TaskGroup 6
-**Goal:** prove the reusable-module design and protect read-only reference assets.
+**Goal**  
+Ship the operator and maintainer documentation and example files that make the new runtime surface usable.
 
-#### Tasks
+**Dependencies**  
+TG3 complete.
 
-1. Implement `examples/single_portrait_graph.py` using shared modules only.
-2. Add `tests/test_example_single_portrait.py` to prove the alternate graph works.
-3. Add a repo protection hook or CI check that fails when `ComicBook/DoNotChange/` files are modified.
-4. Verify no shared module imports `graph.py` or `run.py`.
-5. Add any missing node-isolation tests required for modularity enforcement.
+**Detailed tasks**
 
-#### Files created or updated
+1. Add `ComicBook/examples/prompts.sample.json` with at least two safe prompts and one explicit `run_id` example.
+2. Add `ComicBook/examples/prompts.sample.csv` with the same supported shape.
+3. Update `ComicBook/README.md` with file-mode examples and the `--run-id` restriction in file mode.
+4. Update `docs/business/Image-prompt-gen-workflow/index.md` in plain language:
+   - what input files are supported
+   - what operators can expect
+   - the no-per-row-overrides limitation
+   - resume expectations when `run_id` is or is not supplied
+5. Update `docs/developer/Image-prompt-gen-workflow/index.md` with module boundaries, parser/runtime responsibilities, and test coverage.
+6. Update `docs/planning/Image-prompt-gen-workflow/index.md` if document descriptions need to reflect the new implementation guide scope or any added docs.
+7. Run the focused and full pytest scopes and record results in the implementation handoff if that handoff is still used for execution tracking.
 
-- `ComicBook/examples/single_portrait_graph.py`
-- `ComicBook/tests/test_example_single_portrait.py`
-- `.pre-commit-config.yaml` or equivalent CI/protection script
+**Expected files or modules**
 
-#### Exit criteria
-
-- alternate graph runs with mocked HTTP
-- reference scripts remain byte-identical
-- all node files have direct tests independent of `graph.py`
-
-#### Notes for the next group
-
-- The final group is release hardening and documentation closeout, not new feature work.
-
-### TaskGroup 8: Final Validation and Documentation Closeout
-
-**Depends on:** TaskGroup 7
-**Goal:** complete readiness checks, document operational use, and verify that all acceptance criteria are satisfied.
-
-#### Tasks
-
-1. Run the full mocked test suite and capture the command and result in implementation notes.
-2. Perform one documented live smoke test behind an explicit opt-in flag.
-3. Verify acceptance criteria from Section 16 one by one.
-4. Create or update README usage instructions.
-5. Update workflow-specific business and developer documentation to match the shipped behavior.
-6. Record any deviations from this implementation guide in a follow-up ADR or change note.
-
-#### Files created or updated
-
+- `ComicBook/examples/prompts.sample.json`
+- `ComicBook/examples/prompts.sample.csv`
 - `ComicBook/README.md`
-- workflow-specific docs under `docs/business/` and `docs/developer/`
-- any release checklist artifacts
+- `docs/business/Image-prompt-gen-workflow/index.md`
+- `docs/developer/Image-prompt-gen-workflow/index.md`
+- `docs/planning/Image-prompt-gen-workflow/index.md`
 
-#### Exit criteria
+**Exit criteria**
 
-- mocked tests pass
-- one live smoke test result is documented
-- docs reflect the implemented behavior
-- no open blocker remains against the v1 acceptance checklist
+- sample files match the actual parser contract
+- operator-facing docs match the actual CLI syntax
+- developer docs explain where parsing ends and workflow execution begins
+- full pytest scope passes
 
----
+**Handoff notes for subsequent work**
 
-## 16. Acceptance Checklist
-
-The implementation is considered complete only when all items below are true.
-
-- `python -m comicbook.run "<prompt>"` produces images under `image_output/<run_id>/`.
-- A `runs` row is written with the correct terminal status.
-- Image generation is observably serial and always uses `n=1`.
-- Re-running the same prompt without `--force` produces cache hits and zero new image API calls.
-- `--dry-run` produces a plan and report without calling the image API.
-- Resuming with the same `--run-id` generates only the missing images.
-- Router schema failures trigger exactly one repair attempt.
-- Router escalation behavior is covered by tests.
-- Every node module has at least one direct unit test that does not import `graph.py`.
-- `examples/single_portrait_graph.py` works without modifying the reusable modules.
-- `ComicBook/DoNotChange/` files are unchanged.
-- Budget guards prevent image generation when the budget would be exceeded.
-- Human-readable and structured summary artifacts are written to disk.
+- no ADR is required if the delivered change stays a CLI-level serial wrapper with no new persistence or graph architecture
+- create or update an ADR only if scope expands into batch persistence, per-record overrides, or graph-level multi-prompt state
 
 ---
 
-## 17. Open Issues That Are Explicitly Deferred
+## 9. Acceptance criteria for this change
 
-Do not expand v1 scope to include the following unless a separate change is approved.
+The implementation is complete when all items below are true.
 
-- `--exclude-templates`
-- multimodal input
-- quality-scoring loop
-- PII detection preprocessor
-- automated image garbage collection
-- parallel image generation
-
----
-
-## 18. Implementation Notes for the Team
-
-### 18.1 Minimality rules
-
-- Keep shared helpers small and reusable.
-- Do not add abstraction layers without a direct reuse reason.
-- Prefer pure helper functions over manager classes where possible.
-- Keep graph topology in `graph.py`; keep domain logic out of it.
-
-### 18.2 Failure-handling rules
-
-- Router/setup failures fail the run.
-- Image failures do not fail the entire run unless the process cannot continue at all.
-- Retry logic belongs in the client layer; continuation logic belongs in the serial generation node.
-
-### 18.3 Auditability rules
-
-- Persist the final validated plan JSON.
-- Persist the router prompt version.
-- Persist enough metadata to explain why a prompt was cached, generated, failed, or skipped.
-
-### 18.4 What not to do
-
-- Do not mutate template rows in place.
-- Do not batch image generation.
-- Do not let nodes talk directly to other nodes.
-- Do not let reusable modules import CLI-only code.
-- Do not modify the `DoNotChange/` scripts.
+1. The CLI accepts exactly one prompt source: positional prompt or `--input-file`.
+2. `run_once(...)` remains a single-prompt API and return shape.
+3. A new parser module validates JSON and CSV files fully before any workflow execution begins.
+4. JSON supports a top-level list of `{user_prompt, optional run_id}` objects only.
+5. CSV supports `user_prompt` and optional `run_id` columns only.
+6. Blank prompts, blank run IDs, duplicates, malformed files, and unsupported fields/columns fail validation before execution.
+7. `--run-id` is rejected in file mode.
+8. File records execute serially in file order.
+9. Every file record produces one normal workflow run with the existing per-run artifacts.
+10. Global flags `--dry-run`, `--force`, `--panels`, `--budget-usd`, and `--redact-prompts` apply uniformly to every record.
+11. File mode prints a batch summary JSON containing at least `input_file`, `total_records`, `succeeded`, `partial`, `dry_run`, `failed`, and `run_ids`.
+12. File mode exits non-zero when any record is `partial` or `failed`, or when the file fails validation.
+13. Sample JSON and CSV files exist under `ComicBook/examples/` and reflect the real parser contract.
+14. Updated business and developer docs explain the new user-visible behavior and maintainer boundaries.
 
 ---
 
-## 19. Handoff Summary
+## 10. ADR and documentation-gate assessment
 
-Implementation should begin with TaskGroup 1 and proceed in order through TaskGroup 8. No team should start a later TaskGroup before the prior TaskGroup exit criteria are met. If a deviation is required during implementation, update this document before proceeding so it remains the single source of execution truth.
+### ADR
+
+No ADR is required for the planned implementation in this guide because the change remains:
+
+- a CLI/runtime input-format extension
+- a serial wrapper around the existing single-prompt workflow
+- compatible with the current per-run persistence, reporting, and resume model
+
+Create an ADR only if scope expands beyond those limits.
+
+### Documentation gate
+
+When the code change described by this guide is implemented, the full documentation triad update is required because the runtime surface becomes user-visible and maintainer-visible.
+
+For this planning-document task itself, the full triad is **not** required yet because this repo change only creates the planning implementation guide and does not itself ship the runtime behavior.
+
+---
+
+## 11. Remaining assumptions and unresolved decisions
+
+These items are assumed for implementation unless new evidence requires a follow-up planning update.
+
+1. The batch wrapper can reuse one managed `Deps` container safely across sequential record runs in a single process.
+2. Existing lock acquisition/finalization behavior remains sufficient when invoked multiple times serially in one process.
+3. The current CLI should keep its single-run JSON output unchanged and only emit the new batch summary shape in file mode.
+4. File-content validation errors can be represented by a new parser-specific exception without changing graph-level error models.
+
+There are no open architectural blockers in the planning material for the narrow v1 input-file-support scope.

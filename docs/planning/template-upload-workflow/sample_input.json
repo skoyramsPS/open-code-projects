@@ -1,0 +1,16 @@
+[
+    {
+        "template_id": "storybook-soft",
+        "name": "Storybook Soft",
+        "style_text": "Soft painterly linework, warm natural lighting, gentle color grading, and subtle texture. Keep forms readable and cinematic, with a whimsical illustrated feel.",
+        "tags": [
+            "storybook",
+            "warm",
+            "painterly"
+        ],
+        "summary": "Soft painterly style with warm lighting and a whimsical storybook feel.",
+        "created_at": "2026-04-23T12:00:00Z",
+        "created_by_run": "seed",
+        "supersedes_id": null
+    }
+]

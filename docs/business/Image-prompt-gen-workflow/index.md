@@ -30,9 +30,10 @@ The repository now contains the reusable foundation for the image prompt generat
 - a reusable single-image Azure client that always sends one prompt per request with `n=1`
 - serial image execution that processes uncached prompts in router order and persists an image result row for each prompt outcome
 - a complete end-to-end workflow graph that runs ingest, template loading, router planning, template persistence, cache lookup, runtime gating, serial generation, and summary finalization in one ordered execution path
-- a CLI and library runtime surface that accepts run IDs, dry-run mode, forced regeneration, exact panel counts, per-run budgets, and prompt redaction
+- a CLI and library runtime surface that accepts either a direct prompt string or a JSON/CSV input file, plus run IDs, dry-run mode, forced regeneration, exact panel counts, per-run budgets, and prompt redaction
 - a runtime guard that estimates remaining image cost, stops generation when a configured per-run or daily budget would be exceeded, and records the failure in the persisted run summary
 - human-readable `runs/<run_id>/report.md` artifacts and structured `logs/<run_id>.summary.json` files for every summarized run, including dry runs and budget-blocked runs
+- sample JSON and CSV prompt files under `ComicBook/examples/` that show the supported batch-input shapes
 - an alternate `examples/single_portrait_graph.py` example that proves the reusable modules can support a different graph shape without depending on the main CLI or workflow-specific graph assembly
 
 TG7 is now complete, the package now includes `ComicBook/README.md` for local usage guidance, and TG8 has started with a fresh full mocked validation run. The remaining work is the explicitly gated live Azure smoke step plus final readiness closeout.
@@ -40,7 +41,7 @@ TG7 is now complete, the package now includes `ComicBook/README.md` for local us
 ## Current validation snapshot
 
 - Full mocked regression command: `uv run --with pytest --with pydantic --with httpx --with langgraph python -m pytest -q`
-- Latest mocked result: `55 passed`
+- Latest mocked result: `70 passed`
 - Acceptance checks now have documented mocked evidence for the CLI surface, serial generation, cache reuse, resume behavior, dry-run reporting, budget guards, router repair/escalation, reusable example graph, and read-only reference-file protection.
 - One live smoke result is still pending because that step requires an explicit opt-in before real Azure traffic is allowed.
 
@@ -48,7 +49,7 @@ TG7 is now complete, the package now includes `ComicBook/README.md` for local us
 
 Operators can now provide:
 
-- a free-form user prompt
+- a free-form user prompt or an input file
 - Azure OpenAI connection settings
 - optional workflow controls such as dry-run, forced regeneration, exact panel count, per-run budget, prompt redaction, and resume identifiers
 
@@ -78,6 +79,9 @@ The workflow now automatically:
 - stop after router planning and cache classification when `--dry-run` is enabled, while still writing the report artifacts
 - pass `--panels N` through to the router as a hard exact-image-count constraint
 - hash prompt text in reports and summaries when `--redact-prompts` is enabled
+- fully validate JSON and CSV prompt files before the first run starts
+- execute input-file records serially in file order, with one normal workflow run per record
+- generate a per-record `run_id` before execution when a JSON record omits one
 - finalize each completed graph run with persisted cache-hit, generated, failed, and skipped counters plus the terminal run status
 - write a shareable markdown report and JSON summary for every summarized run
 
@@ -94,12 +98,14 @@ The workflow now produces:
 From the `ComicBook/` directory, operators can now use the documented local README flow:
 
 - `uv run python -m comicbook.run "<prompt>"` for a normal execution
+- `uv run python -m comicbook.run --input-file examples/prompts.sample.json` to run a JSON batch serially
+- `uv run python -m comicbook.run --input-file examples/prompts.sample.csv --dry-run` to inspect a CSV batch without generating images
 - add `--dry-run` to inspect the router plan, cache classification, and report outputs without generating images
 - add `--panels N` to require an exact image count
 - add `--budget-usd <amount>` to stop before image generation when the estimated cost would exceed the chosen budget
-- add `--run-id <id>` when intentionally resuming or repeating a known run
+- add `--run-id <id>` when intentionally resuming or repeating a known single run
 
-The CLI prints the final `run_id` and `run_status`, while the detailed operator-facing outputs are written to the run-report and summary locations listed above.
+The single-run CLI prints the final `run_id` and `run_status`, while input-file mode prints a batch summary JSON with status counts and the processed `run_ids`. Detailed operator-facing outputs are still written to the per-run report and summary locations listed above.
 
 ## Persistence and operator safety now in place
 
@@ -122,10 +128,12 @@ The CLI prints the final `run_id` and `run_status`, while the detailed operator-
 - Secrets are loaded from environment variables first, then `.env`.
 - The workflow package does not modify the read-only reference scripts under `ComicBook/DoNotChange/`, and the repository now includes a commit-time protection check that rejects edits to those files.
 - The graph orchestration, CLI entry point, dry-run path, budget guards, and report artifacts are now implemented.
+- Input-file mode is intentionally a serial wrapper around the existing single-prompt workflow; it does not create a shared batch report file or a batch database object.
 - The lock policy is intentionally conservative: one active run per SQLite file.
 - The package layout is intentionally reusable so later workflows can share the same contracts.
 - The repository now includes one alternate portrait-only example graph to demonstrate that the shared modules are not locked to a single orchestration entry point.
 - Large template catalogs are filtered lexically only in v1; the workflow does not use semantic retrieval.
+- `--run-id` cannot be combined with `--input-file`; resumable batch behavior depends on stable per-record `run_id` values instead.
 - A live Azure smoke run is not executed automatically; it remains a deliberate, operator-approved validation step outside the default mocked test suite.
 
 ## Plain-language troubleshooting
@@ -137,6 +145,7 @@ If setup fails at this stage, the most likely causes are:
 - a router response that references template IDs outside the allowed subset, which is rejected by the validation layer
 - a router response that fails validation twice, which stops the router stage after the single allowed repair attempt
 - a request that the mini router marks as ambiguous enough to escalate, which triggers one additional router call on the stronger model before later steps continue
+- an input file that fails shape validation before any work starts, which is expected protection against malformed JSON, malformed CSV, blank prompts, duplicate `run_id` values, or unsupported fields and columns
 - an extracted template that matches an existing stored template, which is treated as a safe deduplication hit rather than a hard failure
 - a prompt that was expected to be cached but is still queued for generation, which can happen intentionally when `--force` is enabled or when the only prior image rows were failures
 - an image prompt that Azure content filters, which records a per-image failure and lets the remaining serial work continue
@@ -144,6 +153,7 @@ If setup fails at this stage, the most likely causes are:
 - a resume run that should have reused a finished same-run file, which inserts a generated image row from the existing file and avoids re-calling Azure for that fingerprint
 - a dry run that wrote a report but no images, which is expected behavior when `--dry-run` is enabled
 - a run that stops before image generation because the configured per-run or daily budget would be exceeded
+- an input-file batch that returns a non-zero exit code because one or more records finished `partial` or `failed`, even though later validated records still continued to run
 - a commit attempt that fails immediately because a file under `ComicBook/DoNotChange/` was edited, which is expected repository protection behavior rather than a workflow runtime failure
 
 If the lock belongs to a dead process on the same machine, the runtime can recover it automatically through the persistence layer added in TG2.

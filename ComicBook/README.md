@@ -6,6 +6,7 @@ Local Python workflow for turning a free-form prompt into one or more comic-styl
 
 The shipped workflow currently supports:
 
+- running from either a direct prompt string or a JSON/CSV input file
 - loading stored style templates from SQLite
 - asking a router LLM for a structured generation plan
 - optionally persisting a newly extracted template before prompt rendering
@@ -60,7 +61,7 @@ From `ComicBook/`:
 uv run --with pytest --with pydantic --with httpx --with langgraph python -m pytest -q
 ```
 
-Latest recorded result in TG8 validation work: `55 passed`.
+Latest recorded result in TG8 validation work: `70 passed`.
 
 ## CLI usage
 
@@ -70,14 +71,22 @@ From `ComicBook/`:
 uv run python -m comicbook.run "A four-panel comic where Lord Rama meets a wandering sage at dawn"
 ```
 
+You must provide exactly one prompt source:
+
+- a positional prompt string
+- `--input-file <path>` pointing to a JSON or CSV file
+
 Supported flags:
 
+- `--input-file <path>`: run one workflow invocation per record from a JSON or CSV file
 - `--run-id <id>`: resume or rerun a specific workflow run
 - `--dry-run`: stop after planning, cache lookup, and report generation
 - `--force`: bypass cache-hit reuse for the current run
 - `--panels <1-12>`: require an exact image count from the router
 - `--budget-usd <amount>`: fail before image generation when estimated cost would exceed the run budget
 - `--redact-prompts`: hash prompt text in generated reports and summaries
+
+`--run-id` cannot be combined with `--input-file`. In file mode, each record becomes its own run and gets its own `run_id`.
 
 Example dry run:
 
@@ -89,6 +98,18 @@ uv run python -m comicbook.run \
   --redact-prompts
 ```
 
+Example JSON batch run:
+
+```bash
+uv run python -m comicbook.run --input-file examples/prompts.sample.json
+```
+
+Example CSV batch dry run:
+
+```bash
+uv run python -m comicbook.run --input-file examples/prompts.sample.csv --dry-run
+```
+
 Example resumable run:
 
 ```bash
@@ -97,7 +118,46 @@ uv run python -m comicbook.run \
   --run-id demo-resume-001
 ```
 
-The CLI prints a small JSON payload with the `run_id` and terminal `run_status`.
+The single-run CLI prints a small JSON payload with the `run_id` and terminal `run_status`.
+
+In input-file mode, the CLI prints a batch summary JSON payload with per-status counts and the processed `run_ids`.
+
+### Input-file format
+
+Sample reference files are included at:
+
+- `examples/prompts.sample.json`
+- `examples/prompts.sample.csv`
+
+Supported JSON shape:
+
+```json
+[
+  {
+    "user_prompt": "A cinematic portrait of a forest guardian in moonlight"
+  },
+  {
+    "run_id": "sample-batch-002",
+    "user_prompt": "A three-panel comic of a clockmaker fixing time itself"
+  }
+]
+```
+
+Supported CSV shape:
+
+```csv
+run_id,user_prompt
+sample-batch-001,"A cinematic portrait of a forest guardian in moonlight"
+sample-batch-002,"A three-panel comic of a clockmaker fixing time itself"
+```
+
+File-mode rules:
+
+- records are validated before the first run starts
+- records run serially in file order
+- `--dry-run`, `--force`, `--panels`, `--budget-usd`, and `--redact-prompts` apply to every record in the file
+- if a JSON record omits `run_id`, one is generated automatically before that record runs
+- rerunning a file resumes prior work only for records whose `run_id` values are stable and repeated
 
 ## Library usage
 
@@ -123,6 +183,7 @@ print(state["run_id"], state["run_status"])
 ## Operator notes
 
 - image generation is intentionally serial and each request uses `n=1`
+- input-file execution is intentionally serial; one file record maps to one normal workflow run
 - rerunning the same rendered prompt without `--force` should produce cache hits instead of new image calls
 - `--dry-run` still writes the markdown and JSON artifacts
 - budget guards stop the workflow before any image API call when the estimated cost would exceed the configured limit
