@@ -22,19 +22,76 @@ def test_initialize_is_idempotent_and_enables_wal(db: ComicBookDB) -> None:
     db.initialize()
 
     objects = db.connection.execute(
-        "SELECT type, name FROM sqlite_master WHERE name IN (?, ?, ?, ?, ?) ORDER BY name",
-        ("daily_run_rollup", "images", "prompts", "runs", "templates"),
+        "SELECT type, name FROM sqlite_master WHERE name IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ORDER BY name",
+        (
+            "daily_run_rollup",
+            "images",
+            "import_row_results",
+            "import_runs",
+            "ix_import_row_results_hash_row",
+            "ix_import_row_results_template",
+            "ix_import_runs_status",
+            "prompts",
+            "runs",
+            "templates",
+        ),
     ).fetchall()
     journal_mode = db.connection.execute("PRAGMA journal_mode").fetchone()[0]
 
     assert [(row["type"], row["name"]) for row in objects] == [
         ("view", "daily_run_rollup"),
         ("table", "images"),
+        ("table", "import_row_results"),
+        ("table", "import_runs"),
+        ("index", "ix_import_row_results_hash_row"),
+        ("index", "ix_import_row_results_template"),
+        ("index", "ix_import_runs_status"),
         ("table", "prompts"),
         ("table", "runs"),
         ("table", "templates"),
     ]
     assert journal_mode.lower() == "wal"
+
+
+def test_import_lock_blocks_second_active_import_until_release(db: ComicBookDB) -> None:
+    db.acquire_import_lock(
+        import_run_id="import-run-1",
+        source_file_path="templates.json",
+        source_file_hash="hash-123",
+        started_at="2026-04-23T12:00:00Z",
+        dry_run=False,
+        pid=101,
+        host="host-a",
+        pid_is_alive=lambda pid: True,
+    )
+
+    with pytest.raises(RunLockError):
+        db.acquire_import_lock(
+            import_run_id="import-run-2",
+            source_file_path="templates.json",
+            source_file_hash="hash-456",
+            started_at="2026-04-23T12:01:00Z",
+            dry_run=False,
+            pid=202,
+            host="host-a",
+            pid_is_alive=lambda pid: True,
+        )
+
+    db.release_import_lock("import-run-1")
+
+    acquired = db.acquire_import_lock(
+        import_run_id="import-run-2",
+        source_file_path="templates.json",
+        source_file_hash="hash-456",
+        started_at="2026-04-23T12:01:00Z",
+        dry_run=False,
+        pid=202,
+        host="host-a",
+        pid_is_alive=lambda pid: True,
+    )
+
+    assert acquired.import_run_id == "import-run-2"
+    assert acquired.status == "running"
 
 
 def test_insert_template_deduplicates_and_supports_append_only_lineage(db: ComicBookDB) -> None:
