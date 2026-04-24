@@ -3,7 +3,7 @@
 ## Status
 
 - Workflow delivery status: in progress
-- Current shipped slice: TG4 complete, adding cache-ready prompt persistence and cache partitioning on top of router planning
+- Current shipped slice: TG5 complete, adding serial image execution on top of router planning and cache preparation
 - Last updated: 2026-04-23
 
 ## What exists today
@@ -27,8 +27,10 @@ The repository now contains the reusable foundation for the image prompt generat
 - stable prompt fingerprints that change whenever the rendered text, size, quality, or image model changes
 - persistence of prompt fingerprint rows before image generation starts
 - cache classification that reuses previously generated images unless the operator explicitly forces regeneration
+- a reusable single-image Azure client that always sends one prompt per request with `n=1`
+- serial image execution that processes uncached prompts in router order and persists an image result row for each prompt outcome
 
-This slice still does **not** execute the full workflow end to end, but it now establishes the router-planning stage plus the full cache-preparation stage that later image generation, graph wiring, and reporting logic will rely on.
+This slice still does **not** execute the full workflow end to end, but it now establishes the router-planning stage, the full cache-preparation stage, and the serial image-execution stage that later graph wiring and reporting logic will rely on.
 
 ## Expected operator inputs
 
@@ -54,6 +56,10 @@ The workflow now automatically:
 - treat an already generated image for the same fingerprint as a cache hit by default
 - keep duplicate prompts from the router from turning into duplicate generation work within the same run
 - let `--force` bypass cache hits while still preserving prompt persistence for auditability and resume support
+- retry one-image Azure generation requests on `408`, `429`, and `5xx` responses, up to three total attempts
+- stop retrying immediately when Azure rejects a prompt with a content-filter response
+- resume a partially completed run by skipping the API call when `image_output/<run_id>/<fingerprint>.png` already exists
+- stop the remaining serial loop after two consecutive prompts fully exhaust retries on `429` and mark the rest as skipped for rate-limit protection
 
 ## Expected outputs later in the workflow
 
@@ -73,7 +79,7 @@ Those runtime artifacts are not produced yet in the current implementation slice
 - Prompt fingerprints can now be computed deterministically for later cache and resume behavior.
 - Prompt fingerprint rows are now persisted before generation, even when the prompt is already cached.
 - Only previously generated image rows count as cache hits; failed image rows stay eligible for retry in later slices.
-- Generated image metadata can already be recorded by the persistence layer, even though the serial image node is not implemented yet.
+- Generated image rows are now written for successful generations, resumed same-run file hits, terminal failures, and rate-limit circuit-breaker skips.
 - Only one active workflow run may hold the database lock at a time.
 - If a previous run died on the same host and its PID is no longer alive, the stale lock can be recovered automatically.
 - Daily run rollups are now available from the database for cache-hit and estimated-cost reporting.
@@ -82,7 +88,7 @@ Those runtime artifacts are not produced yet in the current implementation slice
 
 - Secrets are loaded from environment variables first, then `.env`.
 - The workflow package does not modify the read-only reference scripts under `ComicBook/DoNotChange/`.
-- The router stage and cache-preparation helpers are implemented, but later slices still need serial image generation, graph wiring, and reporting artifacts.
+- The router stage, cache-preparation helpers, and serial image execution are implemented, but later slices still need graph wiring, CLI entry points, budget enforcement, and reporting artifacts.
 - The lock policy is intentionally conservative: one active run per SQLite file.
 - The package layout is intentionally reusable so later workflows can share the same contracts.
 - Large template catalogs are filtered lexically only in v1; the workflow does not yet use semantic retrieval.
@@ -98,5 +104,7 @@ If setup fails at this stage, the most likely causes are:
 - a request that the mini router marks as ambiguous enough to escalate, which now triggers one additional router call on the stronger model before later steps continue
 - an extracted template that matches an existing stored template, which is treated as a safe deduplication hit rather than a hard failure
 - a prompt that was expected to be cached but is still queued for generation, which can happen intentionally when `--force` is enabled or when the only prior image rows were failures
+- an image prompt that Azure content filters, which now records a per-image failure and lets the remaining serial work continue
+- repeated `429` responses from Azure, which now trigger a stop after two consecutive prompts fully exhaust their retries so the run does not keep hammering the endpoint
 
 If the lock belongs to a dead process on the same machine, later runtime slices can recover it automatically through the persistence layer added in TG2.

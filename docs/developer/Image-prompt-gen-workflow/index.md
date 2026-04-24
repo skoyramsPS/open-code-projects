@@ -3,12 +3,12 @@
 ## Status
 
 - Workflow delivery status: in progress
-- Current shipped slice: TG4 complete, covering template persistence, deterministic prompt materialization, prompt-row persistence, and cache partitioning
+- Current shipped slice: TG5 complete, covering image-client transport and serial image execution on top of TG4 prompt preparation
 - Last updated: 2026-04-23
 
 ## Scope of this slice
 
-This slice now covers the TG1-TG3 foundation plus the full TG4 cache-preparation boundary that later image-generation work depends on:
+This slice now covers the TG1-TG3 foundation, the full TG4 cache-preparation boundary, and the first complete TG5 serial-image-execution boundary:
 
 - package and artifact directory layout under `ComicBook/`
 - `pyproject.toml` with pinned workflow dependencies, including `langgraph~=`
@@ -23,8 +23,10 @@ This slice now covers the TG1-TG3 foundation plus the full TG4 cache-preparation
 - `comicbook.nodes.persist_template` for writing router-extracted templates before prompt composition and normalizing duplicate-template references onto the canonical stored template ID
 - `comicbook.fingerprint` for deterministic rendered-prompt composition and `sha256` fingerprint calculation
 - `comicbook.nodes.cache_lookup` for prompt materialization, prompt-row persistence, duplicate-fingerprint collapse, and cache-hit classification
+- `comicbook.image_client` for reusable single-image Azure generation with `n=1`, bounded retry behavior, and structured success or terminal-failure metadata
+- `comicbook.nodes.generate_images_serial` for ordered image execution, same-run resume detection, per-image persistence, and the two-consecutive-429 circuit breaker
 
-It intentionally still does **not** add graph wiring, CLI execution, reporting, or image-client behavior yet.
+It intentionally still does **not** add graph wiring, CLI execution, budget guards, or reporting artifacts yet.
 
 ## Module responsibilities
 
@@ -196,6 +198,19 @@ Failure behavior:
 
 - prompt materialization raises a clear `ValueError` if any referenced template ID cannot be resolved to a full stored template row
 
+### `comicbook.image_client`
+
+This module now owns the reusable single-image Azure transport contract required by TG5.
+
+Current behavior:
+
+- builds the deployment-scoped image-generation URL under `/openai/deployments/<image_model>/images/generations`
+- sends exactly one prompt per request with `n=1`
+- writes the decoded `data[0].b64_json` image bytes to the caller-provided output path after creating parent directories
+- retries only on `408`, `429`, and `5xx` responses, with a maximum of three attempts
+- does not retry content-filter rejections or other terminal `4xx` responses
+- returns structured `ImageClientResult` metadata so graph nodes can persist or classify the outcome without parsing transport errors themselves
+
 ### `comicbook.nodes.cache_lookup`
 
 This node completes the TG4 prompt-build stage that feeds later image execution.
@@ -215,11 +230,27 @@ Ordering and duplicate behavior:
 - `rendered_prompts` preserves the router-authored prompt order exactly, including duplicate rendered inputs
 - `cache_hits` and `to_generate` collapse duplicate fingerprints to one ordered work item each so later image generation does not retry the same fingerprint twice in one run
 
+### `comicbook.nodes.generate_images_serial`
+
+This node now completes the TG5 serial execution boundary that turns TG4 prompt work into persisted image outcomes.
+
+Current behavior:
+
+- requires `state["run_id"]`, `state["to_generate"]`, and `state["rendered_prompts_by_fp"]`
+- resolves each queued fingerprint through `rendered_prompts_by_fp` rather than recomputing prompt content
+- builds output paths as `deps.output_dir / run_id / <fingerprint>.png`
+- treats an existing same-run output file as a resumed success and skips the Azure API call for that fingerprint
+- calls `comicbook.image_client.generate_one(...)` strictly serially for remaining prompts, preserving the `to_generate` order exactly
+- persists `images` rows for generated, failed, and `skipped_rate_limit` outcomes
+- appends structured `ImageResult` and `WorkflowError` entries back into state
+- increments `usage.image_calls` by the number of actual Azure request attempts, including retries
+- stops the remaining serial loop after two consecutive retry-exhausted `429` prompt failures and records the rest as `skipped_rate_limit`
+
 ## Local setup
 
 1. Work from `ComicBook/`.
 2. Copy values from `.env.example` into a local `.env` or export them in the shell.
-3. Use `uv run --with pytest --with pydantic python -m pytest -q tests/test_config.py tests/test_db.py tests/test_router_validation.py tests/test_node_load_templates.py tests/test_router_node.py tests/test_fingerprint.py tests/test_node_cache_lookup.py` for the current focused unit-test scope.
+3. Use `uv run --with pytest --with pydantic --with httpx python -m pytest -q tests/test_config.py tests/test_db.py tests/test_router_validation.py tests/test_node_load_templates.py tests/test_router_node.py tests/test_fingerprint.py tests/test_node_cache_lookup.py tests/test_image_client.py tests/test_node_generate_images_serial.py` for the current focused unit-test scope.
 
 ## Tests in this slice
 
@@ -274,9 +305,21 @@ Ordering and duplicate behavior:
 - `force_regenerate=True` bypasses cache hits without rewriting prompt fingerprints
 - failed image rows do not count as cache hits
 
+`ComicBook/tests/test_image_client.py` now verifies:
+
+- the reusable image client retries a retryable `429` response and still writes the final image bytes to disk
+- every request payload pins `n=1` and targets the deployment-scoped image-generation endpoint
+- content-filter failures are treated as terminal and are not retried
+
+`ComicBook/tests/test_node_generate_images_serial.py` now verifies:
+
+- same-run resume behavior skips the API call when the output file already exists and still records a generated image result
+- non-retryable per-image failures do not abort the remaining serial work
+- two consecutive retry-exhausted `429` prompt failures trigger the circuit breaker and mark remaining prompts as `skipped_rate_limit`
+
 ## Extension notes for the next slices
 
-- TG5 should consume the ordered unique prompts already exposed by `state["to_generate"]` and `state["rendered_prompts_by_fp"]` rather than recomputing fingerprints.
+- TG6 should assemble the graph and CLI around the existing node boundaries rather than folding transport or persistence logic back into orchestration files.
 - Later nodes should continue to build on DAO methods only, without embedding raw SQL in nodes.
 - Nodes should consume `Deps` instead of reading global state or environment variables directly.
 - New runtime behavior should continue to add narrow, direct unit tests before broader graph tests.

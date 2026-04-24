@@ -9,7 +9,7 @@
 
 This handoff file tracks execution status for the workflow implementation guide.
 
-The latest implementation sessions completed `TG1 Foundation`, `TG2 Persistence and Locking`, the full `TG3 Router Planning` group across two coherent slices, and the full `TG4 Template Persistence and Cache Partitioning` group across two coherent slices. The repository now contains the initial workflow package, validated config/state/dependency contracts, a reusable SQLite DAO, deterministic template pre-filtering, a reusable Responses API router client, the router node that handles repair and escalation, a persist-template node, deterministic fingerprint helpers, and the cache-lookup node that persists prompt rows and partitions cache hits from generation work.
+The latest implementation sessions completed `TG1 Foundation`, `TG2 Persistence and Locking`, the full `TG3 Router Planning` group across two coherent slices, the full `TG4 Template Persistence and Cache Partitioning` group across two coherent slices, and the full `TG5 Serial Image Execution` group in one cohesive slice. The repository now contains the initial workflow package, validated config/state/dependency contracts, a reusable SQLite DAO, deterministic template pre-filtering, a reusable Responses API router client, the router node that handles repair and escalation, a persist-template node, deterministic fingerprint helpers, the cache-lookup node that persists prompt rows and partitions cache hits from generation work, a reusable one-image Azure client, and the serial image-generation node with resume and rate-limit circuit-breaker handling.
 
 ## TaskGroup progress
 
@@ -19,36 +19,46 @@ The latest implementation sessions completed `TG1 Foundation`, `TG2 Persistence 
 | TG2 | Persistence and Locking | completed | Added `comicbook.db`, WAL/schema initialization, one-run-at-a-time lock handling, persistence CRUD helpers, and DAO tests. |
 | TG3 | Router Planning | completed | Schema/prefilter/template-loading cluster and the router transport/repair/escalation cluster are both complete. |
 | TG4 | Template Persistence and Cache Partitioning | completed | Both coherent TG4 clusters are complete: extracted-template persistence plus deterministic fingerprinting, then prompt-row persistence and cache partitioning. |
-| TG5 | Serial Image Execution | not started | Depends on TG4. |
+| TG5 | Serial Image Execution | completed | Added reusable one-image Azure transport, serial execution node, resume handling, failure persistence, and two-consecutive-429 circuit breaking. |
 | TG6 | Graph, CLI, and Reporting | not started | Depends on TG5. |
 | TG7 | Reuse Proof and Repo Protections | not started | Depends on TG6. |
 | TG8 | Final Validation and Documentation Closeout | not started | Depends on TG7. |
 
 ## Completed in the latest session
 
-- Selected slice: the remaining coherent `TG4 Template Persistence and Cache Partitioning` cache-lookup cluster.
-- Slice chosen because TG4 was already in progress and the remaining work was a single bounded contract boundary: turn canonicalized router plans into persisted prompt rows and ordered cache classification without starting image generation yet.
-- Implemented `ComicBook/comicbook/nodes/cache_lookup.py` to:
-  - require `plan`, `templates`, `run_id`, and `started_at`
-  - resolve canonical template IDs through `deps.db.get_templates_by_ids(...)`
-  - materialize ordered `RenderedPrompt` items by reusing `comicbook.fingerprint.materialize_rendered_prompts(...)`
-  - create prompt rows before generation begins via `deps.db.upsert_prompt_if_absent(...)`
-  - collapse duplicate fingerprints into one ordered work item for `cache_hits` and `to_generate`
-  - classify cache hits only from prior successful generated-image rows, while honoring `force_regenerate`
-- Added `ComicBook/tests/test_node_cache_lookup.py` covering cache-hit partitioning, duplicate-prompt collapse, forced regeneration, and the rule that failed image rows do not count as cache hits.
-- Updated workflow-specific business and developer docs to describe the completed TG4 cache-preparation boundary and the handoff target for TG5 serial image execution.
+- Selected slice: the full coherent `TG5 Serial Image Execution` group.
+- Slice chosen because TG4 was complete and the remaining TG5 work was one bounded runtime boundary: a reusable single-image client plus the serial execution node that consumes `to_generate` and persists per-image outcomes without starting graph assembly.
+- Implemented `ComicBook/comicbook/image_client.py` to:
+  - send deployment-scoped Azure image-generation requests with exactly one prompt per request and `n=1`
+  - retry only on `408`, `429`, and `5xx`, up to three total attempts
+  - stop retrying on content-filter or other terminal `4xx` responses
+  - decode `data[0].b64_json`, create parent directories, and write the image bytes to disk
+  - return structured success or failure metadata that stays independent of LangGraph and SQLite
+- Implemented `ComicBook/comicbook/nodes/generate_images_serial.py` to:
+  - require `run_id`, `to_generate`, and `rendered_prompts_by_fp`
+  - process prompts strictly serially in `to_generate` order
+  - resume same-run work by skipping the API call when `image_output/<run_id>/<fingerprint>.png` already exists
+  - persist `images` rows for generated, failed, and `skipped_rate_limit` outcomes
+  - continue after terminal per-image failures instead of aborting the full run
+  - stop remaining API calls after two consecutive retry-exhausted `429` prompt failures and record the rest as `skipped_rate_limit`
+  - append `ImageResult`, `WorkflowError`, `usage.image_calls`, and `rate_limit_consecutive_failures` updates back into state
+- Added `ComicBook/tests/test_image_client.py` covering `429` retry success, request payload and endpoint shape, and terminal content-filter handling.
+- Added `ComicBook/tests/test_node_generate_images_serial.py` covering same-run resume behavior, non-retryable failure continuation, and the two-consecutive-429 circuit breaker.
+- Updated workflow-specific business and developer docs to describe the completed TG5 execution boundary and the handoff target for TG6 graph, CLI, and reporting work.
 
 ## Verification evidence
 
-- `uv run --with pytest --with pydantic python -m pytest -q tests/test_node_cache_lookup.py` from `ComicBook/` → initial red phase confirmed the missing `comicbook.nodes.cache_lookup` module, then green rerun passed with `3 passed`.
-- `uv run --with pytest --with pydantic python -m pytest -q tests/test_fingerprint.py tests/test_node_cache_lookup.py tests/test_db.py` from `ComicBook/` → `18 passed`.
-- `uv run --with pytest --with pydantic python -m pytest -q` from `ComicBook/` → `34 passed`.
-- This session followed a direct TDD loop: `tests/test_node_cache_lookup.py` was added first, the focused scope was run to confirm the expected missing-module failure, the node was implemented, and then focused plus broader suites were rerun.
+- `uv run --with pytest --with pydantic --with httpx python -m pytest -q tests/test_image_client.py tests/test_node_generate_images_serial.py` from `ComicBook/` → initial red phase confirmed the missing `comicbook.image_client` and `comicbook.nodes.generate_images_serial` modules, then green rerun passed with `5 passed`.
+- `uv run --with pytest --with pydantic --with httpx python -m pytest -q tests/test_db.py tests/test_fingerprint.py tests/test_node_cache_lookup.py tests/test_image_client.py tests/test_node_generate_images_serial.py` from `ComicBook/` → `23 passed`.
+- `uv run --with pytest --with pydantic --with httpx python -m pytest -q` from `ComicBook/` → `39 passed`.
+- This session followed a direct TDD loop: the TG5 unit tests were added first, the focused scope was run to confirm the expected missing-module failure, the client and node were implemented, and then focused plus broader suites were rerun.
 
 ## Files changed in this session
 
-- `ComicBook/comicbook/nodes/cache_lookup.py`
-- `ComicBook/tests/test_node_cache_lookup.py`
+- `ComicBook/comicbook/image_client.py`
+- `ComicBook/comicbook/nodes/generate_images_serial.py`
+- `ComicBook/tests/test_image_client.py`
+- `ComicBook/tests/test_node_generate_images_serial.py`
 - `docs/business/Image-prompt-gen-workflow/index.md`
 - `docs/developer/Image-prompt-gen-workflow/index.md`
 - `docs/planning/Image-prompt-gen-workflow/implementation-handoff.md`
@@ -57,10 +67,10 @@ The latest implementation sessions completed `TG1 Foundation`, `TG2 Persistence 
 
 - Updated the documentation triad for this slice where required:
   - planning execution status in this handoff file
-  - business-facing cache-preparation, force behavior, and prompt-persistence notes in `docs/business/Image-prompt-gen-workflow/index.md`
-  - developer-facing cache-lookup node contracts, duplicate-fingerprint handling, and updated test guidance in `docs/developer/Image-prompt-gen-workflow/index.md`
+  - business-facing serial-generation, resume, retry, and rate-limit notes in `docs/business/Image-prompt-gen-workflow/index.md`
+  - developer-facing image-client and serial-node contracts plus updated test guidance in `docs/developer/Image-prompt-gen-workflow/index.md`
 - Index files did not need changes in this session because no new documentation files or slugs were added.
-- No ADR was added in this session because this slice implemented the already-approved TG4 template-persistence and fingerprint behavior from the planning and implementation docs rather than introducing a new architectural tradeoff.
+- No ADR was added in this session because this slice implemented the already-approved TG5 serial execution and rate-limit behavior from the planning and implementation docs rather than introducing a new architectural tradeoff.
 
 ## Blockers or open questions
 
@@ -70,18 +80,20 @@ The latest implementation sessions completed `TG1 Foundation`, `TG2 Persistence 
 
 ## Next recommended slice
 
-- Eligible TaskGroup: `TG5 Serial Image Execution`
-- Recommended slice: start the first TG5 serial image execution cluster.
+- Eligible TaskGroup: `TG6 Graph, CLI, and Reporting`
+- Recommended slice: start the first TG6 graph-and-entrypoint cluster.
 - Recommended cluster:
-  - `ComicBook/comicbook/image_client.py`
-  - `ComicBook/comicbook/nodes/generate_images_serial.py`
-  - `ComicBook/tests/test_image_client.py`
-  - `ComicBook/tests/test_node_generate_images_serial.py`
-- Rationale: TG4 is complete, so the next smallest coherent slice is the reusable single-image client plus the serial generation node that consumes `to_generate` in order, persists image results, and honors resume behavior without yet doing graph or CLI wiring.
+  - `ComicBook/comicbook/nodes/ingest.py`
+  - `ComicBook/comicbook/nodes/summarize.py`
+  - `ComicBook/comicbook/graph.py`
+  - `ComicBook/tests/test_graph_happy.py`
+  - `ComicBook/tests/test_graph_cache_hit.py`
+  - `ComicBook/tests/test_graph_resume.py`
+- Rationale: TG5 is complete, so the next smallest coherent slice is to wire the already-implemented reusable modules into a minimal end-to-end graph with ingest and summary boundaries before adding the CLI/report surface area.
 - Boundaries for the next slice:
-  - consume `state["to_generate"]` and `state["rendered_prompts_by_fp"]` from TG4 rather than recomputing fingerprints
-  - keep image generation strictly serial with one in-flight request at a time and `n=1`
-  - add retry, content-filter, and same-run resume handling without starting graph assembly or summary/reporting nodes yet
+  - keep the existing node contracts intact and compose them rather than moving behavior into `graph.py`
+  - make the graph honor the already-implemented serial node outputs instead of inferring status from the filesystem
+  - delay CLI parsing, report rendering, and budget enforcement until after the graph-level happy, cache-hit, and resume paths are proven
   - continue using DAO methods only from nodes; do not introduce raw SQL outside `comicbook.db`
 
 ## Session log
@@ -101,3 +113,5 @@ The latest implementation sessions completed `TG1 Foundation`, `TG2 Persistence 
 - Verified the new focused TG4 test scope, a persistence-coupled focused scope, and the full current suite after the prompt-materialization implementation.
 - Completed the second TG4 cluster with prompt-row persistence, duplicate-fingerprint collapse, ordered cache-hit partitioning, and cache-lookup node tests.
 - Verified the focused cache-lookup scope, a TG4-plus-database focused scope, and the full current suite after the cache partitioning implementation.
+- Completed the full TG5 Serial Image Execution group with the reusable one-image Azure client, ordered serial image node, same-run resume behavior, terminal failure persistence, and the two-consecutive-429 circuit breaker.
+- Verified the focused TG5 scope, a TG4-plus-TG5 regression scope, and the full current suite after the serial execution implementation.
