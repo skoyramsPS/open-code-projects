@@ -12,6 +12,8 @@ Also create or update a sibling `implementation-handoff.md` next to the implemen
 Required actions:
 
 1. Inspect the source planning document, the local documentation structure, and any related workflow docs before writing.
+   - read-only source-code inspection is pre-approved when needed to keep the implementation guide technically accurate.
+   - safe git read/get inspection commands are pre-approved.
 2. Produce a self-sufficient technical implementation document for the delivery team that can be used without cross-referencing the planning doc during implementation.
 3. Resolve planning ambiguities or contradictions explicitly inside the implementation document instead of leaving them implied.
 4. Convert the planned work into isolated implementation tasks grouped into ordered `TaskGroup`s.
@@ -23,6 +25,12 @@ Required actions:
 10. Summarize what was created or updated and call out any remaining assumptions or unresolved decisions.
 11. Stop after the implementation guide, index updates, and handoff updates are complete. Do not edit application code, tests, runtime docs, or examples as part of this command.
 12. End with a direct handoff asking the user whether to proceed with `/implement-next <implementation-doc> [handoff-doc]`.
+
+Permission notes for this command:
+
+- reading repository files (including source code) is pre-approved
+- writing/editing markdown files under `docs/planning/` is pre-approved
+- do not edit runtime code or tests as part of `/implementation-doc`
 
 Output expectations:
 

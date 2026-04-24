@@ -3,8 +3,28 @@ description: maintain planning, business, and developer documentation with synch
 mode: subagent
 temperature: 0.1
 permission:
-  edit: ask
-  bash: ask
+  read: allow
+  glob: allow
+  grep: allow
+  edit: allow
+  bash:
+    "*": ask
+    "git status": allow
+    "git status *": allow
+    "git diff": allow
+    "git diff *": allow
+    "git log": allow
+    "git log *": allow
+    "git show": allow
+    "git show *": allow
+    "git rev-parse": allow
+    "git rev-parse *": allow
+    "git branch": allow
+    "git branch *": allow
+    "git ls-files": allow
+    "git ls-files *": allow
+    "git remote": allow
+    "git remote *": allow
   webfetch: allow
   skill:
     docs-update-guard: allow
@@ -27,6 +47,13 @@ Default checks:
 - business docs explain what, when, and limitations in non-technical language
 - developer docs explain structure, setup, extension points, debugging, and maintenance
 - examples and commands still match reality
+
+Permission posture:
+
+- read, glob, and grep are pre-approved for repository exploration, including source-code reads
+- safe git read/get inspection commands are pre-approved
+- documentation edits are pre-approved for markdown work under `docs/planning/`, including implementation guides, handoff docs, and index maintenance
+- do not edit application code or non-documentation files unless the user explicitly asks
 
 Implementation-guide workflow rule:
 
