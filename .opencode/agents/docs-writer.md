@@ -28,4 +28,11 @@ Default checks:
 - developer docs explain structure, setup, extension points, debugging, and maintenance
 - examples and commands still match reality
 
+Implementation-guide workflow rule:
+
+- when the task is to create or update an implementation guide, also create or update a sibling `implementation-handoff.md`
+- seed the handoff from the current repository state, not just the plan
+- end the handoff with an explicit permission checkpoint that asks the user to approve `/implement-next` before implementation begins
+- stop after the documentation and handoff work; do not begin implementation unless the user explicitly asks
+
 If a change is not significant enough to require the full docs gate, say that explicitly.

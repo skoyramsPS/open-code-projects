@@ -12,6 +12,8 @@ Instead of taking on an entire implementation document in one pass, it advances 
 
 Use this workflow when a planning folder already contains an `implementation.md` file and the team wants OpenCode to start building against that document.
 
+Use `/implementation-doc` first when the planning folder only has a design or plan doc and still needs a standalone implementation guide plus a seeded handoff.
+
 Typical use:
 
 - the plan is approved
@@ -27,6 +29,12 @@ Each implementation run should:
 - build and test the selected slice
 - update any required docs
 - update the handoff file in the same planning folder
+
+When the workflow is used correctly, the guide-creation step and the build step are separate:
+
+- `/implementation-doc` creates the implementation guide and handoff, then stops
+- the handoff asks the user for permission before `/implement-next` starts coding
+- `/implement-next` completes one slice and then asks again before any further slice continues
 
 ## Approval expectations
 
@@ -50,6 +58,7 @@ It tells the next run:
 - what changed in docs
 - what is still blocked
 - what should be implemented next
+- whether the user has approved the next implementation step yet
 
 This makes the workflow safer to pause and resume without relying on memory.
 

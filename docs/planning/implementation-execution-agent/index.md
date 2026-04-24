@@ -10,6 +10,7 @@ The agent is designed to do real build work, not just restate plans. Each run sh
 
 ## Goals
 
+- create implementation guides and stop with a resumable handoff before any coding starts
 - execute implementation guides directly from `docs/planning/.../implementation.md`
 - keep each run scoped to one coherent git-commit-sized slice
 - default to the next unfinished TaskGroup, but split it when a full TaskGroup would be too large for one session
@@ -56,9 +57,16 @@ Two new skills were added because the current repo did not already define reusab
 
 ### Invocation path
 
+`/implementation-doc <planning-doc> [implementation-doc]`
+
 `/implement-next <implementation-doc> [handoff-doc]`
 
-The command defaults the handoff path to `implementation-handoff.md` beside the implementation guide.
+Expected two-step flow:
+
+1. `/implementation-doc` writes the implementation guide, seeds `implementation-handoff.md`, and stops with a permission request.
+2. `/implement-next` executes one commit-sized slice only after the user explicitly approves moving from planning into implementation.
+
+Both commands default the handoff path to `implementation-handoff.md` beside the implementation guide.
 
 ## Permission model
 
@@ -100,6 +108,7 @@ The handoff document records:
 - documentation updates
 - blockers and open questions
 - the next recommended slice
+- the explicit user-permission checkpoint before additional implementation continues
 
 The implementation guide remains the source of truth for intended order and technical contracts. The handoff doc becomes the source of truth for current implementation status.
 

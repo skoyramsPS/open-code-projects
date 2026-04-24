@@ -18,5 +18,6 @@ Required actions:
 7. Creating, editing, modifying, and moving files or folders within the selected slice are pre-approved when they directly follow the implementation guide.
 8. Ask before installing packages or modules, before any delete operation, and before any copy operation.
 9. Run relevant tests, fix issues within the selected slice, and keep the change set clean.
-10. Update the handoff doc with status, changed files, verification evidence, blockers, and the next recommended slice.
+10. Update the handoff doc with status, changed files, verification evidence, blockers, the next recommended slice, and an explicit permission checkpoint for any additional implementation beyond the current slice.
 11. Summarize what was completed and what remains.
+12. Stop after the selected slice and ask the user whether to proceed with another `/implement-next` run if more work remains.

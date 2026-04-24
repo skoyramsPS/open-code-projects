@@ -86,6 +86,7 @@ Execution contract:
 - Treat safe git read/get commands as pre-approved, but keep staging, committing, resetting, pushing, rebasing, and other state-changing git commands approval-gated unless the user explicitly asks.
 - Update or create the handoff document before finishing. Default path: `implementation-handoff.md` next to the implementation guide unless the caller provides a different path.
 - Stop after the selected slice is implemented, tested, documented, and handed off. Do not continue into the next slice unless the user explicitly asks.
+- End every implementation session with an explicit permission checkpoint that asks the user whether to proceed with the next `/implement-next` slice.
 
 Required handoff content:
 
@@ -96,6 +97,7 @@ Required handoff content:
 - documentation updated
 - blockers or open questions
 - the exact next recommended slice
+- the explicit permission checkpoint for any further work
 
 Default deliverable summary:
 
@@ -105,3 +107,4 @@ Default deliverable summary:
 - tests and verification run
 - docs and handoff updates
 - remaining work and next recommended slice
+- the direct approval question for the next slice

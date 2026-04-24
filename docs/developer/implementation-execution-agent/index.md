@@ -4,6 +4,7 @@ Developer documentation for the repository's implementation execution workflow.
 
 ## Files added for this workflow
 
+- `.opencode/commands/implementation-doc.md`
 - `.opencode/agents/implementation-agent.md`
 - `.opencode/commands/implement-next.md`
 - `.opencode/skills/implementation-slice-guard/SKILL.md`
@@ -13,14 +14,23 @@ Developer documentation for the repository's implementation execution workflow.
 
 Use:
 
-`/implement-next <implementation-doc> [handoff-doc]`
+- `/implementation-doc <planning-doc> [implementation-doc]`
+- `/implement-next <implementation-doc> [handoff-doc]`
 
 Examples:
 
+- `/implementation-doc docs/planning/Image-prompt-gen-workflow/input-file-support-design.md`
 - `/implement-next docs/planning/Image-prompt-gen-workflow/implementation.md`
 - `/implement-next docs/planning/Image-prompt-gen-workflow/implementation.md docs/planning/Image-prompt-gen-workflow/implementation-handoff.md`
 
 If no handoff path is provided, the workflow uses `implementation-handoff.md` beside the implementation guide.
+
+Expected control flow:
+
+1. `/implementation-doc` creates the execution guide and seeds the handoff file.
+2. `/implementation-doc` stops and asks the user whether to proceed.
+3. `/implement-next` executes one slice only after that explicit approval.
+4. `/implement-next` updates the handoff and asks again before any later slice.
 
 ## Execution model
 
@@ -85,6 +95,7 @@ Minimum required content:
 - docs updated
 - blockers or open questions
 - next recommended slice
+- explicit permission checkpoint before additional implementation proceeds
 - append-only session log
 
 Recommended status values:
