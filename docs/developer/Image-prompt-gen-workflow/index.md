@@ -3,12 +3,12 @@
 ## Status
 
 - Workflow delivery status: in progress
-- Current shipped slice: first TG7 reuse-proof slice complete, adding a reusable execution helper plus an alternate single-portrait graph example on top of the completed TG6 runtime surface
+- Current shipped slice: TG8 mocked-validation and documentation closeout slice in progress after TG7 completion
 - Last updated: 2026-04-23
 
 ## Scope of this slice
 
-This slice now covers the TG1-TG6 implementation plus the first TG7 reuse-proof boundary:
+This slice now covers the shipped TG1-TG7 implementation plus the first TG8 closeout cluster:
 
 - package and artifact directory layout under `ComicBook/`
 - `pyproject.toml` with pinned workflow dependencies, including `langgraph~=`
@@ -32,8 +32,9 @@ This slice now covers the TG1-TG6 implementation plus the first TG7 reuse-proof 
 - `comicbook.graph` for the ordered LangGraph assembly plus the current library entry point for the full workflow runtime
 - `examples.single_portrait_graph` for an alternate one-image graph that reuses shared modules without importing `comicbook.graph` or `comicbook.run`
 - `.pre-commit-config.yaml` plus `ComicBook/scripts/check_do_not_change.py` for the repo-local hook that runs the protection check through `uv`
+- `ComicBook/README.md` for package-local setup, CLI usage, output locations, and operator guidance
 
-TG7 is now complete. Remaining work is limited to TG8 final validation, live-smoke evidence, README usage guidance, and documentation closeout.
+TG7 is now complete. TG8 has started with the full mocked validation rerun, acceptance-evidence mapping, and README usage guidance. Remaining work is limited to the explicitly opt-in live-smoke evidence and final readiness sign-off.
 
 ## Module responsibilities
 
@@ -345,6 +346,31 @@ Current behavior:
 1. Work from `ComicBook/`.
 2. Copy values from `.env.example` into a local `.env` or export them in the shell.
 3. Use `uv run --with pytest --with pydantic --with httpx --with langgraph python -m pytest -q` for the current full mocked suite, or narrow the path list during TDD.
+4. See `ComicBook/README.md` for the documented CLI, library, artifact-location, and operator-usage examples.
+
+## TG8 validation status
+
+Latest recorded mocked regression evidence:
+
+- command: `uv run --with pytest --with pydantic --with httpx --with langgraph python -m pytest -q`
+- result: `55 passed`
+
+Acceptance-check evidence currently mapped:
+
+- CLI entry point and runtime flags: `tests/test_budget_guard.py`, `comicbook/run.py`
+- serial image execution with `n=1`: `tests/test_image_client.py`, `tests/test_node_generate_images_serial.py`
+- cache-hit reuse without new image calls: `tests/test_graph_cache_hit.py`
+- dry-run reporting without image generation: `tests/test_budget_guard.py`
+- same-run resume behavior: `tests/test_graph_resume.py`
+- router repair and escalation: `tests/test_router_node.py`, `tests/test_router_validation.py`
+- direct node coverage independent of `graph.py`: per-node test files under `ComicBook/tests/`
+- reusable alternate graph proof: `tests/test_example_single_portrait.py`
+- read-only reference-file protection: `tests/test_repo_protection.py`
+- report and summary artifacts: `tests/test_graph_new_template.py`, `tests/test_budget_guard.py`, `comicbook/nodes/summarize.py`
+
+Remaining TG8 validation gap:
+
+- one documented live Azure smoke run still needs explicit opt-in before it can be executed and recorded
 
 ## Tests in this slice
 
@@ -451,6 +477,11 @@ Current behavior:
 - clean repositories pass the protection check without false positives
 - unstaged edits under `ComicBook/DoNotChange/` make the CLI protection check fail
 - staged edits under `ComicBook/DoNotChange/` are also detected so the pre-commit hook blocks those commits
+
+`ComicBook/tests/test_node_ingest_summarize.py` now verifies:
+
+- `comicbook.nodes.ingest` can normalize runtime defaults directly, without going through `graph.py`
+- `comicbook.nodes.summarize` can write artifacts and finalize the persisted run record directly, without going through `graph.py`
 
 ## Extension notes for the next slices
 

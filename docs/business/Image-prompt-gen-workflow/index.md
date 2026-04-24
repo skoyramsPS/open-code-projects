@@ -3,7 +3,7 @@
 ## Status
 
 - Workflow delivery status: in progress
-- Current shipped slice: first TG7 reuse-proof slice complete, adding an alternate single-portrait example graph on top of the shipped TG6 runtime surface
+- Current shipped slice: TG8 documentation-and-validation closeout slice in progress after TG7 completion
 - Last updated: 2026-04-23
 
 ## What exists today
@@ -35,7 +35,14 @@ The repository now contains the reusable foundation for the image prompt generat
 - human-readable `runs/<run_id>/report.md` artifacts and structured `logs/<run_id>.summary.json` files for every summarized run, including dry runs and budget-blocked runs
 - an alternate `examples/single_portrait_graph.py` example that proves the reusable modules can support a different graph shape without depending on the main CLI or workflow-specific graph assembly
 
-This slice now completes the first TG7 reuse-proof step. The remaining work can move on to repository protections and final validation.
+TG7 is now complete, the package now includes `ComicBook/README.md` for local usage guidance, and TG8 has started with a fresh full mocked validation run. The remaining work is the explicitly gated live Azure smoke step plus final readiness closeout.
+
+## Current validation snapshot
+
+- Full mocked regression command: `uv run --with pytest --with pydantic --with httpx --with langgraph python -m pytest -q`
+- Latest mocked result: `55 passed`
+- Acceptance checks now have documented mocked evidence for the CLI surface, serial generation, cache reuse, resume behavior, dry-run reporting, budget guards, router repair/escalation, reusable example graph, and read-only reference-file protection.
+- One live smoke result is still pending because that step requires an explicit opt-in before real Azure traffic is allowed.
 
 ## Expected operator inputs
 
@@ -82,6 +89,18 @@ The workflow now produces:
 - human-readable run reports under `runs/<run_id>/report.md`
 - structured summaries under `logs/<run_id>.summary.json`
 
+## How to run it
+
+From the `ComicBook/` directory, operators can now use the documented local README flow:
+
+- `uv run python -m comicbook.run "<prompt>"` for a normal execution
+- add `--dry-run` to inspect the router plan, cache classification, and report outputs without generating images
+- add `--panels N` to require an exact image count
+- add `--budget-usd <amount>` to stop before image generation when the estimated cost would exceed the chosen budget
+- add `--run-id <id>` when intentionally resuming or repeating a known run
+
+The CLI prints the final `run_id` and `run_status`, while the detailed operator-facing outputs are written to the run-report and summary locations listed above.
+
 ## Persistence and operator safety now in place
 
 - Workflow data is stored in a local SQLite database file.
@@ -107,6 +126,7 @@ The workflow now produces:
 - The package layout is intentionally reusable so later workflows can share the same contracts.
 - The repository now includes one alternate portrait-only example graph to demonstrate that the shared modules are not locked to a single orchestration entry point.
 - Large template catalogs are filtered lexically only in v1; the workflow does not use semantic retrieval.
+- A live Azure smoke run is not executed automatically; it remains a deliberate, operator-approved validation step outside the default mocked test suite.
 
 ## Plain-language troubleshooting
 
