@@ -16,9 +16,9 @@ from .support import make_image_response
 from .support import make_router_response
 
 
-def load_legacy_example_module() -> ModuleType:
+def load_moved_example_module() -> ModuleType:
     repo_root = Path(__file__).resolve().parents[3]
-    module_path = repo_root / "ComicBook" / "examples" / "single_portrait_graph.py"
+    module_path = repo_root / "workflows" / "examples" / "single_portrait_graph.py"
     spec = importlib.util.spec_from_file_location("tg2_example_single_portrait", module_path)
     assert spec is not None
     assert spec.loader is not None
@@ -27,8 +27,8 @@ def load_legacy_example_module() -> ModuleType:
     return module
 
 
-def test_legacy_single_portrait_example_runs_from_target_tree_root(tmp_path: Path, db: ComicBookDB) -> None:
-    example_module = load_legacy_example_module()
+def test_moved_single_portrait_example_runs_from_target_tree_root(tmp_path: Path, db: ComicBookDB) -> None:
+    example_module = load_moved_example_module()
 
     router_transport = FakeRouterTransport(
         responses=[make_router_response("Hero portrait in dramatic rim light.")]

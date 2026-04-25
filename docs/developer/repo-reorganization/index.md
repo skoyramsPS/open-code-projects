@@ -105,8 +105,8 @@ The logging module now supports and tests:
 
 ### Bounded example-continuity coverage
 
-- added `workflows/tests/image_prompt_gen/test_example_single_portrait.py` as target-root coverage for the still-legacy `ComicBook/examples/single_portrait_graph.py` example module
-- the relocated target-tree test loads the legacy example file by path, runs it with the target-root compatibility surface, and confirms the example still works while `examples/` has not moved yet
+- added `workflows/tests/image_prompt_gen/test_example_single_portrait.py` as target-root coverage for `workflows/examples/single_portrait_graph.py`
+- the target-tree test now loads the moved example file by path, runs it with the target-root compatibility surface, and confirms the example still works from the new asset location
 - the same test file also asserts that `pipelines/shared/` modules do not import workflow graph/run entry modules directly
 - the old legacy `ComicBook/tests/test_example_single_portrait.py` regression file still remains for now because cleanup and deletion are deferred to later TG2 work
 
@@ -161,6 +161,13 @@ The logging module now supports and tests:
 - converted the matching `ComicBook/comicbook/nodes/upload_*.py` files into legacy compatibility aliases to the moved target-tree modules
 - updated `pipelines.workflows.template_upload.graph` so every template-upload node now imports from the target-tree workflow package directly
 - expanded `workflows/tests/shared/test_compat_state_and_nodes.py` so it now proves the target-tree `comicbook.nodes.upload_*` wrappers resolve to the moved target-tree module objects
+
+### TG2 adjacent-asset move
+
+- moved `ComicBook/examples/` to `workflows/examples/` with `git mv` so git history is preserved for the shared example assets
+- moved `ComicBook/DoNotChange/` to `workflows/DoNotChange/` with `git mv` so the protected reference scripts now live under the target repository root
+- updated `pipelines.shared.repo_protection`, the target-tree repo-protection tests, and the moved example continuity test to use the new asset locations
+- kept `ComicBook/scripts/check_do_not_change.py` as the temporary legacy entry point, but updated docs and hook labeling so the protection surface now refers to `workflows/DoNotChange/`
 
 ### Bounded template-upload preflight node coverage
 

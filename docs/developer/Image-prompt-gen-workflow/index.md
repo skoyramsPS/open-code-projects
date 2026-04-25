@@ -29,7 +29,7 @@ This slice now covers the shipped TG1-TG7 implementation plus the first TG8 clos
 - `comicbook.nodes.summarize` for deriving final counters, run status, and persisted `runs`-table finalization
 - `comicbook.execution` for reusable node binding, run-state preparation, lock acquisition, and crash finalization helpers that multiple graph entry points can share
 - `comicbook.input_file` for strict JSON/CSV prompt-file parsing, validation, duplicate detection, and record normalization ahead of batch execution
-- `comicbook.repo_protection` for git-backed detection of protected reference-file edits under `ComicBook/DoNotChange/`
+- `comicbook.repo_protection` for git-backed detection of protected reference-file edits under `workflows/DoNotChange/`
 - `comicbook.graph` for the ordered LangGraph assembly plus the current library entry point for the full workflow runtime
 - `examples.single_portrait_graph` for an alternate one-image graph that reuses shared modules without importing `comicbook.graph` or `comicbook.run`
 - `.pre-commit-config.yaml` plus `ComicBook/scripts/check_do_not_change.py` for the repo-local hook that runs the protection check through `uv`
@@ -507,8 +507,8 @@ Remaining TG8 validation gap:
 `ComicBook/tests/test_repo_protection.py` now verifies:
 
 - clean repositories pass the protection check without false positives
-- unstaged edits under `ComicBook/DoNotChange/` make the CLI protection check fail
-- staged edits under `ComicBook/DoNotChange/` are also detected so the pre-commit hook blocks those commits
+- unstaged edits under `workflows/DoNotChange/` make the CLI protection check fail
+- staged edits under `workflows/DoNotChange/` are also detected so the pre-commit hook blocks those commits
 
 `ComicBook/tests/test_node_ingest_summarize.py` now verifies:
 

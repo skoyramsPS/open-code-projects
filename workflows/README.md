@@ -15,8 +15,8 @@ The repository is in the middle of a reorganization away from the legacy
 - `workflows/comicbook/` has started as the temporary explicit compatibility
   package for legacy imports while the rest of TG2 is still in progress.
 - the legacy `ComicBook/scripts/check_do_not_change.py` entry point still works
-  through the migrated `repo_protection` wrapper chain, while the protected path
-  remains `ComicBook/DoNotChange` until that asset moves later in TG2.
+  through the migrated `repo_protection` wrapper chain, and the protected asset
+  path is now `workflows/DoNotChange`.
 - prompt fingerprinting helpers now also resolve from the target tree through
   `pipelines/shared/fingerprint.py`, with a temporary fallback to the legacy
   state model until TG3 moves state ownership.
@@ -91,8 +91,8 @@ The repository is in the middle of a reorganization away from the legacy
   contract that still fronts the legacy mixed state module until TG3.
 - bounded example continuity coverage is now also in place under
   `workflows/tests/image_prompt_gen/test_example_single_portrait.py`, proving
-  the legacy single-portrait example still runs from the target root through the
-  temporary compatibility layer while `ComicBook/examples/` has not moved yet.
+  the single-portrait example now runs from `workflows/examples/` through the
+  target-root compatibility layer.
 - bounded fingerprint regression expansion is now also in place under
   `workflows/tests/shared/test_fingerprint.py`, covering additional prompt-hash
   drift and prompt-order invariants from the target root.

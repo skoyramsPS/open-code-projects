@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-DEFAULT_PROTECTED_PATHS: tuple[str, ...] = ("ComicBook/DoNotChange",)
+DEFAULT_PROTECTED_PATHS: tuple[str, ...] = ("workflows/DoNotChange",)
 
 
 def resolve_repo_root(start_path: Path) -> Path:

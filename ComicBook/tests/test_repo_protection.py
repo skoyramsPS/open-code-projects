@@ -33,7 +33,7 @@ def temp_repo(tmp_path: Path) -> Path:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
 
-    protected_file = repo_root / "ComicBook" / "DoNotChange" / "hello_azure_openai.py"
+    protected_file = repo_root / "workflows" / "DoNotChange" / "hello_azure_openai.py"
     protected_file.parent.mkdir(parents=True, exist_ok=True)
     protected_file.write_text("print('hello')\n", encoding="utf-8")
 
@@ -50,7 +50,7 @@ def test_collect_modified_protected_paths_returns_empty_for_clean_repo(temp_repo
 
 
 def test_repo_protection_cli_fails_when_protected_file_changes(temp_repo: Path) -> None:
-    protected_file = temp_repo / "ComicBook" / "DoNotChange" / "hello_azure_openai.py"
+    protected_file = temp_repo / "workflows" / "DoNotChange" / "hello_azure_openai.py"
     protected_file.write_text("print('changed')\n", encoding="utf-8")
 
     script_path = Path(__file__).resolve().parents[1] / "scripts" / "check_do_not_change.py"
@@ -62,14 +62,14 @@ def test_repo_protection_cli_fails_when_protected_file_changes(temp_repo: Path) 
     )
 
     assert result.returncode == 1
-    assert "ComicBook/DoNotChange/hello_azure_openai.py" in result.stderr
+    assert "workflows/DoNotChange/hello_azure_openai.py" in result.stderr
 
 
 def test_collect_modified_protected_paths_detects_staged_changes(temp_repo: Path) -> None:
     from comicbook.repo_protection import collect_modified_protected_paths
 
-    protected_file = temp_repo / "ComicBook" / "DoNotChange" / "hello_azure_openai.py"
+    protected_file = temp_repo / "workflows" / "DoNotChange" / "hello_azure_openai.py"
     protected_file.write_text("print('staged change')\n", encoding="utf-8")
-    run_git(temp_repo, "add", "ComicBook/DoNotChange/hello_azure_openai.py")
+    run_git(temp_repo, "add", "workflows/DoNotChange/hello_azure_openai.py")
 
-    assert collect_modified_protected_paths(temp_repo) == ["ComicBook/DoNotChange/hello_azure_openai.py"]
+    assert collect_modified_protected_paths(temp_repo) == ["workflows/DoNotChange/hello_azure_openai.py"]

@@ -28,7 +28,13 @@ Additional migration slices have landed so far.
 
 - the repo-protection helper now lives under `workflows/pipelines/shared/repo_protection.py`
 - the target tree now also exposes `workflows/comicbook/repo_protection.py` so migrated code and temporary legacy imports share one implementation
-- the legacy `ComicBook/scripts/check_do_not_change.py` script path still works, and the protected path remains `ComicBook/DoNotChange` until that asset moves later in TG2
+- the legacy `ComicBook/scripts/check_do_not_change.py` script path still works, and it now protects `workflows/DoNotChange`
+
+### TG2 adjacent-asset move
+
+- the shared example assets now live under `workflows/examples/`
+- the read-only reference scripts now live under `workflows/DoNotChange/`
+- operator-facing example and protection paths now point at the new `workflows/` root while the legacy script entry point continues to work during the shim window
 
 ### TG2 fingerprint move
 

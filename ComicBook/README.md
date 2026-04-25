@@ -188,7 +188,7 @@ print(state["run_id"], state["run_status"])
 - rerunning the same rendered prompt without `--force` should produce cache hits instead of new image calls
 - `--dry-run` still writes the markdown and JSON artifacts
 - budget guards stop the workflow before any image API call when the estimated cost would exceed the configured limit
-- the repository includes a protection check for `ComicBook/DoNotChange/`; do not edit those reference scripts
+- the repository includes a protection check for `workflows/DoNotChange/`; do not edit those reference scripts
 
 ## Live smoke testing
 

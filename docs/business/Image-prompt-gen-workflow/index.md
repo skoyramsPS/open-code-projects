@@ -33,7 +33,7 @@ The repository now contains the reusable foundation for the image prompt generat
 - a CLI and library runtime surface that accepts either a direct prompt string or a JSON/CSV input file, plus run IDs, dry-run mode, forced regeneration, exact panel counts, per-run budgets, and prompt redaction
 - a runtime guard that estimates remaining image cost, stops generation when a configured per-run or daily budget would be exceeded, and records the failure in the persisted run summary
 - human-readable `runs/<run_id>/report.md` artifacts and structured `logs/<run_id>.summary.json` files for every summarized run, including dry runs and budget-blocked runs
-- sample JSON and CSV prompt files under `ComicBook/examples/` that show the supported batch-input shapes
+- sample JSON and CSV prompt files under `workflows/examples/` that show the supported batch-input shapes
 - an alternate `examples/single_portrait_graph.py` example that proves the reusable modules can support a different graph shape without depending on the main CLI or workflow-specific graph assembly
 
 TG7 is now complete, the package now includes `ComicBook/README.md` for local usage guidance, and TG8 has started with a fresh full mocked validation run. The remaining work is the explicitly gated live Azure smoke step plus final readiness closeout.
@@ -126,7 +126,7 @@ The single-run CLI prints the final `run_id` and `run_status`, while input-file 
 ## Guardrails and limitations
 
 - Secrets are loaded from environment variables first, then `.env`.
-- The workflow package does not modify the read-only reference scripts under `ComicBook/DoNotChange/`, and the repository now includes a commit-time protection check that rejects edits to those files.
+- The workflow package does not modify the read-only reference scripts under `workflows/DoNotChange/`, and the repository now includes a commit-time protection check that rejects edits to those files.
 - The graph orchestration, CLI entry point, dry-run path, budget guards, and report artifacts are now implemented.
 - Input-file mode is intentionally a serial wrapper around the existing single-prompt workflow; it does not create a shared batch report file or a batch database object.
 - The lock policy is intentionally conservative: one active run per SQLite file.
@@ -154,6 +154,6 @@ If setup fails at this stage, the most likely causes are:
 - a dry run that wrote a report but no images, which is expected behavior when `--dry-run` is enabled
 - a run that stops before image generation because the configured per-run or daily budget would be exceeded
 - an input-file batch that returns a non-zero exit code because one or more records finished `partial` or `failed`, even though later validated records still continued to run
-- a commit attempt that fails immediately because a file under `ComicBook/DoNotChange/` was edited, which is expected repository protection behavior rather than a workflow runtime failure
+- a commit attempt that fails immediately because a file under `workflows/DoNotChange/` was edited, which is expected repository protection behavior rather than a workflow runtime failure
 
 If the lock belongs to a dead process on the same machine, the runtime can recover it automatically through the persistence layer added in TG2.

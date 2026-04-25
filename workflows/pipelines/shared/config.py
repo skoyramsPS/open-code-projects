@@ -1,7 +1,7 @@
 """Workflow configuration loading.
 
 This module intentionally copies the lightweight `.env` parsing pattern from
-`ComicBook/DoNotChange/hello_azure_openai.py` instead of importing it. The
+`workflows/DoNotChange/hello_azure_openai.py` instead of importing it. The
 reference scripts are read-only, and the implementation guide requires the new
 workflow package to own its reusable runtime helpers directly.
 """
