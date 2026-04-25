@@ -33,4 +33,5 @@ Implementation is in progress.
 - TG2 now also provides explicit `workflows/comicbook/state.py` and `workflows/comicbook/nodes/` wrappers so the moved graph layer no longer depends on the old `ComicBook/comicbook` package-path fallback.
 - TG2 has now begun bounded test relocation into `workflows/tests/`, starting with target-tree image graph scenario regressions under `workflows/tests/image_prompt_gen/test_graph_scenarios.py`.
 - TG2 now also includes bounded target-tree relocation of the non-node image helper tests under `workflows/tests/image_prompt_gen/test_input_file_support.py`, `test_router_validation.py`, and `test_image_client.py`.
+- TG2 now also includes bounded target-tree relocation of template-upload graph and CLI regression tests under `workflows/tests/template_upload/test_graph_scenarios.py` and `test_run_cli.py`.
 - The broader TG2 test-move, asset-move, and remaining compatibility-cleanup work are still pending.

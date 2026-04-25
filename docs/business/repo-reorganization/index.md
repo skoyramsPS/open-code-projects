@@ -4,7 +4,7 @@ Plain-language status and operator-facing notes for the repository move into the
 
 ## What changed so far
 
-Fourteen migration slices have landed so far.
+Fifteen migration slices have landed so far.
 
 ### TG1 foundation
 
@@ -92,6 +92,12 @@ Fourteen migration slices have landed so far.
 - the new tests live under `workflows/tests/image_prompt_gen/` and run from the target root against `pipelines.workflows.image_prompt_gen.*`
 - the old legacy helper-test files still remain for now, so this slice improves migration coverage without yet removing the legacy test entry points
 
+### TG2 bounded template-upload test relocation move
+
+- target-tree relocation now also covers the already-moved template-upload graph and CLI/run layers under `workflows/tests/template_upload/`
+- the new tests exercise the moved `pipelines.workflows.template_upload.graph` and `pipelines.workflows.template_upload.run` modules directly from the target root
+- the old legacy template-upload regression files still remain for now, so this slice improves migration coverage without yet removing legacy test entry points
+
 ## What has not changed yet
 
 TG2 has not finished moving the live runtime into `workflows/`.
@@ -114,7 +120,7 @@ TG1 establishes that shared contract first so later migration steps can adopt it
 ## Current rollout status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation + bounded template-upload-test-relocation slices complete)
 - TG3-TG5: not started
 
 ## Related documents

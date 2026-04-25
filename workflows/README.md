@@ -78,6 +78,9 @@ The repository is in the middle of a reorganization away from the legacy
 - bounded image-workflow helper-test relocation is now also in place under
   `workflows/tests/image_prompt_gen/`, including target-root coverage for
   input-file parsing, router validation, and the image client adapter.
+- bounded template-upload test relocation is now also in place under
+  `workflows/tests/template_upload/`, including target-root coverage for upload
+  graph scenarios and upload CLI/run behavior.
 - The live runtime code still mostly lives under `ComicBook/comicbook/`; most of
   the runtime and many legacy tests are still waiting to move.
 
