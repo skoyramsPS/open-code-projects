@@ -5,10 +5,10 @@ Developer notes for the phased migration from `ComicBook/comicbook/` to `workflo
 ## Current implementation status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation + bounded template-upload-test-relocation + bounded image budget-guard test-relocation + bounded shared config/state-contract test-relocation + bounded example-continuity test + bounded fingerprint-regression expansion + bounded node-wrapper continuity + bounded template-upload preflight node + bounded template-upload backfill node + bounded template-upload persist node slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation + bounded template-upload-test-relocation + bounded image budget-guard test-relocation + bounded shared config/state-contract test-relocation + bounded example-continuity test + bounded fingerprint-regression expansion + bounded node-wrapper continuity + bounded image-node continuity expansion + first actual image-node moves + bounded template-upload preflight node + bounded template-upload backfill node + bounded template-upload persist node slices complete)
 - TG3-TG5: not started
 
-TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, and now multiple bounded batches of relocated image/template-upload tests into `workflows/` while preserving legacy import behavior through compatibility aliases.
+TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, multiple bounded batches of relocated image/template-upload tests, and now the first real image-node modules into `workflows/` while preserving legacy import behavior through compatibility aliases.
 
 ## TG1 deliverables
 
@@ -122,6 +122,45 @@ The logging module now supports and tests:
 - the new target-tree tests exercise still-legacy node implementations through the target-root compatibility layer rather than through the old package-root fallback
 - this slice intentionally stays bounded to wrapper continuity for two nodes and does not start broader node-test relocation yet
 - the old legacy `ComicBook/tests/test_node_ingest_summarize.py` regression file still remains for now because cleanup and deletion are deferred to later TG2 work
+
+### Bounded image-node continuity expansion
+
+- added `workflows/tests/image_prompt_gen/test_node_load_templates.py`, `test_node_cache_lookup.py`, and `test_node_router.py` as target-root coverage for the explicit `comicbook.nodes.load_templates`, `comicbook.nodes.cache_lookup`, and `comicbook.nodes.router` wrappers
+- the new target-tree tests exercise those image node implementations through the target-root compatibility layer before and after the source-of-truth move into the `pipelines` package
+- the matching legacy regression files under `ComicBook/tests/` still remain for now because cleanup and deletion are deferred to later TG2 work
+
+### First actual image-node moves
+
+- created `workflows/pipelines/workflows/image_prompt_gen/nodes/` and moved `load_templates.py`, `cache_lookup.py`, and `router.py` into that package as the new source-of-truth image nodes
+- converted `ComicBook/comicbook/nodes/load_templates.py`, `cache_lookup.py`, and `router.py` into legacy compatibility aliases to the moved target-tree modules
+- kept `workflows/comicbook/nodes/*.py` compatibility aliases working unchanged because they already resolve through the legacy module path, which now aliases to the moved target-tree module object
+- updated `pipelines.workflows.image_prompt_gen.graph` to import the moved target-tree `load_templates`, `cache_lookup`, and `router` nodes directly while the remaining image nodes continue through compatibility aliases until later TG2 slices
+
+### Bounded image generation-node continuity coverage
+
+- added `workflows/tests/image_prompt_gen/test_node_generate_images_serial.py` as target-root coverage for the explicit `comicbook.nodes.generate_images_serial` wrapper
+- the new target-tree tests exercise resume handling, non-retryable failure continuation, and rate-limit circuit-breaker behavior through the target-root compatibility layer before and after the source-of-truth move
+- the matching legacy regression file under `ComicBook/tests/` still remains for now because cleanup and deletion are deferred to later TG2 work
+
+### Second actual image-node move
+
+- moved `generate_images_serial.py` into `workflows/pipelines/workflows/image_prompt_gen/nodes/` as another source-of-truth image node
+- converted `ComicBook/comicbook/nodes/generate_images_serial.py` into a legacy compatibility alias to the moved target-tree module
+- updated `pipelines.workflows.image_prompt_gen.graph` to import the moved target-tree `generate_images_serial` node directly
+- expanded `workflows/tests/shared/test_compat_state_and_nodes.py` so it now proves the `comicbook.nodes.generate_images_serial` wrapper resolves to the moved target-tree module object
+
+### Completed image-node move
+
+- moved `ingest.py`, `persist_template.py`, and `summarize.py` into `workflows/pipelines/workflows/image_prompt_gen/nodes/`
+- converted the matching `ComicBook/comicbook/nodes/*.py` files into legacy compatibility aliases to the moved target-tree modules
+- updated `pipelines.workflows.image_prompt_gen.graph` so every image-workflow node now imports from the target-tree workflow package directly
+
+### Completed template-upload node move
+
+- created `workflows/pipelines/workflows/template_upload/nodes/` and moved all template-upload nodes into that package while intentionally keeping the `upload_*` filenames/functions for TG2 per the guide
+- converted the matching `ComicBook/comicbook/nodes/upload_*.py` files into legacy compatibility aliases to the moved target-tree modules
+- updated `pipelines.workflows.template_upload.graph` so every template-upload node now imports from the target-tree workflow package directly
+- expanded `workflows/tests/shared/test_compat_state_and_nodes.py` so it now proves the target-tree `comicbook.nodes.upload_*` wrappers resolve to the moved target-tree module objects
 
 ### Bounded template-upload preflight node coverage
 

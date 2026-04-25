@@ -1,69 +1,15 @@
-"""Skip rows that already completed successfully in a prior import run."""
+"""Legacy compatibility alias for :mod:`pipelines.workflows.template_upload.nodes.upload_resume_filter`."""
 
 from __future__ import annotations
 
-from typing import Any
+import sys
+from pathlib import Path
 
-from comicbook.deps import Deps
-from comicbook.state import ImportRunState, TemplateImportRow, TemplateImportRowResult
+WORKFLOWS_ROOT = Path(__file__).resolve().parents[3] / "workflows"
 
-_TERMINAL_SUCCESS_STATUSES = {"inserted", "updated", "skipped_duplicate"}
+if str(WORKFLOWS_ROOT) not in sys.path:
+    sys.path.insert(0, str(WORKFLOWS_ROOT))
 
+from pipelines.workflows.template_upload.nodes import upload_resume_filter as _upload_resume_filter_module
 
-def _field(record: object, name: str) -> object:
-    if isinstance(record, dict):
-        return record.get(name)
-    return getattr(record, name)
-
-
-def _with_retry_count(row: TemplateImportRow, retry_count: int) -> TemplateImportRow:
-    updated = dict(row)
-    updated["retry_count"] = retry_count
-    return updated
-
-
-def upload_resume_filter(state: ImportRunState, deps: Deps) -> dict[str, Any]:
-    """Build the current run's worklist using prior terminal results for the same file hash."""
-
-    source_file_hash = state.get("source_file_hash")
-    if not source_file_hash:
-        raise ValueError("upload_resume_filter requires state['source_file_hash']")
-
-    parsed_rows = list(state.get("parsed_rows") or [])
-    existing_row_results = list(state.get("row_results") or [])
-    prior_results = deps.db.get_terminal_row_results_by_hash(source_file_hash)
-    prior_by_row_index = {int(_field(result, "row_index")): result for result in prior_results}
-
-    rows_to_process: list[int] = []
-    rows_skipped_by_resume: list[int] = []
-    updated_rows: list[TemplateImportRow] = []
-    new_row_results: list[TemplateImportRowResult] = []
-
-    for row in parsed_rows:
-        row_index = int(row["row_index"])
-        prior = prior_by_row_index.get(row_index)
-        retry_count = int(_field(prior, "retry_count")) if prior is not None else 0
-        updated_rows.append(_with_retry_count(row, retry_count))
-
-        if prior is not None and _field(prior, "status") in _TERMINAL_SUCCESS_STATUSES:
-            rows_skipped_by_resume.append(row_index)
-            new_row_results.append(
-                {
-                    "row_index": row_index,
-                    "template_id": row.get("template_id"),
-                    "status": "skipped_resume",
-                    "reason": "resume_success",
-                }
-            )
-        else:
-            rows_to_process.append(row_index)
-
-    return {
-        "parsed_rows": updated_rows,
-        "rows_to_process": rows_to_process,
-        "rows_skipped_by_resume": rows_skipped_by_resume,
-        "row_results": existing_row_results + new_row_results,
-    }
-
-
-__all__ = ["upload_resume_filter"]
+sys.modules[__name__] = _upload_resume_filter_module

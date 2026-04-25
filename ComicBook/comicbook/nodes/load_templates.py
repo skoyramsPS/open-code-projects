@@ -1,27 +1,15 @@
-"""Load template summaries and apply deterministic router pre-filtering."""
+"""Legacy compatibility alias for :mod:`pipelines.workflows.image_prompt_gen.nodes.load_templates`."""
 
 from __future__ import annotations
 
-from comicbook.deps import Deps
-from comicbook.router_prompts import select_templates_for_router
-from comicbook.state import RunState
+import sys
+from pathlib import Path
 
+WORKFLOWS_ROOT = Path(__file__).resolve().parents[3] / "workflows"
 
-def load_templates(state: RunState, deps: Deps) -> dict[str, object]:
-    """Load the full template catalog and the router-visible subset."""
+if str(WORKFLOWS_ROOT) not in sys.path:
+    sys.path.insert(0, str(WORKFLOWS_ROOT))
 
-    user_prompt = state.get("user_prompt")
-    if not user_prompt:
-        raise ValueError("load_templates requires state['user_prompt']")
+from pipelines.workflows.image_prompt_gen.nodes import load_templates as _load_templates_module
 
-    templates = deps.db.list_template_summaries()
-    templates_sent_to_router = select_templates_for_router(user_prompt=user_prompt, templates=templates)
-
-    return {
-        "templates": templates,
-        "template_catalog_size": len(templates),
-        "templates_sent_to_router": templates_sent_to_router,
-    }
-
-
-__all__ = ["load_templates"]
+sys.modules[__name__] = _load_templates_module

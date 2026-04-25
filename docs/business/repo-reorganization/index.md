@@ -4,7 +4,7 @@ Plain-language status and operator-facing notes for the repository move into the
 
 ## What changed so far
 
-Twenty-three migration slices have landed so far.
+Additional migration slices have landed so far.
 
 ### TG1 foundation
 
@@ -128,6 +128,36 @@ Twenty-three migration slices have landed so far.
 - the new tests live under `workflows/tests/image_prompt_gen/test_node_ingest_summarize.py` and verify runtime-default ingestion plus redacted-summary artifact generation through the wrapper layer
 - the old legacy `ComicBook/tests/test_node_ingest_summarize.py` regression file still remains for now, so this slice improves migration confidence without yet removing the legacy test entry point
 
+### TG2 bounded image-node continuity expansion
+
+- target-tree coverage now also proves the explicit `comicbook.nodes` wrapper surface works from `workflows/` for the image `load_templates`, `cache_lookup`, and `router` nodes
+- the new tests live under `workflows/tests/image_prompt_gen/test_node_load_templates.py`, `test_node_cache_lookup.py`, and `test_node_router.py`
+- the matching legacy regression files still remain for now, so these slices improve migration confidence without yet removing the legacy test entry points
+
+### TG2 first actual image-node moves
+
+- the real implementations for `load_templates`, `cache_lookup`, and `router` now live under `workflows/pipelines/workflows/image_prompt_gen/nodes/`
+- both `ComicBook/comicbook/nodes/` and `workflows/comicbook/nodes/` continue to expose compatibility aliases, so operator-facing commands and legacy imports are unchanged
+- the moved image graph now imports those target-tree node modules directly while the remaining image and upload nodes continue through the compatibility layer
+
+### TG2 bounded image generation-node continuity move
+
+- target-tree coverage now also proves the explicit `comicbook.nodes.generate_images_serial` wrapper surface works from `workflows/`
+- the new tests live under `workflows/tests/image_prompt_gen/test_node_generate_images_serial.py`
+- the matching legacy regression file still remains for now, so this slice improves migration confidence without yet removing the legacy test entry point
+
+### TG2 second actual image-node move
+
+- the real implementation for `generate_images_serial` now also lives under `workflows/pipelines/workflows/image_prompt_gen/nodes/`
+- both `ComicBook/comicbook/nodes/` and `workflows/comicbook/nodes/` still expose compatibility aliases, so operator-facing behavior remains unchanged
+- the moved image graph now imports `generate_images_serial` from the target-tree workflow package directly, further shrinking the still-legacy image runtime surface
+
+### TG2 completed image-node move
+
+- the remaining image nodes `ingest`, `persist_template`, and `summarize` now also live under `workflows/pipelines/workflows/image_prompt_gen/nodes/`
+- both compatibility layers still preserve legacy imports, so operator-facing commands remain unchanged
+- the image workflow graph now imports its full node set from the target-tree workflow package directly
+
 ### TG2 bounded template-upload preflight node move
 
 - target-tree coverage now also proves the explicit `comicbook.nodes.upload_*` wrapper surface works from `workflows/` for the still-legacy upload preflight nodes
@@ -146,13 +176,19 @@ Twenty-three migration slices have landed so far.
 - the new tests live under `workflows/tests/template_upload/test_node_persist.py` and verify inserted, updated, skipped-duplicate, failed-validation, and unresolved-supersedes persistence outcomes through the wrapper layer
 - the old legacy `ComicBook/tests/test_upload_persist.py` regression file still remains for now, so this slice improves migration confidence without yet removing the legacy test entry point
 
+### TG2 completed template-upload node move
+
+- the preflight upload nodes plus `upload_backfill_metadata`, `upload_persist`, and `upload_summarize` now all live under `workflows/pipelines/workflows/template_upload/nodes/`
+- both `ComicBook/comicbook/nodes/` and `workflows/comicbook/nodes/` still expose compatibility aliases, so operator-facing commands remain unchanged
+- the template-upload graph now imports its full node set from the target-tree workflow package directly
+
 ## What has not changed yet
 
 TG2 has not finished moving the live runtime into `workflows/`.
 
-- most of the active runtime still lives under `ComicBook/comicbook/`, even though the CLI entry points, graph modules, image-workflow helper modules, and target-tree state/node wrappers now live under `workflows/`
+- most of the active runtime still lives under `ComicBook/comicbook/`, even though the CLI entry points, graph modules, image-workflow helper modules, both workflows' node modules, and target-tree state/node wrappers now live under `workflows/`
 - existing workflow commands and runtime paths are unchanged for operators
-- workflow nodes and state ownership are still pending later TG2 and TG3 work
+- workflow state ownership is still pending TG3 work, but both workflows' node implementations now live in the target-tree workflow packages
 - only part of the temporary `comicbook` compatibility surface exists so far (`config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, `runtime_deps`, `state`, `nodes/*`, `input_file`, `router_prompts`, `metadata_prompts`, `router_llm`, `image_client`, `run`, `upload_run`, `graph`, and `upload_graph`, plus the package-root `upload_templates` re-export); test relocation and other cleanup work are still pending
 - only part of the legacy test surface has been re-homed so far; broader test relocation and cleanup are still pending
 
@@ -168,7 +204,7 @@ TG1 establishes that shared contract first so later migration steps can adopt it
 ## Current rollout status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation + bounded template-upload-test-relocation + bounded image budget-guard test-relocation + bounded shared config/state-contract test-relocation + bounded example-continuity test + bounded fingerprint-regression expansion + bounded node-wrapper continuity + bounded template-upload preflight node + bounded template-upload backfill node + bounded template-upload persist node slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation + bounded template-upload-test-relocation + bounded image budget-guard test-relocation + bounded shared config/state-contract test-relocation + bounded example-continuity test + bounded fingerprint-regression expansion + bounded node-wrapper continuity + bounded image-node continuity expansion + first actual image-node moves + bounded template-upload preflight node + bounded template-upload backfill node + bounded template-upload persist node slices complete)
 - TG3-TG5: not started
 
 ## Related documents

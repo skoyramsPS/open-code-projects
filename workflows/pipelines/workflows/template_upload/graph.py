@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
-from comicbook.nodes.upload_backfill_metadata import upload_backfill_metadata
-from comicbook.nodes.upload_decide_write_mode import upload_decide_write_mode
-from comicbook.nodes.upload_load_file import upload_load_file
-from comicbook.nodes.upload_parse_and_validate import upload_parse_and_validate
-from comicbook.nodes.upload_persist import upload_persist
-from comicbook.nodes.upload_resume_filter import upload_resume_filter
-from comicbook.nodes.upload_summarize import upload_summarize
 from comicbook.state import ImportRunState
 
 from pipelines.shared.deps import Deps
 from pipelines.shared.execution import bind_node
+from pipelines.workflows.template_upload.nodes.upload_backfill_metadata import upload_backfill_metadata
+from pipelines.workflows.template_upload.nodes.upload_decide_write_mode import upload_decide_write_mode
+from pipelines.workflows.template_upload.nodes.upload_load_file import upload_load_file
+from pipelines.workflows.template_upload.nodes.upload_parse_and_validate import upload_parse_and_validate
+from pipelines.workflows.template_upload.nodes.upload_persist import upload_persist
+from pipelines.workflows.template_upload.nodes.upload_resume_filter import upload_resume_filter
+from pipelines.workflows.template_upload.nodes.upload_summarize import upload_summarize
 
 
 def _prepare_deferred_retry(state: ImportRunState, _deps: Deps) -> dict[str, object]:
