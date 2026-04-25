@@ -29,31 +29,49 @@ The repository is in the middle of a reorganization away from the legacy
   dependencies cleanly.
 - managed runtime dependency construction now also resolves from the target tree
   through `pipelines/shared/runtime_deps.py`, uses the shared logger factory,
-  and temporarily falls back to the legacy `ComicBook/comicbook/pricing.json`
-  asset until the workflow-specific pricing file moves later in TG2.
+  and now resolves the default pricing asset from
+  `pipelines/workflows/image_prompt_gen/pricing.json` while keeping the legacy
+  `ComicBook/comicbook/pricing.json` path only as a temporary fallback guard.
 - the workflow CLI entry points now live under
   `pipelines/workflows/image_prompt_gen/run.py` and
   `pipelines/workflows/template_upload/run.py`.
 - the workflow graph modules now also live under
   `pipelines/workflows/image_prompt_gen/graph.py` and
   `pipelines/workflows/template_upload/graph.py`.
+- the image workflow helper modules and pricing asset now also live under
+  `pipelines/workflows/image_prompt_gen/`, including `input_file.py`,
+  `prompts/router_prompts.py`, `prompts/metadata_prompts.py`,
+  `adapters/router_llm.py`, `adapters/image_client.py`, and `pricing.json`.
 - both `workflows/comicbook/` and `ComicBook/comicbook/` now expose `run` and
   `upload_run` as compatibility aliases to those moved modules, so old imports
   and monkeypatch-based tests still point at the same module objects.
 - both `workflows/comicbook/` and `ComicBook/comicbook/` now also expose
   `graph` and `upload_graph` as compatibility aliases to the moved graph
   modules.
+- both `workflows/comicbook/` and `ComicBook/comicbook/` now also expose
+  `input_file`, `router_prompts`, `metadata_prompts`, `router_llm`, and
+  `image_client` as compatibility aliases to the moved image-workflow helper
+  modules.
+- `workflows/comicbook/state.py` now provides the explicit target-tree
+  compatibility wrapper for the still-legacy combined state module.
+- `workflows/comicbook/nodes/` now provides explicit target-tree compatibility
+  wrappers for the still-legacy node modules used by the moved graph layer.
 - those moved entry points now emit structured `log_event(...)` records directly
   for run lifecycle, batch lifecycle, import lifecycle, and CLI error cases.
 - the moved entry points now call the moved target-tree graph modules directly
   instead of routing back through the legacy graph modules.
+- the moved image workflow entry point now imports its input-file helpers
+  directly from `pipelines.workflows.image_prompt_gen.input_file`.
 - `workflows/comicbook/__init__.py` now preserves the legacy package-root
-  `upload_templates` re-export and extends the compatibility package path to the
-  still-legacy `ComicBook/comicbook/` tree so unmoved workflow-local modules can
-  still resolve during TG2.
-- `workflows/comicbook/input_file.py` now keeps the moved image run module
-  importable from the target tree without moving input-file parsing ownership
-  yet.
+  `upload_templates` re-export without relying on the old compatibility-package
+  path fallback.
+- `workflows/comicbook/input_file.py` now aliases the moved target-tree input
+  file helper, and the matching `router_prompts`, `metadata_prompts`,
+  `router_llm`, and `image_client` compatibility aliases now keep the moved
+  helper modules importable from both roots.
+- the moved graph layer now reaches `comicbook.state` and `comicbook.nodes.*`
+  through explicit target-tree wrappers instead of through the old
+  `ComicBook/comicbook` package-path fallback.
 - The live runtime code still mostly lives under `ComicBook/comicbook/`; most of
   the runtime and tests are still waiting to move.
 

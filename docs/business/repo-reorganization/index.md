@@ -4,7 +4,7 @@ Plain-language status and operator-facing notes for the repository move into the
 
 ## What changed so far
 
-Ten migration slices have landed so far.
+Twelve migration slices have landed so far.
 
 ### TG1 foundation
 
@@ -68,14 +68,26 @@ Ten migration slices have landed so far.
 - both `workflows/comicbook/` and `ComicBook/comicbook/` now expose `graph` and `upload_graph` as compatibility aliases to those moved modules, so existing imports and monkeypatch-style test behavior still work
 - the moved entry points now call the moved target-tree graph modules directly, while still relying on temporary legacy-module fallback for nodes, prompts, adapters, and state that have not moved yet
 
+### TG2 image-helper-module move
+
+- the image-workflow helper modules now live under `workflows/pipelines/workflows/image_prompt_gen/`, including input-file parsing, router prompt/schema helpers, metadata-backfill prompt/schema helpers, router transport helpers, and the image client adapter
+- the default pricing asset now also lives under `workflows/pipelines/workflows/image_prompt_gen/pricing.json`
+- both `workflows/comicbook/` and `ComicBook/comicbook/` now expose `input_file`, `router_prompts`, `metadata_prompts`, `router_llm`, and `image_client` as compatibility aliases to the moved modules, so existing imports and monkeypatch-based tests still behave the same way
+
+### TG2 state-and-node wrapper move
+
+- the target-tree compatibility package now includes explicit `comicbook.state` and `comicbook.nodes.*` wrappers for the still-legacy state module and node modules used by the moved graph layer
+- the moved graph layer no longer relies on the old `ComicBook/comicbook` package-path fallback inside `workflows/comicbook/__init__.py`
+- operator commands are still unchanged, but the target-tree compatibility surface is now more explicit and less dependent on import-path magic
+
 ## What has not changed yet
 
 TG2 has not finished moving the live runtime into `workflows/`.
 
-- most of the active runtime still lives under `ComicBook/comicbook/`, even though the CLI entry points and graph modules now live under `workflows/pipelines/workflows/`
+- most of the active runtime still lives under `ComicBook/comicbook/`, even though the CLI entry points, graph modules, image-workflow helper modules, and target-tree state/node wrappers now live under `workflows/`
 - existing workflow commands and runtime paths are unchanged for operators
-- workflow nodes, prompts, adapters, pricing assets, and state ownership are still pending later TG2 and TG3 work
-- only part of the temporary `comicbook` compatibility surface exists so far (`config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, `runtime_deps`, `input_file`, `run`, `upload_run`, `graph`, and `upload_graph`, plus the package-root `upload_templates` re-export and compatibility-package path fallback); many legacy import paths are still pending migration
+- workflow nodes and state ownership are still pending later TG2 and TG3 work
+- only part of the temporary `comicbook` compatibility surface exists so far (`config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, `runtime_deps`, `state`, `nodes/*`, `input_file`, `router_prompts`, `metadata_prompts`, `router_llm`, `image_client`, `run`, `upload_run`, `graph`, and `upload_graph`, plus the package-root `upload_templates` re-export); test relocation and other cleanup work are still pending
 
 That means the migration has updated project metadata and configuration guidance,
 but it has not rolled the runtime itself over to the new package tree yet.
@@ -89,7 +101,7 @@ TG1 establishes that shared contract first so later migration steps can adopt it
 ## Current rollout status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper slices complete)
 - TG3-TG5: not started
 
 ## Related documents

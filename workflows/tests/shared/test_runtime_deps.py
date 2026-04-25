@@ -57,10 +57,13 @@ def test_load_pricing_reads_explicit_path(tmp_path: Path) -> None:
 
 
 def test_load_pricing_uses_repo_default_when_no_override_is_provided() -> None:
-    from pipelines.shared.runtime_deps import load_pricing
+    from pipelines.shared.runtime_deps import _default_pricing_path, load_pricing
 
     pricing = load_pricing()
 
+    assert _default_pricing_path().as_posix().endswith(
+        "workflows/pipelines/workflows/image_prompt_gen/pricing.json"
+    )
     assert pricing == {"router_models": {}, "image_models": {}}
 
 

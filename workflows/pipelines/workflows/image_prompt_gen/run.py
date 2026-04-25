@@ -8,11 +8,10 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from comicbook.input_file import InputFileValidationError, InputPromptRecord, load_input_records
-
 from pipelines.shared.deps import Deps
 from pipelines.shared.logging import get_logger, log_event
 from pipelines.shared.runtime_deps import close_managed_runtime_deps, resolve_runtime_deps
+from pipelines.workflows.image_prompt_gen.input_file import InputFileValidationError, InputPromptRecord, load_input_records
 
 LOGGER = get_logger(__name__)
 WORKFLOW = "image_prompt_gen"
