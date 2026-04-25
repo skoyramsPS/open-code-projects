@@ -34,14 +34,23 @@ The repository is in the middle of a reorganization away from the legacy
 - the workflow CLI entry points now live under
   `pipelines/workflows/image_prompt_gen/run.py` and
   `pipelines/workflows/template_upload/run.py`.
+- the workflow graph modules now also live under
+  `pipelines/workflows/image_prompt_gen/graph.py` and
+  `pipelines/workflows/template_upload/graph.py`.
 - both `workflows/comicbook/` and `ComicBook/comicbook/` now expose `run` and
   `upload_run` as compatibility aliases to those moved modules, so old imports
   and monkeypatch-based tests still point at the same module objects.
+- both `workflows/comicbook/` and `ComicBook/comicbook/` now also expose
+  `graph` and `upload_graph` as compatibility aliases to the moved graph
+  modules.
 - those moved entry points now emit structured `log_event(...)` records directly
   for run lifecycle, batch lifecycle, import lifecycle, and CLI error cases.
+- the moved entry points now call the moved target-tree graph modules directly
+  instead of routing back through the legacy graph modules.
 - `workflows/comicbook/__init__.py` now preserves the legacy package-root
-  `upload_templates` re-export so the compatibility package keeps matching the
-  old convenience import surface while wrappers accumulate.
+  `upload_templates` re-export and extends the compatibility package path to the
+  still-legacy `ComicBook/comicbook/` tree so unmoved workflow-local modules can
+  still resolve during TG2.
 - `workflows/comicbook/input_file.py` now keeps the moved image run module
   importable from the target tree without moving input-file parsing ownership
   yet.

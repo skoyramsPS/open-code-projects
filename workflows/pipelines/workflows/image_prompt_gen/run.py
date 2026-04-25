@@ -20,9 +20,9 @@ RunState = dict[str, object]
 
 
 def run_workflow(initial_state: RunState, deps: Deps) -> RunState:
-    from comicbook.graph import run_workflow as legacy_run_workflow
+    from pipelines.workflows.image_prompt_gen.graph import run_workflow as workflow_run_workflow
 
-    return legacy_run_workflow(initial_state, deps)
+    return workflow_run_workflow(initial_state, deps)
 
 
 def _positive_panel_count(raw: str) -> int:

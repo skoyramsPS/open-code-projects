@@ -19,9 +19,9 @@ WORKFLOW = "template_upload"
 
 
 def run_upload_workflow(initial_state: dict[str, object], deps: object) -> dict[str, object]:
-    from comicbook.upload_graph import run_upload_workflow as legacy_run_upload_workflow
+    from pipelines.workflows.template_upload.graph import run_upload_workflow as workflow_run_upload_workflow
 
-    return legacy_run_upload_workflow(initial_state, deps)
+    return workflow_run_upload_workflow(initial_state, deps)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
