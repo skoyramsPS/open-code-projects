@@ -5,7 +5,7 @@ Developer notes for the phased migration from `ComicBook/comicbook/` to `workflo
 ## Current implementation status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation + bounded template-upload-test-relocation slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation + bounded template-upload-test-relocation + bounded image budget-guard test-relocation + bounded shared config/state-contract test-relocation + bounded example-continuity test + bounded fingerprint-regression expansion + bounded node-wrapper continuity + bounded template-upload preflight node + bounded template-upload backfill node + bounded template-upload persist node slices complete)
 - TG3-TG5: not started
 
 TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, and now multiple bounded batches of relocated image/template-upload tests into `workflows/` while preserving legacy import behavior through compatibility aliases.
@@ -91,6 +91,59 @@ The logging module now supports and tests:
 - the relocated template-upload tests now import `pipelines.workflows.template_upload.graph` and `pipelines.workflows.template_upload.run` directly, while reusing target-tree shared deps/db/config helpers
 - the old legacy template-upload regression files under `ComicBook/tests/` still remain for now because cleanup and deletion are deferred to later TG2 work
 
+### Bounded image budget-guard test relocation
+
+- added `workflows/tests/image_prompt_gen/test_budget_guard.py` as target-root coverage for already-moved image-workflow budget guard, dry-run redaction, and CLI budget-flag behavior
+- the relocated budget-guard tests now import `pipelines.workflows.image_prompt_gen.graph` and `pipelines.workflows.image_prompt_gen.run` directly, while reusing target-tree shared config/deps/db helpers
+- the old legacy `ComicBook/tests/test_budget_guard.py` regression file still remains for now because cleanup and deletion are deferred to later TG2 work
+
+### Bounded shared config/state-contract test relocation
+
+- added `workflows/tests/shared/test_config_and_compat_state.py` as target-root coverage for shared config loading and the temporary `comicbook.state` compatibility surface that still fronts the legacy mixed state module
+- the relocated tests import `pipelines.shared.config` directly and validate the target-tree `comicbook.state` wrapper contract while TG3 state splitting is still pending
+- the old legacy `ComicBook/tests/test_config.py` regression file still remains for now because cleanup and deletion are deferred to later TG2 work
+
+### Bounded example-continuity coverage
+
+- added `workflows/tests/image_prompt_gen/test_example_single_portrait.py` as target-root coverage for the still-legacy `ComicBook/examples/single_portrait_graph.py` example module
+- the relocated target-tree test loads the legacy example file by path, runs it with the target-root compatibility surface, and confirms the example still works while `examples/` has not moved yet
+- the same test file also asserts that `pipelines/shared/` modules do not import workflow graph/run entry modules directly
+- the old legacy `ComicBook/tests/test_example_single_portrait.py` regression file still remains for now because cleanup and deletion are deferred to later TG2 work
+
+### Bounded fingerprint-regression expansion
+
+- expanded `workflows/tests/shared/test_fingerprint.py` with additional target-root coverage for fingerprint hash drift and prompt/template ordering invariants
+- the new target-tree cases mirror remaining non-node legacy fingerprint assertions while still avoiding node-owned `persist_template` relocation
+- the old legacy `ComicBook/tests/test_fingerprint.py` regression file still remains for now because cleanup and deletion are deferred to later TG2 work
+
+### Bounded node-wrapper continuity coverage
+
+- added `workflows/tests/image_prompt_gen/test_node_ingest_summarize.py` as target-root coverage for the explicit `comicbook.nodes.ingest` and `comicbook.nodes.summarize` wrappers
+- the new target-tree tests exercise still-legacy node implementations through the target-root compatibility layer rather than through the old package-root fallback
+- this slice intentionally stays bounded to wrapper continuity for two nodes and does not start broader node-test relocation yet
+- the old legacy `ComicBook/tests/test_node_ingest_summarize.py` regression file still remains for now because cleanup and deletion are deferred to later TG2 work
+
+### Bounded template-upload preflight node coverage
+
+- added `workflows/tests/template_upload/test_node_preflight.py` as target-root coverage for the explicit `comicbook.nodes.upload_load_file`, `upload_parse_and_validate`, `upload_resume_filter`, and `upload_decide_write_mode` wrappers
+- the new target-tree tests exercise still-legacy upload preflight node implementations through the target-root compatibility layer rather than through the old package-root fallback
+- this slice intentionally stays bounded to the upload preflight node cluster and does not start later upload-node relocation such as persist/backfill yet
+- the old legacy `ComicBook/tests/test_upload_load_file.py`, `test_upload_parse_and_validate.py`, `test_upload_resume_filter.py`, and `test_upload_decide_write_mode.py` files still remain for now because cleanup and deletion are deferred to later TG2 work
+
+### Bounded template-upload backfill node coverage
+
+- added `workflows/tests/template_upload/test_node_backfill_metadata.py` as target-root coverage for the explicit `comicbook.nodes.upload_backfill_metadata` wrapper
+- the new target-tree tests exercise the still-legacy metadata-backfill node implementation through the target-root compatibility layer rather than through the old package-root fallback
+- this slice intentionally stays bounded to the metadata-backfill node and does not start later upload persistence-node relocation yet
+- the old legacy `ComicBook/tests/test_upload_backfill_metadata.py` file still remains for now because cleanup and deletion are deferred to later TG2 work
+
+### Bounded template-upload persist node coverage
+
+- added `workflows/tests/template_upload/test_node_persist.py` as target-root coverage for the explicit `comicbook.nodes.upload_persist` wrapper
+- the new target-tree tests exercise the still-legacy persistence node implementation through the target-root compatibility layer rather than through the old package-root fallback
+- this slice intentionally stays bounded to the persistence node and does not start delete cleanup or broader upload-node relocation beyond this wrapper-backed continuity layer
+- the old legacy `ComicBook/tests/test_upload_persist.py` file still remains for now because cleanup and deletion are deferred to later TG2 work
+
 ## Verification
 
 Focused verification for the migrated target-tree test scope now runs from `workflows/` while still reusing the existing locked dependency environment from `ComicBook/`:
@@ -105,10 +158,100 @@ The broadened target-tree regression scope now also includes the relocated templ
 uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared/test_compat_state_and_nodes.py tests/shared/test_runtime_deps.py tests/image_prompt_gen tests/template_upload
 ```
 
+An even broader target-tree regression scope now also proves the relocated shared config/state-contract slice alongside the existing shared/workflow coverage:
+
+```bash
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared tests/image_prompt_gen tests/template_upload
+```
+
+Focused target-tree example continuity now also runs from `workflows/`:
+
+```bash
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/image_prompt_gen/test_example_single_portrait.py
+```
+
+Focused target-tree fingerprint regression expansion now also runs from `workflows/`:
+
+```bash
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared/test_fingerprint.py
+```
+
+Focused target-tree node-wrapper continuity now also runs from `workflows/`:
+
+```bash
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/image_prompt_gen/test_node_ingest_summarize.py
+```
+
+Focused target-tree template-upload preflight node continuity now also runs from `workflows/`:
+
+```bash
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/template_upload/test_node_preflight.py
+```
+
+Focused target-tree template-upload backfill node continuity now also runs from `workflows/`:
+
+```bash
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/template_upload/test_node_backfill_metadata.py
+```
+
+Focused target-tree template-upload persist node continuity now also runs from `workflows/`:
+
+```bash
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/template_upload/test_node_persist.py
+```
+
 Representative legacy continuity for the moved helper, node, and graph surfaces was also checked from `ComicBook/`:
 
 ```bash
 PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_input_file_support.py tests/test_router_validation.py tests/test_image_client.py
+```
+
+And the matching image budget continuity check from `ComicBook/`:
+
+```bash
+PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_budget_guard.py
+```
+
+And the matching shared config/state continuity check from `ComicBook/`:
+
+```bash
+PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_config.py
+```
+
+And the matching legacy example continuity check from `ComicBook/`:
+
+```bash
+PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_example_single_portrait.py
+```
+
+And the matching legacy fingerprint continuity check from `ComicBook/`:
+
+```bash
+PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_fingerprint.py
+```
+
+And the matching legacy node-wrapper continuity check from `ComicBook/`:
+
+```bash
+PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_node_ingest_summarize.py
+```
+
+And the matching legacy template-upload preflight continuity checks from `ComicBook/`:
+
+```bash
+PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_upload_load_file.py tests/test_upload_parse_and_validate.py tests/test_upload_resume_filter.py tests/test_upload_decide_write_mode.py
+```
+
+And the matching legacy template-upload backfill continuity check from `ComicBook/`:
+
+```bash
+PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_upload_backfill_metadata.py
+```
+
+And the matching legacy template-upload persist continuity check from `ComicBook/`:
+
+```bash
+PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_upload_persist.py
 ```
 
 And the matching template-upload continuity check from `ComicBook/`:
@@ -151,7 +294,7 @@ Those changes remain sequenced behind TG2 and later TaskGroups in the implementa
 
 ## Next expected slice
 
-The next TG2 slice should continue bounded test relocation with a shared-or-cross-cutting cluster, most likely moving one small batch of remaining shared wrapper/import tests or another already-moved non-node legacy test group while keeping node-owned tests deferred until runtime ownership is cleaner.
+The next TG2 slice should continue bounded test relocation with another small wrapper/import-surface or carefully bounded node continuity cluster, while still avoiding any broad workflow-owned node relocation until runtime ownership is cleaner.
 
 ## Related documents
 

@@ -4,7 +4,7 @@ Plain-language status and operator-facing notes for the repository move into the
 
 ## What changed so far
 
-Fifteen migration slices have landed so far.
+Twenty-three migration slices have landed so far.
 
 ### TG1 foundation
 
@@ -98,6 +98,54 @@ Fifteen migration slices have landed so far.
 - the new tests exercise the moved `pipelines.workflows.template_upload.graph` and `pipelines.workflows.template_upload.run` modules directly from the target root
 - the old legacy template-upload regression files still remain for now, so this slice improves migration coverage without yet removing legacy test entry points
 
+### TG2 bounded image budget-guard test relocation move
+
+- target-tree relocation now also covers the already-moved image-workflow budget and dry-run guard regressions under `workflows/tests/image_prompt_gen/test_budget_guard.py`
+- the new tests exercise the moved `pipelines.workflows.image_prompt_gen.graph` and `pipelines.workflows.image_prompt_gen.run` modules directly from the target root
+- the old legacy `ComicBook/tests/test_budget_guard.py` regression file still remains for now, so this slice improves migration coverage without yet removing the legacy test entry point
+
+### TG2 bounded shared config/state-contract test relocation move
+
+- target-tree relocation now also covers shared config loading plus the temporary legacy-state contract surface under `workflows/tests/shared/test_config_and_compat_state.py`
+- the new tests exercise `pipelines.shared.config` directly and confirm that the target-tree `comicbook.state` wrapper still exposes the legacy mixed state contract while TG3 is pending
+- the old legacy `ComicBook/tests/test_config.py` regression file still remains for now, so this slice improves migration coverage without yet removing the legacy test entry point
+
+### TG2 bounded example-continuity test move
+
+- target-tree coverage now also proves that the legacy single-portrait example still runs from the `workflows/` root through the temporary compatibility layer
+- the new tests live under `workflows/tests/image_prompt_gen/test_example_single_portrait.py` and also assert that `pipelines/shared/` does not import workflow entry modules directly
+- the old legacy `ComicBook/tests/test_example_single_portrait.py` regression file still remains for now, so this slice improves migration confidence without yet removing the legacy test entry point
+
+### TG2 bounded fingerprint-regression expansion move
+
+- target-tree shared coverage now also includes additional fingerprint invariants under `workflows/tests/shared/test_fingerprint.py`
+- the expanded tests prove fingerprint hashes change when any render input changes and that rendered-prompt materialization preserves prompt/template ordering from the target root
+- the old legacy `ComicBook/tests/test_fingerprint.py` regression file still remains for now, so this slice improves migration confidence without yet removing the legacy test entry point
+
+### TG2 bounded node-wrapper continuity move
+
+- target-tree coverage now also proves the explicit `comicbook.nodes` wrapper surface works from `workflows/` for the still-legacy image ingest/summarize nodes
+- the new tests live under `workflows/tests/image_prompt_gen/test_node_ingest_summarize.py` and verify runtime-default ingestion plus redacted-summary artifact generation through the wrapper layer
+- the old legacy `ComicBook/tests/test_node_ingest_summarize.py` regression file still remains for now, so this slice improves migration confidence without yet removing the legacy test entry point
+
+### TG2 bounded template-upload preflight node move
+
+- target-tree coverage now also proves the explicit `comicbook.nodes.upload_*` wrapper surface works from `workflows/` for the still-legacy upload preflight nodes
+- the new tests live under `workflows/tests/template_upload/test_node_preflight.py` and verify file loading, parse/validate, resume filtering, and write-mode decisions through the wrapper layer
+- the old legacy upload preflight regression files still remain for now, so this slice improves migration confidence without yet removing the legacy test entry points
+
+### TG2 bounded template-upload backfill node move
+
+- target-tree coverage now also proves the explicit `comicbook.nodes.upload_backfill_metadata` wrapper surface works from `workflows/` for the still-legacy metadata-backfill node
+- the new tests live under `workflows/tests/template_upload/test_node_backfill_metadata.py` and verify successful backfill, retry-on-invalid-response, disabled-backfill handling, budget short-circuiting, and repeated transport-failure short-circuit behavior through the wrapper layer
+- the old legacy `ComicBook/tests/test_upload_backfill_metadata.py` regression file still remains for now, so this slice improves migration confidence without yet removing the legacy test entry point
+
+### TG2 bounded template-upload persist node move
+
+- target-tree coverage now also proves the explicit `comicbook.nodes.upload_persist` wrapper surface works from `workflows/` for the still-legacy persistence node
+- the new tests live under `workflows/tests/template_upload/test_node_persist.py` and verify inserted, updated, skipped-duplicate, failed-validation, and unresolved-supersedes persistence outcomes through the wrapper layer
+- the old legacy `ComicBook/tests/test_upload_persist.py` regression file still remains for now, so this slice improves migration confidence without yet removing the legacy test entry point
+
 ## What has not changed yet
 
 TG2 has not finished moving the live runtime into `workflows/`.
@@ -120,7 +168,7 @@ TG1 establishes that shared contract first so later migration steps can adopt it
 ## Current rollout status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation + bounded template-upload-test-relocation slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation + bounded template-upload-test-relocation + bounded image budget-guard test-relocation + bounded shared config/state-contract test-relocation + bounded example-continuity test + bounded fingerprint-regression expansion + bounded node-wrapper continuity + bounded template-upload preflight node + bounded template-upload backfill node + bounded template-upload persist node slices complete)
 - TG3-TG5: not started
 
 ## Related documents

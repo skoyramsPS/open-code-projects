@@ -81,6 +81,37 @@ The repository is in the middle of a reorganization away from the legacy
 - bounded template-upload test relocation is now also in place under
   `workflows/tests/template_upload/`, including target-root coverage for upload
   graph scenarios and upload CLI/run behavior.
+- bounded image-workflow budget-guard test relocation is now also in place under
+  `workflows/tests/image_prompt_gen/test_budget_guard.py`, covering budget
+  enforcement, dry-run redaction, and CLI budget-flag behavior against the moved
+  target-tree graph and run modules.
+- bounded shared config/state-contract test relocation is now also in place
+  under `workflows/tests/shared/test_config_and_compat_state.py`, covering
+  target-tree config loading plus the temporary `comicbook.state` compatibility
+  contract that still fronts the legacy mixed state module until TG3.
+- bounded example continuity coverage is now also in place under
+  `workflows/tests/image_prompt_gen/test_example_single_portrait.py`, proving
+  the legacy single-portrait example still runs from the target root through the
+  temporary compatibility layer while `ComicBook/examples/` has not moved yet.
+- bounded fingerprint regression expansion is now also in place under
+  `workflows/tests/shared/test_fingerprint.py`, covering additional prompt-hash
+  drift and prompt-order invariants from the target root.
+- bounded node-wrapper continuity coverage is now also in place under
+  `workflows/tests/image_prompt_gen/test_node_ingest_summarize.py`, proving the
+  explicit `comicbook.nodes` wrappers for the still-legacy ingest/summarize
+  nodes work correctly from the target root.
+- bounded template-upload preflight node coverage is now also in place under
+  `workflows/tests/template_upload/test_node_preflight.py`, proving the explicit
+  `comicbook.nodes.upload_*` wrappers for the still-legacy upload preflight
+  nodes work correctly from the target root.
+- bounded template-upload backfill node coverage is now also in place under
+  `workflows/tests/template_upload/test_node_backfill_metadata.py`, proving the
+  explicit `comicbook.nodes.upload_backfill_metadata` wrapper for the
+  still-legacy metadata-backfill node works correctly from the target root.
+- bounded template-upload persist node coverage is now also in place under
+  `workflows/tests/template_upload/test_node_persist.py`, proving the explicit
+  `comicbook.nodes.upload_persist` wrapper for the still-legacy persistence node
+  works correctly from the target root.
 - The live runtime code still mostly lives under `ComicBook/comicbook/`; most of
   the runtime and many legacy tests are still waiting to move.
 
