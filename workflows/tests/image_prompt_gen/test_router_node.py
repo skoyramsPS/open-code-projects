@@ -7,8 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from comicbook.config import AppConfig
-from comicbook.deps import Deps
+from pipelines.shared.config import AppConfig
+from pipelines.shared.deps import Deps
 from comicbook.state import TemplateSummary
 
 
@@ -81,7 +81,7 @@ def make_deps(tmp_path: Path, transport: FakeRouterTransport) -> Deps:
 
 
 def test_router_node_sends_expected_request_and_parses_valid_plan(tmp_path: Path) -> None:
-    from comicbook.nodes.router import router
+    from pipelines.workflows.image_prompt_gen.nodes.router import router
 
     template = make_template(
         "storybook-soft",
@@ -159,7 +159,7 @@ def test_router_node_sends_expected_request_and_parses_valid_plan(tmp_path: Path
 
 
 def test_router_node_repairs_invalid_first_response_once(tmp_path: Path) -> None:
-    from comicbook.nodes.router import router
+    from pipelines.workflows.image_prompt_gen.nodes.router import router
 
     template = make_template(
         "storybook-soft",
@@ -246,7 +246,7 @@ def test_router_node_repairs_invalid_first_response_once(tmp_path: Path) -> None
 
 
 def test_router_node_escalates_to_stronger_model_when_requested(tmp_path: Path) -> None:
-    from comicbook.nodes.router import router
+    from pipelines.workflows.image_prompt_gen.nodes.router import router
 
     template = make_template(
         "storybook-soft",

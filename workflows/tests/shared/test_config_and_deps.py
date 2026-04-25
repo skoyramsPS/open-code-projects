@@ -75,6 +75,33 @@ def test_load_config_reads_dotenv_and_defaults_from_target_tree(tmp_path: Path) 
     assert config.comicbook_runs_dir == Path("./runs")
 
 
+def test_environment_overrides_dotenv_in_shared_config_loader(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text(
+        "\n".join(
+            [
+                "AZURE_OPENAI_ENDPOINT=https://from-dotenv.example.com",
+                "AZURE_OPENAI_API_KEY=dotenv-key",
+                "AZURE_OPENAI_API_VERSION=2025-04-01-preview",
+                "AZURE_OPENAI_CHAT_DEPLOYMENT=dotenv-router",
+                "AZURE_OPENAI_IMAGE_DEPLOYMENT=dotenv-image",
+                "COMICBOOK_DB_PATH=./from-dotenv.sqlite",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "env-key")
+    monkeypatch.setenv("COMICBOOK_DB_PATH", "./from-env.sqlite")
+
+    config = load_config(dotenv_path=dotenv_path)
+
+    assert config.azure_openai_api_key.get_secret_value() == "env-key"
+    assert config.comicbook_db_path == Path("./from-env.sqlite")
+
+
 def test_deps_remains_frozen_through_shared_module() -> None:
     config = AppConfig.model_validate(
         {

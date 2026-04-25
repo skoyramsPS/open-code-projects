@@ -5,10 +5,10 @@ Developer notes for the phased migration from `ComicBook/comicbook/` to `workflo
 ## Current implementation status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation + bounded template-upload-test-relocation + bounded image budget-guard test-relocation + bounded shared config/state-contract test-relocation + bounded example-continuity test + bounded fingerprint-regression expansion + bounded node-wrapper continuity + bounded image-node continuity expansion + first actual image-node moves + bounded template-upload preflight node + bounded template-upload backfill node + bounded template-upload persist node slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image/test relocations + actual node moves + adjacent-asset move + completed target-tree test relocation sweep complete)
 - TG3-TG5: not started
 
-TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, multiple bounded batches of relocated image/template-upload tests, and now the first real image-node modules into `workflows/` while preserving legacy import behavior through compatibility aliases.
+TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, the full current pytest tree into `workflows/tests/`, and the real workflow node modules into `workflows/` while preserving legacy import behavior through compatibility aliases.
 
 ## TG1 deliverables
 
@@ -190,6 +190,13 @@ The logging module now supports and tests:
 - this slice intentionally stays bounded to the persistence node and does not start delete cleanup or broader upload-node relocation beyond this wrapper-backed continuity layer
 - the old legacy `ComicBook/tests/test_upload_persist.py` file still remains for now because cleanup and deletion are deferred to later TG2 work
 
+### TG2 completed test relocation sweep
+
+- removed the remaining duplicate legacy `ComicBook/tests/test_*.py` files after verifying the target-tree counterparts under `workflows/tests/`
+- moved the last remaining unique legacy regression (`test_router_node.py`) into `workflows/tests/image_prompt_gen/test_router_node.py` and updated it to import the target-tree node module directly
+- folded the remaining unique shared-config assertion (environment-overrides-dotenv) into `workflows/tests/shared/test_config_and_deps.py`
+- deleted the legacy `ComicBook/tests/` directory after the duplicate-removal sweep and cleaned approved `__pycache__` artifacts created during verification
+
 ## Verification
 
 Focused verification for the migrated target-tree test scope now runs from `workflows/` while still reusing the existing locked dependency environment from `ComicBook/`:
@@ -333,14 +340,13 @@ The completed TG1 + TG2 work does **not** yet:
 - move runtime modules out of `ComicBook/comicbook/`
 - move most workflow-owned modules such as node implementations and state ownership out of `ComicBook/comicbook/`
 - start TG3 state splitting
-- move the main legacy test suite out of `ComicBook/tests/` beyond the bounded image/template-upload relocations
-- finish the non-code asset moves and path-sensitive cleanup under TG2
+- finish doc-slug normalization, tooling-reference cleanup, and the final TG2 closeout gates
 
 Those changes remain sequenced behind TG2 and later TaskGroups in the implementation guide.
 
 ## Next expected slice
 
-The next TG2 slice should continue bounded test relocation with another small wrapper/import-surface or carefully bounded node continuity cluster, while still avoiding any broad workflow-owned node relocation until runtime ownership is cleaner.
+The next TG2 slice should move to the ordered closeout work: slug normalization (TG2-T10), then the tooling-reference sweep, then the full target-tree suite gate.
 
 ## Related documents
 

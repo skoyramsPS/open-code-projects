@@ -188,6 +188,12 @@ Additional migration slices have landed so far.
 - both `ComicBook/comicbook/nodes/` and `workflows/comicbook/nodes/` still expose compatibility aliases, so operator-facing commands remain unchanged
 - the template-upload graph now imports its full node set from the target-tree workflow package directly
 
+### TG2 completed test relocation sweep
+
+- the canonical pytest tree now lives entirely under `workflows/tests/`
+- the final remaining legacy test-only coverage was moved into the target tree, including direct router-node coverage under `workflows/tests/image_prompt_gen/test_router_node.py`
+- the duplicate legacy `ComicBook/tests/` regression files were removed after their target-tree counterparts were verified, so operator guidance no longer relies on the old test root
+
 ## What has not changed yet
 
 TG2 has not finished moving the live runtime into `workflows/`.
@@ -195,8 +201,7 @@ TG2 has not finished moving the live runtime into `workflows/`.
 - most of the active runtime still lives under `ComicBook/comicbook/`, even though the CLI entry points, graph modules, image-workflow helper modules, both workflows' node modules, and target-tree state/node wrappers now live under `workflows/`
 - existing workflow commands and runtime paths are unchanged for operators
 - workflow state ownership is still pending TG3 work, but both workflows' node implementations now live in the target-tree workflow packages
-- only part of the temporary `comicbook` compatibility surface exists so far (`config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, `runtime_deps`, `state`, `nodes/*`, `input_file`, `router_prompts`, `metadata_prompts`, `router_llm`, `image_client`, `run`, `upload_run`, `graph`, and `upload_graph`, plus the package-root `upload_templates` re-export); test relocation and other cleanup work are still pending
-- only part of the legacy test surface has been re-homed so far; broader test relocation and cleanup are still pending
+- only part of the temporary `comicbook` compatibility surface exists so far (`config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, `runtime_deps`, `state`, `nodes/*`, `input_file`, `router_prompts`, `metadata_prompts`, `router_llm`, `image_client`, `run`, `upload_run`, `graph`, and `upload_graph`, plus the package-root `upload_templates` re-export); other cleanup work is still pending
 
 That means the migration has updated project metadata and configuration guidance,
 but it has not rolled the runtime itself over to the new package tree yet.
@@ -210,7 +215,7 @@ TG1 establishes that shared contract first so later migration steps can adopt it
 ## Current rollout status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation + bounded image-helper-test-relocation + bounded template-upload-test-relocation + bounded image budget-guard test-relocation + bounded shared config/state-contract test-relocation + bounded example-continuity test + bounded fingerprint-regression expansion + bounded node-wrapper continuity + bounded image-node continuity expansion + first actual image-node moves + bounded template-upload preflight node + bounded template-upload backfill node + bounded template-upload persist node slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image/test relocations + actual node moves + adjacent-asset move + completed target-tree test relocation sweep complete; TG2 closeout sweeps still pending)
 - TG3-TG5: not started
 
 ## Related documents
