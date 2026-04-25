@@ -10,7 +10,7 @@
 
 ## Current status summary
 
-The repository has now completed TG1 plus twelve TG2 slices: the project-root bootstrap, the shared config/deps move, the shared repo-protection move, the shared fingerprint move, the shared database move, the shared execution-helper move, the shared runtime-deps move, the workflow CLI entry-point move, the workflow graph move, the image-helper-module move, the explicit target-tree state/node-wrapper move, and the first bounded image-test-relocation move.
+The repository has now completed TG1 plus thirteen TG2 slices: the project-root bootstrap, the shared config/deps move, the shared repo-protection move, the shared fingerprint move, the shared database move, the shared execution-helper move, the shared runtime-deps move, the workflow CLI entry-point move, the workflow graph move, the image-helper-module move, the explicit target-tree state/node-wrapper move, the first bounded image-test-relocation move, and the bounded image-helper-test-relocation move.
 
 What is true after this session:
 
@@ -30,11 +30,12 @@ What is true after this session:
 - focused target-tree compatibility coverage now exists in `workflows/tests/shared/test_compat_state_and_nodes.py`
 - bounded target-tree image graph scenario coverage now also exists in `workflows/tests/image_prompt_gen/test_graph_scenarios.py`
 - `workflows/tests/image_prompt_gen/support.py` now provides shared target-tree test fixtures and fake transports for the relocated image graph scenarios
-- broader target-tree regression coverage still exists for runtime-deps, moved helpers, moved graphs, moved runs, and the first relocated image graph scenarios
+- bounded target-tree helper coverage now also exists in `workflows/tests/image_prompt_gen/test_input_file_support.py`, `test_router_validation.py`, and `test_image_client.py`
+- broader target-tree regression coverage still exists for runtime-deps, moved helpers, moved graphs, moved runs, relocated image graph scenarios, and relocated non-node image helper tests
 
 What is still true after this session:
 
-- the live tests still reside primarily under `ComicBook/tests/`, even though bounded image-graph relocation into `workflows/tests/` has now started
+- the live tests still reside primarily under `ComicBook/tests/`, even though bounded image graph/helper relocation into `workflows/tests/` has now started
 - most workflow-owned node implementations and true state ownership still live under `ComicBook/comicbook/`
 - the moved graph modules still execute through legacy-backed node/state bridges; full target-tree workflow execution is not complete yet
 - compatibility wrappers now exist for `config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, `runtime_deps`, `state`, `nodes/*`, `input_file`, `router_prompts`, `metadata_prompts`, `router_llm`, `image_client`, `run`, `upload_run`, `graph`, and `upload_graph`, plus the package-root `upload_templates` re-export
@@ -47,7 +48,7 @@ What is still true after this session:
 | TaskGroup | Title | Status | Notes |
 | --- | --- | --- | --- |
 | TG1 | Finalize and verify the shared logging foundation | completed | Shared logging module aligned with the standard, covered by focused pytest scope, and documented across the triad. |
-| TG2 | Move package and tests into `workflows/` with compatibility wrappers | in progress | Bootstrap plus twelve TG2 slices are complete: target-tree project metadata landed, seven shared modules now live in `pipelines.shared`, both workflow CLI entry points now live under `pipelines.workflows.*.run`, both workflow graph modules now live under `pipelines.workflows.*.graph`, the image helper modules plus pricing asset now live under `pipelines.workflows.image_prompt_gen.*`, explicit target-tree `comicbook.state` / `comicbook.nodes.*` wrappers now replace the old package-path fallback, and bounded image-graph test relocation into `workflows/tests/` has started. Broader test relocation and real runtime ownership moves are still pending. |
+| TG2 | Move package and tests into `workflows/` with compatibility wrappers | in progress | Bootstrap plus thirteen TG2 slices are complete: target-tree project metadata landed, seven shared modules now live in `pipelines.shared`, both workflow CLI entry points now live under `pipelines.workflows.*.run`, both workflow graph modules now live under `pipelines.workflows.*.graph`, the image helper modules plus pricing asset now live under `pipelines.workflows.image_prompt_gen.*`, explicit target-tree `comicbook.state` / `comicbook.nodes.*` wrappers now replace the old package-path fallback, and bounded image graph/helper test relocation into `workflows/tests/` has started. Broader test relocation and real runtime ownership moves are still pending. |
 | TG3 | Split shared and workflow-specific state modules | pending | Blocked on TG2 completing the package move. |
 | TG4 | Complete structured logging adoption and template-upload naming cleanup | pending | Blocked on TG3. |
 | TG5 | Remove compatibility layer, promote reused modules, and close out docs | pending | Blocked on TG4. |
@@ -57,25 +58,26 @@ What is still true after this session:
 ### Selected TaskGroup and slice
 
 - **TaskGroup:** TG2
-- **Slice:** TG2 bounded image-test-relocation move — relocate the first bounded batch of image-workflow graph scenario regressions into `workflows/tests/image_prompt_gen/` so target-tree graph behavior is exercised from the new root without changing runtime ownership
+- **Slice:** TG2 bounded image-helper-test-relocation move — relocate the already-moved non-node image helper regressions into `workflows/tests/image_prompt_gen/` so target-tree helper behavior is exercised from the new root without changing runtime ownership
 
 ### Why this slice size was chosen
 
-The first unfinished TaskGroup remained TG2, and after replacing the package-path fallback the next high-value adjacent work was to begin the still-pending test relocation called for by TG2. The local `implementation-slice-guard` skill was present in the repository at `.opencode/skills/implementation-slice-guard/SKILL.md` but was not exposed through the skill tool, so its selection rules were applied manually again. Following that guidance, this slice was chosen because the legacy image graph scenario tests form one coherent cluster around an already-moved runtime module, can be re-homed with narrow target-tree verification plus legacy continuity checks, and do not require mixing in helper-test relocation, node moves, or TG3 state splitting.
+The first unfinished TaskGroup remained TG2, and after relocating the image graph scenarios the next high-value adjacent work was the remaining non-node image helper test cluster already called out in the handoff. The local `implementation-slice-guard` skill was present in the repository at `.opencode/skills/implementation-slice-guard/SKILL.md` but was not exposed through the skill tool, so its selection rules were applied manually again. Following that guidance, this slice was chosen because the input-file, router-validation, and image-client tests all target already-moved helper modules, can be re-homed together with one narrow target-tree pytest scope, and still avoid mixing in node-test relocation, template-upload test moves, or TG3 state splitting.
 
 ### Completed work from this session
 
-1. Added `workflows/tests/image_prompt_gen/test_graph_scenarios.py` as the first bounded relocation of legacy image-workflow graph scenario coverage into the target tree.
-2. Added `workflows/tests/image_prompt_gen/support.py` so the relocated tests can share target-tree fixtures, fake transports, and dependency builders without relying on the legacy test directory.
-3. Switched the relocated tests to import `pipelines.shared.*`, `pipelines.shared.fingerprint`, and `pipelines.workflows.image_prompt_gen.graph` directly from the target root.
-4. Ran the new focused target-tree scope first; the initial run failed because the new file referenced a `db` fixture that had not been imported from the shared support module yet.
-5. Fixed the relocated test module to import the shared `db` fixture, then re-ran the focused scope successfully.
-6. Re-ran the broader target-tree image workflow scope plus the matching representative legacy image graph regressions successfully.
+1. Added `workflows/tests/image_prompt_gen/test_input_file_support.py` as target-root coverage for the moved image input-file helpers and CLI batch-entrypoint behavior.
+2. Added `workflows/tests/image_prompt_gen/test_router_validation.py` as target-root coverage for the moved router prompt/schema validation helpers.
+3. Added `workflows/tests/image_prompt_gen/test_image_client.py` as target-root coverage for the moved image client adapter.
+4. Switched those relocated tests to import `pipelines.workflows.image_prompt_gen.*` modules directly, using the target-root `comicbook.state` wrapper only where the moved router helper still depends on the unsplit legacy state models.
+5. Verified the new focused target-tree helper-test scope successfully on the first run.
+6. Re-ran the broader target-tree image workflow scope plus the matching representative legacy helper regressions successfully.
 
 ## Files changed in this session
 
-- `workflows/tests/image_prompt_gen/support.py`
-- `workflows/tests/image_prompt_gen/test_graph_scenarios.py`
+- `workflows/tests/image_prompt_gen/test_input_file_support.py`
+- `workflows/tests/image_prompt_gen/test_router_validation.py`
+- `workflows/tests/image_prompt_gen/test_image_client.py`
 - `workflows/README.md`
 - `docs/business/repo-reorganization/index.md`
 - `docs/developer/repo-reorganization/index.md`
@@ -84,16 +86,15 @@ The first unfinished TaskGroup remained TG2, and after replacing the package-pat
 
 ## Tests run and results
 
-Focused target-tree relocated image-graph verification command run from `workflows/`:
+Focused target-tree relocated image-helper verification command run from `workflows/`:
 
 ```bash
-uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/image_prompt_gen/test_graph_scenarios.py
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/image_prompt_gen/test_input_file_support.py tests/image_prompt_gen/test_router_validation.py tests/image_prompt_gen/test_image_client.py
 ```
 
 Result:
 
-- initial run failed with `fixture 'db' not found`
-- after importing the shared fixture from `workflows/tests/image_prompt_gen/support.py`: `4 passed in 0.78s`
+- `22 passed in 0.08s`
 
 Broader target-tree image-workflow regression command run from `workflows/`:
 
@@ -103,24 +104,24 @@ uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shar
 
 Result:
 
-- `23 passed in 1.06s`
+- `50 passed in 0.99s`
 
-Representative legacy image-graph regression command run from `ComicBook/`:
+Representative legacy image-helper regression command run from `ComicBook/`:
 
 ```bash
-PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_graph_happy.py tests/test_graph_cache_hit.py tests/test_graph_resume.py tests/test_graph_new_template.py
+PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_input_file_support.py tests/test_router_validation.py tests/test_image_client.py
 ```
 
 Result:
 
-- `4 passed in 0.91s`
+- `22 passed in 0.07s`
 
 Additional verification performed:
 
-- strict TDD was adapted for this relocation slice: the new tests were added first, the initial focused run exposed the missing `db` fixture import, and the smallest fix was applied before broadening the scope
-- confirmed the relocated graph scenario tests now run from `workflows/` against the moved target-tree image graph module
-- confirmed the broader target-tree image workflow scope still passes with the new relocated tests included
-- confirmed the matching legacy image graph regressions still pass unchanged while the old test files remain in place
+- strict TDD was adapted for this relocation slice because these tests were re-homed from already-green legacy coverage rather than created to drive new runtime behavior
+- confirmed the relocated helper tests now run from `workflows/` against the moved target-tree image helper modules
+- confirmed the broader target-tree image workflow scope still passes with the new relocated helper tests included
+- confirmed the matching legacy helper regressions still pass unchanged while the old test files remain in place
 
 ## Documentation updated
 
@@ -143,7 +144,7 @@ Additional verification performed:
 
 ### ADR
 
-- no ADR update was needed in this slice because beginning bounded test relocation followed the already accepted migration plan and did not introduce a new architecture decision beyond that plan
+- no ADR update was needed in this slice because continuing bounded test relocation followed the already accepted migration plan and did not introduce a new architecture decision beyond that plan
 
 ## Blockers or open questions
 
@@ -155,32 +156,33 @@ Additional verification performed:
 - `workflows/pipelines/shared/db.py` still intentionally falls back to the legacy state module for `TemplateSummary` until TG3 moves state ownership.
 - `workflows/pipelines/shared/execution.py` still intentionally falls back to the legacy state and ingest modules even though target-tree wrappers now exist; that helper should be cleaned up in a later TG2/TG3 slice when ownership fully moves.
 - `workflows/pipelines/shared/runtime_deps.py` still keeps the legacy `ComicBook/comicbook/pricing.json` path as a fallback guard even though the target-tree pricing asset now exists. That fallback should disappear during later TG2/TG5 cleanup.
-- the legacy `ComicBook/tests/test_graph_happy.py`, `test_graph_cache_hit.py`, `test_graph_resume.py`, and `test_graph_new_template.py` files still remain in place for now; this slice added target-tree equivalents but intentionally did not remove the old files because TG2 cleanup is still pending and delete operations are approval-gated.
+- the legacy `ComicBook/tests/test_graph_happy.py`, `test_graph_cache_hit.py`, `test_graph_resume.py`, and `test_graph_new_template.py` files still remain in place for now from the prior slice; delete operations are still approval-gated and later TG2 cleanup will decide when to retire them.
+- the legacy `ComicBook/tests/test_input_file_support.py`, `test_router_validation.py`, and `test_image_client.py` files also still remain in place for now; this slice added target-tree equivalents but intentionally did not remove the old files because TG2 cleanup is still pending and delete operations are approval-gated.
 - Running Python verification touched tracked and untracked `__pycache__` artifacts under `workflows/`; they were left in place because delete/revert cleanup is approval-gated in this workflow.
 
 ## Exact next recommended slice
 
-### TG2 next slice: continue bounded image-helper test relocation into `workflows/tests/`
+### TG2 next slice: continue bounded template-upload test relocation into `workflows/tests/`
 
 Recommended next implementation slice:
 
-1. relocate one bounded set of already-migrated non-node image-workflow helper tests from `ComicBook/tests/` into `workflows/tests/image_prompt_gen/`, most likely `test_input_file_support.py`, `test_router_validation.py`, and `test_image_client.py`
+1. relocate one bounded set of already-migrated template-upload tests from `ComicBook/tests/` into `workflows/tests/template_upload/`, most likely the upload graph and CLI regression tests
 2. update imports and shared test helpers only as needed so those relocated tests run from the target root without changing workflow behavior
-3. keep the slice limited to helper-test ownership and path cleanup; do not mix in runtime module moves or node-test relocation yet
-4. verify the relocated helper tests from `workflows/` first, then run a representative legacy helper regression scope while the old files still remain
+3. keep the slice limited to template-upload test ownership and path cleanup; do not mix in runtime module moves or upload node-test relocation yet
+4. verify the relocated template-upload tests from `workflows/` first, then run a representative legacy upload regression scope while the old files still remain
 
 Why this next slice is recommended:
 
-- TG2 is still the first unfinished TaskGroup, and after relocating the first graph-scenario batch the next adjacent already-moved surface is the remaining non-node image helper modules
-- `input_file`, router validation, and image-client tests target modules that already live under `pipelines.workflows.image_prompt_gen.*`, so they are natural next relocation candidates
-- keeping node-owned tests out of the next slice avoids mixing helper relocation with still-legacy node ownership
+- TG2 is still the first unfinished TaskGroup, and after two bounded image-workflow relocation batches the next already-moved runtime surface with remaining legacy tests is template upload's run/graph layer
+- template-upload graph and CLI tests target modules that already have target-tree homes, so they are the next natural relocation candidates
+- keeping upload node-owned tests out of the next slice avoids mixing test relocation with still-legacy node ownership
 
 Boundaries for the next session:
 
 - do not start TG3+
-- do not move workflow node implementations in the same slice as helper-test relocation
+- do not move workflow node implementations in the same slice as template-upload test relocation
 - do not remove legacy paths yet
-- keep relocation scoped to one bounded helper-test cluster; leave node tests and template-upload tests for later slices
+- keep relocation scoped to one bounded template-upload test cluster; leave upload node tests and delete cleanup for later slices
 
 ## Session log
 
@@ -341,6 +343,15 @@ Boundaries for the next session:
 - The first focused target-tree run failed because the new test module referenced a `db` fixture that had not been imported from the shared support module yet; importing that fixture was the only code change needed to turn the scope green.
 - Verified the slice through the focused relocated-test scope, a broader target-tree image workflow scope, and the matching legacy image graph regressions.
 - Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded test relocation into `workflows/tests/` has now started.
+
+### 2026-04-25 — TG2 bounded image-helper-test-relocation implementation session
+
+- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the first bounded image graph test relocation.
+- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout and migration-status documentation.
+- Added `workflows/tests/image_prompt_gen/test_input_file_support.py`, `test_router_validation.py`, and `test_image_client.py` as the next bounded relocation cluster for already-moved non-node image-workflow helper modules.
+- Switched the relocated tests to import the moved target-tree helper modules directly, while continuing to rely on `comicbook.state` only where the unsplit legacy state models are still the source of truth.
+- Verified the slice through the focused relocated-helper scope, a broader target-tree image workflow scope, and the matching legacy helper regressions.
+- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded image-helper test relocation into `workflows/tests/` is now in place.
 
 ## Permission checkpoint
 
