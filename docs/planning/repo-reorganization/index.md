@@ -31,4 +31,5 @@ Implementation is in progress.
 - TG2 has now moved the image-workflow helper modules and pricing asset into `workflows/pipelines/workflows/image_prompt_gen/`, including `input_file.py`, `prompts/router_prompts.py`, `prompts/metadata_prompts.py`, `adapters/router_llm.py`, `adapters/image_client.py`, and `pricing.json`.
 - Both target-tree and legacy `comicbook.input_file`, `comicbook.router_prompts`, `comicbook.metadata_prompts`, `comicbook.router_llm`, and `comicbook.image_client` paths now resolve through explicit compatibility aliases to the moved target-tree modules.
 - TG2 now also provides explicit `workflows/comicbook/state.py` and `workflows/comicbook/nodes/` wrappers so the moved graph layer no longer depends on the old `ComicBook/comicbook` package-path fallback.
+- TG2 has now begun bounded test relocation into `workflows/tests/`, starting with target-tree image graph scenario regressions under `workflows/tests/image_prompt_gen/test_graph_scenarios.py`.
 - The broader TG2 test-move, asset-move, and remaining compatibility-cleanup work are still pending.

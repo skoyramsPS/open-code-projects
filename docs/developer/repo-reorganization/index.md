@@ -5,10 +5,10 @@ Developer notes for the phased migration from `ComicBook/comicbook/` to `workflo
 ## Current implementation status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation slices complete)
 - TG3-TG5: not started
 
-TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, and now the explicit target-tree state/node bridge wrappers into `workflows/` while preserving legacy import behavior through compatibility aliases.
+TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, and now the first bounded batch of relocated image-workflow tests into `workflows/` while preserving legacy import behavior through compatibility aliases.
 
 ## TG1 deliverables
 
@@ -72,18 +72,25 @@ The logging module now supports and tests:
 - removed the old `workflows/comicbook/__init__.py` package-path fallback to `ComicBook/comicbook/`
 - proved the moved graph layer can now import `comicbook.state` and `comicbook.nodes.*` from the new root without depending on implicit package-path fallback
 
+### Bounded image-workflow test relocation
+
+- added `workflows/tests/image_prompt_gen/test_graph_scenarios.py` as the first bounded relocation of legacy image-workflow graph scenario coverage into the target tree
+- added `workflows/tests/image_prompt_gen/support.py` so the relocated tests can share target-tree fixtures and fake transports without depending on the legacy test directory
+- the relocated graph scenario tests now import `pipelines.shared.*` helpers and `pipelines.workflows.image_prompt_gen.graph` directly from the target root
+- the old `ComicBook/tests/test_graph_*.py` files still remain for now because TG2 test cleanup and legacy-path removal are separate follow-up work
+
 ## Verification
 
 Focused verification for the migrated target-tree test scope now runs from `workflows/` while still reusing the existing locked dependency environment from `ComicBook/`:
 
 ```bash
-uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared/test_compat_state_and_nodes.py tests/shared/test_runtime_deps.py tests/image_prompt_gen/test_helpers.py tests/image_prompt_gen/test_graph.py tests/image_prompt_gen/test_run.py tests/template_upload/test_graph.py tests/template_upload/test_run.py
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared/test_compat_state_and_nodes.py tests/shared/test_runtime_deps.py tests/image_prompt_gen tests/template_upload/test_graph.py tests/template_upload/test_run.py
 ```
 
 Representative legacy continuity for the moved helper, node, and graph surfaces was also checked from `ComicBook/`:
 
 ```bash
-PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_node_ingest_summarize.py tests/test_node_generate_images_serial.py tests/test_upload_load_file.py tests/test_upload_backfill_metadata.py tests/test_graph_happy.py tests/test_upload_graph.py
+PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_graph_happy.py tests/test_graph_cache_hit.py tests/test_graph_resume.py tests/test_graph_new_template.py
 ```
 
 Additional direct alias validation from `workflows/`:
@@ -113,14 +120,14 @@ The completed TG1 + TG2 work does **not** yet:
 - move runtime modules out of `ComicBook/comicbook/`
 - move most workflow-owned modules such as node implementations and state ownership out of `ComicBook/comicbook/`
 - start TG3 state splitting
-- move the main legacy test suite out of `ComicBook/tests/`
+- move the main legacy test suite out of `ComicBook/tests/` beyond the first bounded image-graph relocation
 - finish the non-code asset moves and path-sensitive cleanup under TG2
 
 Those changes remain sequenced behind TG2 and later TaskGroups in the implementation guide.
 
 ## Next expected slice
 
-The next TG2 slice should start test relocation with one bounded group of already-migrated workflow tests, most likely moving the image-workflow run/graph/helper regression tests from `ComicBook/tests/` into `workflows/tests/image_prompt_gen/` and updating imports/commands so those tests run from the target root without changing workflow behavior.
+The next TG2 slice should continue bounded test relocation with the remaining non-node image-workflow helper regressions, most likely moving the input-file, router-validation, and image-client tests from `ComicBook/tests/` into `workflows/tests/image_prompt_gen/` while keeping node-owned tests deferred until their runtime ownership is cleaner.
 
 ## Related documents
 

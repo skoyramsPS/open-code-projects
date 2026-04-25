@@ -4,7 +4,7 @@ Plain-language status and operator-facing notes for the repository move into the
 
 ## What changed so far
 
-Twelve migration slices have landed so far.
+Thirteen migration slices have landed so far.
 
 ### TG1 foundation
 
@@ -80,6 +80,12 @@ Twelve migration slices have landed so far.
 - the moved graph layer no longer relies on the old `ComicBook/comicbook` package-path fallback inside `workflows/comicbook/__init__.py`
 - operator commands are still unchanged, but the target-tree compatibility surface is now more explicit and less dependent on import-path magic
 
+### TG2 bounded image-test relocation move
+
+- test relocation into `workflows/tests/` has now started with image-workflow graph scenario regressions under `workflows/tests/image_prompt_gen/test_graph_scenarios.py`
+- those target-tree tests now exercise the moved `pipelines.workflows.image_prompt_gen.graph` module directly from the new project root
+- the old legacy test files still remain for now, so this slice improves target-root coverage without changing operator behavior or removing fallback paths yet
+
 ## What has not changed yet
 
 TG2 has not finished moving the live runtime into `workflows/`.
@@ -88,6 +94,7 @@ TG2 has not finished moving the live runtime into `workflows/`.
 - existing workflow commands and runtime paths are unchanged for operators
 - workflow nodes and state ownership are still pending later TG2 and TG3 work
 - only part of the temporary `comicbook` compatibility surface exists so far (`config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, `runtime_deps`, `state`, `nodes/*`, `input_file`, `router_prompts`, `metadata_prompts`, `router_llm`, `image_client`, `run`, `upload_run`, `graph`, and `upload_graph`, plus the package-root `upload_templates` re-export); test relocation and other cleanup work are still pending
+- only part of the legacy test surface has been re-homed so far; broader test relocation and cleanup are still pending
 
 That means the migration has updated project metadata and configuration guidance,
 but it has not rolled the runtime itself over to the new package tree yet.
@@ -101,7 +108,7 @@ TG1 establishes that shared contract first so later migration steps can adopt it
 ## Current rollout status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image-test-relocation slices complete)
 - TG3-TG5: not started
 
 ## Related documents

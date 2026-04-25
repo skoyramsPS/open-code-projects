@@ -72,8 +72,11 @@ The repository is in the middle of a reorganization away from the legacy
 - the moved graph layer now reaches `comicbook.state` and `comicbook.nodes.*`
   through explicit target-tree wrappers instead of through the old
   `ComicBook/comicbook` package-path fallback.
+- bounded test relocation has now started under `workflows/tests/`, beginning
+  with image-workflow graph scenario regressions that now run from the target
+  root against `pipelines.workflows.image_prompt_gen.graph`.
 - The live runtime code still mostly lives under `ComicBook/comicbook/`; most of
-  the runtime and tests are still waiting to move.
+  the runtime and many legacy tests are still waiting to move.
 
 The plan, the phases, and the import-shim strategy are documented in
 [`docs/planning/repo-reorganization/plan.md`](../docs/planning/repo-reorganization/plan.md).
