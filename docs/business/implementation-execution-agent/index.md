@@ -14,10 +14,12 @@ Use this workflow when a planning folder already contains an `implementation.md`
 
 Use `/implementation-doc` first when the planning folder only has a design or plan doc and still needs a standalone implementation guide plus a seeded handoff.
 
+If the plan still leaves important technical questions open, the guide-writing step should pause and ask those questions before it writes the implementation guide. The goal is to reduce implementation churn, not to force developers to guess.
+
 Typical use:
 
 - the plan is approved
-- the implementation guide is detailed enough to execute
+- the implementation guide is detailed enough to execute, with clear TaskGroup scope and little room for assumptions
 - the team wants progress in reviewable increments instead of one large batch
 
 ## Modes
@@ -39,7 +41,7 @@ Each implementation run should:
 
 When the workflow is used correctly, the guide-creation step and the build step are separate:
 
-- `/implementation-doc` creates the implementation guide and handoff, then stops
+- `/implementation-doc` first asks clarifying questions if the plan is still ambiguous, then creates the implementation guide and handoff once those answers are known, then stops
 - the handoff asks the user for permission before `/implement-next` starts coding
 - the same initial approval rule also applies before `/implement-next-autonomous` starts coding
 - generic wording such as `continue` or `go ahead` is not enough to start coding after `/implementation-doc`
@@ -73,6 +75,17 @@ It tells the next run:
 - whether the user has approved the next implementation step yet
 
 This makes the workflow safer to pause and resume without relying on memory.
+
+## What a good implementation guide looks like
+
+A good guide should:
+
+- break the work into ordered TaskGroups
+- state what each TaskGroup does and does not include
+- show the important files, tests, and acceptance checks
+- include technical examples or pseudocode when the code shape would otherwise be unclear
+
+That level of detail helps developers make steady progress instead of reopening scope questions during implementation.
 
 ## Limits
 

@@ -31,11 +31,13 @@ If no handoff path is provided, the workflow uses `implementation-handoff.md` be
 
 Expected control flow:
 
-1. `/implementation-doc` creates the execution guide and seeds the handoff file.
-2. `/implementation-doc` stops and asks the user whether to proceed.
-3. `/implement-next` executes one slice only after that explicit approval, which must explicitly name `/implement-next`.
-4. `/implement-next` updates the handoff and asks again before any later slice.
-5. `/implement-next-autonomous` uses the same initial approval rule, then keeps updating the handoff and continuing until it reaches a gated action, blocker, or the end of the guide.
+1. `/implementation-doc` first inspects the planning doc, related docs, and relevant repository state for implementation-critical ambiguity.
+2. If ambiguity remains that would materially change scope, sequencing, files, contracts, tests, observability, acceptance criteria, or rollout behavior, `/implementation-doc` asks the user clarifying questions and waits.
+3. Once those clarifications are resolved, `/implementation-doc` creates the execution guide and seeds the handoff file.
+4. `/implementation-doc` stops and asks the user whether to proceed.
+5. `/implement-next` executes one slice only after that explicit approval, which must explicitly name `/implement-next`.
+6. `/implement-next` updates the handoff and asks again before any later slice.
+7. `/implement-next-autonomous` uses the same initial approval rule, then keeps updating the handoff and continuing until it reaches a gated action, blocker, or the end of the guide.
 
 Generic continuation wording such as `continue`, `go ahead`, `keep going`, `continue with your task`, or `summarize and continue` is not sufficient approval for the first implementation slice.
 
@@ -113,6 +115,21 @@ Minimum required content:
 - explicit permission checkpoint before additional implementation proceeds, or the specific gated action that still needs approval
 - a hard-stop marker that makes the approval boundary machine-readable to later sessions
 - append-only session log
+
+## Implementation guide authoring contract
+
+Implementation guides are expected to be technical execution documents.
+
+Minimum quality bar for `/implementation-doc` output:
+
+- the guide must be usable without reopening the source planning doc during implementation
+- the guide must convert the plan into ordered `TaskGroup`s rather than broad phases with implied work
+- each `TaskGroup` must state exact in-scope work and exact out-of-scope work
+- each `TaskGroup` must enumerate deterministic tasks, touched files/modules, test scopes, docs/observability impact, and exit criteria
+- code-affecting TaskGroups must include representative pseudocode, code skeletons, import examples, or call-site examples for non-obvious implementation patterns
+- if material ambiguity remains, the docs workflow must ask the user clarifying questions instead of leaving assumptions in the guide
+
+This contract exists so implementation agents can advance one slice at a time without reopening design debates or inventing missing technical detail.
 
 Recommended status values:
 

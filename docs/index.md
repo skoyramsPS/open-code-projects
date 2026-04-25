@@ -23,9 +23,9 @@ This repository keeps all durable project documentation under `docs/`.
 ## Cross-cutting initiatives
 
 - Implementation Execution Agent
-  - [Planning](planning/implementation-execution-agent/index.md)
-  - [Business](business/implementation-execution-agent/index.md)
-  - [Developer](developer/implementation-execution-agent/index.md)
+  - [Planning](planning/implementation-execution-agent/index.md): clarification-gated guide creation plus commit-sized execution workflow
+  - [Business](business/implementation-execution-agent/index.md): what teams should expect before and after implementation approval
+  - [Developer](developer/implementation-execution-agent/index.md): command contracts, handoff format, and TaskGroup execution rules
 - Repository Reorganization
   - [Planning](planning/repo-reorganization/index.md)
   - [Business](business/repo-reorganization/index.md)

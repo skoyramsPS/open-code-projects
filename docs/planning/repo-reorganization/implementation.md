@@ -411,6 +411,68 @@ Across all TaskGroups:
 - use the smallest test scope first, then broaden
 - do not delete legacy entry paths until their replacement import paths and compatibility shims are proven by tests
 
+### 4.8 Execution discipline for this guide
+
+This guide is meant to reduce implementation churn. Treat it as a locked technical contract, not a discussion draft.
+
+Execution rules:
+
+- only work explicitly listed in the active TaskGroup's in-scope section and detailed tasks is authorized
+- if repository reality conflicts with this guide in a way that would change scope, sequencing, ownership, contracts, tests, or rollout behavior, stop and request clarification before continuing
+- do not silently expand a TaskGroup to absorb adjacent cleanup, convenience refactors, or opportunistic renames unless that work is already listed here
+- if a change is purely mechanical but touches a file outside the active TaskGroup boundary, record it in the handoff and confirm it belongs before landing it
+- if a later slice discovers missing technical detail, update this guide first rather than implementing from assumption
+
+### 4.9 Representative implementation patterns
+
+Use these patterns when the corresponding TaskGroup lands.
+
+#### Compatibility wrapper pattern for TG2
+
+Temporary `workflows/comicbook/` modules should be thin aliases only.
+
+```python
+"""Compatibility wrapper during TG2-TG4."""
+
+from pipelines.shared.config import *  # noqa: F401,F403
+```
+
+Do not add business logic, fallback policy, or data transformation in wrapper modules. If a wrapper needs behavior, that behavior belongs in the real `pipelines.*` module.
+
+#### State split import pattern for TG3
+
+After state ownership moves, imports should resolve through the final homes directly.
+
+```python
+from pipelines.shared.state import RunSummary, UsageTotals, WorkflowError
+from pipelines.workflows.image_prompt_gen.state import RunState, RenderedPrompt
+```
+
+Shared modules must not import workflow-specific state from the other workflow. If a type becomes cross-workflow, move it into `pipelines.shared.state` instead of cross-importing between workflows.
+
+#### Node logging pattern for TG4
+
+Node-owned logging should go through the shared helper so standard fields are always present.
+
+```python
+from pipelines.shared.logging import log_node_event
+
+
+def persist(state, deps):
+    log_node_event(deps, state, "node_started", rows=len(state["rows"]))
+    ...
+    log_node_event(
+        deps,
+        state,
+        "node_completed",
+        duration_ms=elapsed_ms,
+        rows_written=written,
+    )
+    return {"rows_written": written}
+```
+
+Non-node runtime code should use `get_logger(__name__)` and `log_event(...)`, not ad hoc structured payloads.
+
 ---
 
 ## 5. TaskGroup overview
@@ -438,6 +500,18 @@ Make `workflows/pipelines/shared/logging.py` fully match the logging standard an
 ### Dependencies
 
 - none
+
+### In scope
+
+- finish the behavior and test coverage of `workflows/pipelines/shared/logging.py`
+- add or update focused logging tests under `workflows/tests/shared/`
+- align logging helper behavior with the existing logging standard and current target-tree code
+
+### Out of scope
+
+- rewiring legacy runtime modules to import the target-tree logger
+- package moves, wrapper creation, or test relocation outside logging coverage
+- renaming workflow modules, splitting state, or changing runtime CLI behavior
 
 ### Detailed tasks
 
@@ -477,6 +551,12 @@ Test expectations:
 - `log_node_event(...)` asserts `workflow`, `run_id`, `node`, and `event`
 - duplicate handlers are not added when `get_logger(...)` is called repeatedly
 
+### Documentation and observability impact
+
+- planning docs should record that TG1 locks the shared logging contract for later migration work
+- developer and business docs should mention the shared logging foundation only after the code and tests land
+- no runtime module outside the target-tree logging foundation should claim logging-standard adoption yet
+
 ### Exit criteria
 
 - shared logging module behavior matches the standard
@@ -501,6 +581,21 @@ Make `workflows/` the actual runtime root, move modules into the target ownershi
 ### Dependencies
 
 - TG1 complete
+
+### In scope
+
+- establish `workflows/` as the active project root with valid packaging and pytest configuration
+- move runtime modules, tests, examples, environment template, and `DoNotChange/` assets into the target ownership layout described in Section 4
+- update non-node runtime logging adoption that becomes possible once code lives under `pipelines.*`
+- create explicit temporary compatibility wrappers under `workflows/comicbook/`, including `nodes/` wrappers where listed
+- normalize the image-workflow doc slug to `image-prompt-gen-workflow` as part of the documentation gate for this TaskGroup
+
+### Out of scope
+
+- splitting shared versus workflow-specific state modules
+- renaming template-upload nodes/functions to remove `upload_`
+- removing compatibility wrappers or legacy paths entirely
+- changing SQLite schema or workflow semantics beyond mechanical move-related adjustments
 
 ### Detailed tasks
 
@@ -556,6 +651,13 @@ Additional required checks:
 - CLI smoke tests for both workflows work from the new `workflows/` root
 - no remaining runtime import depends on `ComicBook/comicbook/` as the source of truth
 
+### Documentation and observability impact
+
+- update planning, business, and developer docs for path, package-root, and compatibility-wrapper changes that actually land in this TaskGroup
+- update affected indexes when doc-slug normalization or document moves occur
+- record any newly introduced wrapper modules explicitly so TG5 can remove them deterministically
+- non-node runtime logging adoption completed here must be reflected in docs as non-node adoption only; node-level adoption stays deferred to TG4
+
 ### Exit criteria
 
 - the real runtime package lives under `workflows/pipelines/`
@@ -581,6 +683,18 @@ Move the current mixed `state.py` contents into their final ownership homes with
 ### Dependencies
 
 - TG2 complete
+
+### In scope
+
+- create the three final state modules described in Section 4.4
+- move type definitions into those final homes without changing their meaning
+- rewire imports across runtime code, tests, and temporary wrappers to use the new state-module ownership
+
+### Out of scope
+
+- persistence-schema changes or report-format changes
+- logging cleanup beyond import rewiring needed for the state split
+- wrapper deletion or other TG5 cleanup work
 
 ### Detailed tasks
 
@@ -622,6 +736,12 @@ Required assertions:
 - no workflow imports another workflow's state module directly
 - shared modules import only from `pipelines.shared.state`
 
+### Documentation and observability impact
+
+- update developer docs to reflect the final state-module ownership map once it lands
+- update planning status and handoff notes if any compatibility wrapper still exposes legacy state imports temporarily
+- do not claim full observability completion here unless TG4 logging adoption also lands
+
 ### Exit criteria
 
 - mixed legacy state ownership is eliminated from the real `pipelines` package
@@ -645,6 +765,19 @@ Apply the shared logging contract throughout runtime code and remove redundant `
 ### Dependencies
 
 - TG3 complete
+
+### In scope
+
+- replace remaining node-level and non-node runtime logging call sites with the shared logging helpers
+- add missing logging-focused tests where field coverage is not already asserted
+- rename template-upload node modules and functions inside the real `pipelines` package to remove redundant `upload_` prefixes
+- update moved graphs, runs, tests, and wrappers to match the simplified names
+
+### Out of scope
+
+- removing the compatibility package
+- adding new logging fields beyond the shared standard unless the standard is updated first
+- broader refactors unrelated to logging adoption or template-upload naming cleanup
 
 ### Detailed tasks
 
@@ -690,6 +823,12 @@ Validation requirements:
 - no node still relies on direct `deps.logger.*`
 - simplified template-upload names are reflected consistently in code and imports
 
+### Documentation and observability impact
+
+- update planning, business, and developer docs to reflect that structured logging is now the runtime standard rather than only a shared foundation
+- update any operator-facing documentation that references template-upload module or node names
+- if logging expectations or field rules change, update `docs/standards/logging-standards.md` in the same TaskGroup
+
 ### Exit criteria
 
 - structured logging is standard across runtime code
@@ -713,6 +852,19 @@ Finish the reorganization by removing legacy compatibility paths, sweeping stale
 ### Dependencies
 
 - TG4 complete
+
+### In scope
+
+- remove temporary `workflows/comicbook/` wrappers and any other migration-only alias code
+- sweep remaining legacy import/path references across code, tests, docs, agent instructions, and tooling
+- promote genuinely shared modules that now have more than one workflow importer
+- close the documentation triad, impacted indexes, and ADR status for the final migrated state
+
+### Out of scope
+
+- new workflow features unrelated to the reorganization
+- new package/distribution rename work beyond what this migration already committed to
+- post-migration refactors that can be planned separately once the move is complete
 
 ### Detailed tasks
 
@@ -757,6 +909,12 @@ Required final assertions:
 - no import of `comicbook` remains in shipped runtime or test code
 - no lingering `ComicBook/` source path remains in docs or agent instructions unless it is explicitly historical context
 - both workflows run from `pipelines.*` entry points only
+
+### Documentation and observability impact
+
+- run the full documentation gate and ensure the triad plus impacted indexes describe the final post-migration repository accurately
+- update agent instructions so no active execution workflow still points at temporary compatibility paths
+- confirm ADR-0002 status and language match the final implemented state
 
 ### Exit criteria
 

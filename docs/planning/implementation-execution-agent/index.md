@@ -8,6 +8,8 @@ This workflow adds dedicated implementation agents that execute repository imple
 
 The agents are designed to do real build work, not just restate plans. The standard agent stops after one commit-sized slice. The autonomous variant keeps chaining commit-sized slices until the guide is complete or an approval-gated action blocks progress.
 
+The guide-authoring step is intentionally clarification-gated: if the planning material leaves implementation-critical ambiguity, `/implementation-doc` should ask the user questions first and only write the implementation guide once those answers are locked.
+
 ## Goals
 
 - create implementation guides and stop with a resumable handoff before any coding starts
@@ -26,6 +28,36 @@ The agents are designed to do real build work, not just restate plans. The stand
 - using handoff notes as a substitute for tests or repository documentation
 
 ## Design summary
+
+### Implementation-guide quality bar
+
+`/implementation-doc` is expected to produce a delivery-grade technical guide, not a broad prose summary.
+
+Before the guide is written or materially revised, the docs workflow should inspect the planning doc, related docs, and relevant repository state closely enough to surface any ambiguity that would change:
+
+- TaskGroup scope or ordering
+- file or module ownership
+- public/runtime contracts
+- testing expectations
+- observability or logging requirements
+- acceptance criteria or rollout behavior
+
+If any such ambiguity remains, the workflow should stop and ask the user for clarification before writing the guide. Multiple clarification rounds are valid and expected when needed.
+
+Every implementation guide should organize work into ordered `TaskGroup`s. Each `TaskGroup` should be specific enough that an implementation agent can execute it without guessing. At minimum, each `TaskGroup` must include:
+
+- goal
+- dependencies
+- exact in-scope work
+- exact out-of-scope work
+- deterministic task list
+- expected files or modules
+- tests and verification steps
+- documentation and observability impact
+- exit criteria
+- handoff notes for the next TaskGroup
+
+When a `TaskGroup` includes code changes, refactors, or new modules/APIs, the guide should also provide representative pseudocode, code skeletons, or concrete snippets for the non-obvious implementation patterns.
 
 ### Main agents
 
@@ -74,7 +106,7 @@ Two new skills were added because the current repo did not already define reusab
 
 Expected two-step flow:
 
-1. `/implementation-doc` writes the implementation guide, seeds `implementation-handoff.md`, and stops with a permission request.
+1. `/implementation-doc` inspects the plan, asks clarification questions first if implementation-critical ambiguity remains, then writes the implementation guide, seeds `implementation-handoff.md`, and stops with a permission request.
 2. `/implement-next` executes one commit-sized slice only after the user explicitly approves moving from planning into implementation by invoking `/implement-next ...` or by clearly approving `/implement-next` in a later message.
 3. `/implement-next-autonomous` uses the same initial approval boundary, then keeps advancing across later handoff checkpoints within the same run until completion or a gated action blocks it.
 
