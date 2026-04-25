@@ -22,3 +22,7 @@ Developer docs make workflows maintainable without relying on tribal knowledge.
 - [Image Prompt Generation Workflow](Image-prompt-gen-workflow/index.md): module boundaries, config contracts, and current test commands for the image-generation workflow.
 - [Template Upload Workflow](template-upload-workflow/index.md): graph shape, persistence contracts, CLI/library surface, and closeout verification guidance for template imports.
 - [Implementation Execution Agent](implementation-execution-agent/index.md): invocation, skill reuse, and handoff contract for commit-sized implementation sessions.
+
+## Cross-cutting initiatives
+
+- [Repository Reorganization](repo-reorganization/index.md): migration status, shared logging foundation details, and verification guidance for the phased package move.

@@ -22,7 +22,10 @@ This repository keeps all durable project documentation under `docs/`.
 
 ## Cross-cutting initiatives
 
-- [Repository Reorganization](planning/repo-reorganization/index.md): plan and ADR for the multi-workflow `pipelines` package and the shared logging standard.
+- Repository Reorganization
+  - [Planning](planning/repo-reorganization/index.md)
+  - [Business](business/repo-reorganization/index.md)
+  - [Developer](developer/repo-reorganization/index.md)
 
 ## Cross-cutting rules
 

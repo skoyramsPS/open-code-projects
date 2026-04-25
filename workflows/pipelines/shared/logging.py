@@ -50,6 +50,12 @@ _PROMOTED_FIELDS: tuple[str, ...] = (
     "duration_ms",
 )
 
+_PROMOTED_ERROR_FIELDS: tuple[str, ...] = (
+    "error.code",
+    "error.message",
+    "error.retryable",
+)
+
 _LOG_FORMAT_ENV = "PIPELINES_LOG_FORMAT"
 _LOG_LEVEL_ENV = "PIPELINES_LOG_LEVEL"
 _DEFAULT_LEVEL = logging.INFO
@@ -90,11 +96,26 @@ class JsonFormatter(logging.Formatter):
             if value is not None:
                 payload[field] = value
 
+        error_payload = _extract_error_payload(record)
+        payload.update(error_payload)
+
         extra_payload: dict[str, Any] = {}
         for key, value in record.__dict__.items():
             if key in _RESERVED_RECORD_KEYS:
                 continue
             if key in _PROMOTED_FIELDS:
+                continue
+            if key == "error":
+                if isinstance(value, Mapping):
+                    remaining_error = {
+                        nested_key: nested_value
+                        for nested_key, nested_value in value.items()
+                        if f"error.{nested_key}" not in _PROMOTED_ERROR_FIELDS
+                    }
+                    if remaining_error:
+                        extra_payload[key] = remaining_error
+                else:
+                    extra_payload[key] = value
                 continue
             extra_payload[key] = value
         if extra_payload:
@@ -142,6 +163,19 @@ def _json_default(value: Any) -> Any:
     if isinstance(value, datetime):
         return value.isoformat()
     return repr(value)
+
+
+def _extract_error_payload(record: logging.LogRecord) -> dict[str, Any]:
+    error = getattr(record, "error", None)
+    if not isinstance(error, Mapping):
+        return {}
+
+    payload: dict[str, Any] = {}
+    for field_name in ("code", "message", "retryable"):
+        value = error.get(field_name)
+        if value is not None:
+            payload[f"error.{field_name}"] = value
+    return payload
 
 
 def get_logger(name: str) -> logging.Logger:
