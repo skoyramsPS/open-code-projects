@@ -111,3 +111,7 @@ Before finalizing, the agent must mentally walk through this list. Failing any i
 - prefer the smallest set of document edits that fully satisfies the request
 - this command is planning-only and handoff-only; it must not auto-transition into implementation work
 - the output must make the hard stop unambiguous to the caller and to any later subagent invocation
+
+## Recommended follow-up
+
+After this command finishes, recommend `/implementation-doc-review <implementation-doc> [plan] [handoff]` as the natural next step. That command runs the `implementation-doc-reviewer` agent, which cross-checks the guide against the source plan and current repository state, applies mechanical tightening fixes, proposes annotated fixes for review, and asks the user any clarification questions that remain. Mention this only as a suggestion in the final summary; do not invoke the review command automatically.
