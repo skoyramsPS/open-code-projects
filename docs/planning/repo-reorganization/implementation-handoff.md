@@ -10,7 +10,7 @@
 
 ## Current status summary
 
-The repository has now completed TG1 plus seven TG2 slices: the project-root bootstrap, the shared config/deps move, the shared repo-protection move, the shared fingerprint move, the shared database move, the shared execution-helper move, and the shared runtime-deps move.
+The repository has now completed TG1 plus eight TG2 slices: the project-root bootstrap, the shared config/deps move, the shared repo-protection move, the shared fingerprint move, the shared database move, the shared execution-helper move, the shared runtime-deps move, and the workflow CLI entry-point move.
 
 What is true after this session:
 
@@ -24,12 +24,17 @@ What is true after this session:
 - `workflows/pipelines/shared/db.py` is now the source of truth for the shared SQLite DAO, persistence records, and run-lock helpers
 - `workflows/pipelines/shared/execution.py` is now the source of truth for shared graph-execution helpers such as `bind_node`, `prepare_initial_state`, and `run_graph_with_lock`
 - `workflows/pipelines/shared/runtime_deps.py` is now the source of truth for managed runtime dependency construction and cleanup
+- `workflows/pipelines/workflows/image_prompt_gen/run.py` is now the source of truth for the image workflow CLI and library entry point
+- `workflows/pipelines/workflows/template_upload/run.py` is now the source of truth for the template-upload CLI and library entry point
+- the moved entry points now emit structured `log_event(...)` records directly for batch progress, single-run lifecycle, import-run lifecycle, and CLI error handling
 - `workflows/comicbook/config.py` and `workflows/comicbook/deps.py` are the first explicit target-tree compatibility wrappers for legacy imports
 - `workflows/comicbook/repo_protection.py` now provides the matching target-tree compatibility wrapper for the repo-protection surface
 - `workflows/comicbook/fingerprint.py` now provides the matching target-tree compatibility wrapper for the fingerprint helper surface
 - `workflows/comicbook/db.py` now provides the matching target-tree compatibility wrapper for the database surface
 - `workflows/comicbook/execution.py` now provides the matching target-tree compatibility wrapper for the execution-helper surface
 - `workflows/comicbook/runtime_deps.py` now provides the matching target-tree compatibility wrapper for the runtime-deps surface
+- `workflows/comicbook/input_file.py` now provides the minimum target-tree compatibility wrapper needed by the moved image entry point
+- `workflows/comicbook/run.py` and `workflows/comicbook/upload_run.py` now act as target-tree compatibility aliases to the moved `pipelines` entry-point modules
 - `workflows/comicbook/__init__.py` now preserves the legacy package-root `upload_templates` convenience export while TG2 compatibility wrappers accumulate
 - `ComicBook/comicbook/config.py` and `ComicBook/comicbook/deps.py` now act as thin legacy wrappers so the old package root can still resolve the migrated shared modules during TG2
 - `ComicBook/comicbook/repo_protection.py` now acts as a thin legacy wrapper so the old package root and `ComicBook/scripts/check_do_not_change.py` still resolve the moved implementation during TG2
@@ -37,21 +42,23 @@ What is true after this session:
 - `ComicBook/comicbook/db.py` now acts as a thin legacy wrapper so the old package root still resolves the moved DAO and persistence dataclasses during TG2
 - `ComicBook/comicbook/execution.py` now acts as a thin legacy wrapper so the old package root still resolves the moved execution helpers during TG2
 - `ComicBook/comicbook/runtime_deps.py` now acts as a thin legacy wrapper so the old package root still resolves the moved runtime-dependency helpers during TG2
+- `ComicBook/comicbook/run.py` and `ComicBook/comicbook/upload_run.py` now act as legacy compatibility aliases to the moved entry-point modules
+- the run-module wrappers now preserve monkeypatch behavior by aliasing importers to the moved module objects instead of only re-exporting symbols
 - setup-facing READMEs and repository-reorganization docs now point at the new target-tree project root, env-template path, and current TG2 module-move progress
 - focused target-tree repo-protection tests now exist under `workflows/tests/shared/test_repo_protection.py`
 - focused target-tree fingerprint tests now exist under `workflows/tests/shared/test_fingerprint.py`
 - focused target-tree database tests now exist under `workflows/tests/shared/test_db.py`
 - focused target-tree execution tests now exist under `workflows/tests/shared/test_execution.py`
 - focused target-tree runtime-deps tests now exist under `workflows/tests/shared/test_runtime_deps.py`
+- focused target-tree entry-point tests now exist under `workflows/tests/image_prompt_gen/test_run.py` and `workflows/tests/template_upload/test_run.py`
 
 What is still true after this session:
 
-- the live runtime still resides under `ComicBook/comicbook/`
 - the live tests still reside primarily under `ComicBook/tests/`
-- most of the runtime module move into `workflows/pipelines/` has not happened yet
-- the live workflow entry points and most workflow-owned modules still reside under `ComicBook/comicbook/`
-- CLI entry points still do not emit fully structured `log_event(...)` records directly; that adoption work is still pending later in TG2
-- compatibility wrappers exist only for `config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, and `runtime_deps`, plus the package-root `upload_templates` re-export; graph, node, state, and most other legacy imports still do not have target-tree wrappers yet
+- most workflow-owned module moves into `workflows/pipelines/` have not happened yet
+- graphs, nodes, prompts, adapters, and the mixed state contracts still reside under `ComicBook/comicbook/`
+- the moved entry points still depend on legacy workflow-module bridges for actual graph execution from the target tree; full target-tree workflow execution is not complete yet
+- compatibility wrappers exist only for `config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, `runtime_deps`, `input_file`, `run`, and `upload_run`, plus the package-root `upload_templates` re-export; graph, node, state, and most other legacy imports still do not have target-tree wrappers yet
 - default pricing lookup in `workflows/pipelines/shared/runtime_deps.py` still falls back to `ComicBook/comicbook/pricing.json` until the workflow asset move lands later in TG2
 
 ## TaskGroup status table
@@ -59,7 +66,7 @@ What is still true after this session:
 | TaskGroup | Title | Status | Notes |
 | --- | --- | --- | --- |
 | TG1 | Finalize and verify the shared logging foundation | completed | Shared logging module aligned with the standard, covered by focused pytest scope, and documented across the triad. |
-| TG2 | Move package and tests into `workflows/` with compatibility wrappers | in progress | Bootstrap plus seven shared-module slices are complete: target-tree project metadata landed, `config.py`/`deps.py`/`repo_protection.py`/`fingerprint.py`/`db.py`/`execution.py`/`runtime_deps.py` now live in `pipelines.shared`, and matching `workflows/comicbook/` wrappers exist. Most TG2 work is still pending. |
+| TG2 | Move package and tests into `workflows/` with compatibility wrappers | in progress | Bootstrap plus eight TG2 slices are complete: target-tree project metadata landed, seven shared modules now live in `pipelines.shared`, and both workflow CLI entry points now live under `pipelines.workflows.*.run` with compatibility aliases. Most workflow-owned module moves are still pending. |
 | TG3 | Split shared and workflow-specific state modules | pending | Blocked on TG2 completing the package move. |
 | TG4 | Complete structured logging adoption and template-upload naming cleanup | pending | Blocked on TG3. |
 | TG5 | Remove compatibility layer, promote reused modules, and close out docs | pending | Blocked on TG4. |
@@ -69,30 +76,39 @@ What is still true after this session:
 ### Selected TaskGroup and slice
 
 - **TaskGroup:** TG2
-- **Slice:** TG2 runtime-deps move — migrate the managed runtime-construction helper with thin compatibility wrappers and focused runtime-entrypoint tests
+- **Slice:** TG2 CLI entry-point move — migrate `run.py` and `upload_run.py` into `pipelines.workflows.*.run`, adopt `log_event(...)`, and preserve compatibility through module aliases and focused entry-point tests
 
 ### Why this slice size was chosen
 
-The first unfinished TaskGroup remained TG2, but the remaining work still spans several unrelated shared modules plus both workflows. The local `implementation-slice-guard` skill was present in the repository at `.opencode/skills/implementation-slice-guard/SKILL.md` but was not exposed through the skill tool, so its selection rules were applied manually from that file. Following that guidance, this slice was chosen because `runtime_deps.py` is one cohesive shared runtime-construction helper with a focused test surface around pricing resolution, managed dependency construction, dependency reuse, and cleanup. That keeps the session commit-sized while advancing the dependency chain toward later CLI/run-module migration without mixing in full workflow graph/run moves.
+The first unfinished TaskGroup remained TG2, and the next natural dependency cluster after `runtime_deps.py` was the pair of workflow entry points that sit directly on top of those moved shared helpers. The local `implementation-slice-guard` skill was present in the repository at `.opencode/skills/implementation-slice-guard/SKILL.md` but was not exposed through the skill tool, so its selection rules were applied manually from that file again. Following that guidance, this slice was chosen because `run.py` and `upload_run.py` are the two non-node runtime entry points called out explicitly in the implementation guide's TG2 logging-adoption work. Keeping the slice bounded to those two modules avoided mixing in graph, node, or TG3 state moves.
 
 ### Completed work from this session
 
-1. Added `workflows/pipelines/shared/runtime_deps.py` as the new source-of-truth home for pricing loading, managed runtime dependency construction, dependency reuse, and runtime resource cleanup.
-2. Switched the moved helper to build managed dependencies with `get_logger(__name__)` from the shared logging module instead of the legacy `logging.getLogger("comicbook.run")` call.
-3. Added `workflows/comicbook/runtime_deps.py` as the target-tree compatibility wrapper for legacy `comicbook.runtime_deps` imports.
-4. Converted `ComicBook/comicbook/runtime_deps.py` into a thin legacy wrapper so the old package root still resolves the moved implementation during TG2.
-5. Kept default pricing resolution working without moving workflow assets yet by falling back to `ComicBook/comicbook/pricing.json` when the target-tree pricing file is not present.
-6. Updated `workflows/comicbook/__init__.py` so the target-tree compatibility package preserves the legacy package-root `upload_templates` convenience export while dedicated run-module wrappers are still pending.
-7. Added focused target-tree coverage in `workflows/tests/shared/test_runtime_deps.py` for wrapper identity, pricing loading, managed dependency construction, dependency reuse, cleanup behavior, and the package-root `upload_templates` re-export.
-8. Verified the focused runtime-deps scope, the broader target-tree shared regression scope, and representative legacy runtime-entrypoint regression scopes successfully, then reconciled the handoff so it matches the repository state for this completed slice.
+1. Added `workflows/pipelines/workflows/image_prompt_gen/run.py` as the new source-of-truth home for the image workflow CLI and library entry point.
+2. Added `workflows/pipelines/workflows/template_upload/run.py` as the new source-of-truth home for the template-upload CLI and library entry point.
+3. Switched those moved entry points to use `log_event(...)` from the shared logging module for batch lifecycle, single-run lifecycle, import-run lifecycle, and CLI error handling.
+4. Added `workflows/comicbook/run.py` and `workflows/comicbook/upload_run.py` as target-tree compatibility aliases to the moved entry-point modules.
+5. Converted `ComicBook/comicbook/run.py` and `ComicBook/comicbook/upload_run.py` into legacy compatibility aliases so the old package root now resolves the moved implementations.
+6. Changed the compatibility strategy for the run modules from plain re-exports to module aliases so monkeypatch-based tests and importers operate on the same module objects as the moved `pipelines` modules.
+7. Added `workflows/comicbook/input_file.py` as the minimum target-tree compatibility wrapper needed to keep the moved image entry point importable without pulling graph/state migration into the same slice.
+8. Added focused target-tree coverage in `workflows/tests/image_prompt_gen/test_run.py` and `workflows/tests/template_upload/test_run.py` for wrapper identity and `log_event(...)` usage.
+9. Verified the focused target-tree scope, the broader target-tree logging/runtime scope, representative legacy runtime-entrypoint regression scopes, and direct compatibility alias identity checks successfully.
 
 ## Files changed in this session
 
-- `workflows/pipelines/shared/runtime_deps.py`
-- `workflows/comicbook/runtime_deps.py`
-- `workflows/comicbook/__init__.py`
-- `workflows/tests/shared/test_runtime_deps.py`
-- `ComicBook/comicbook/runtime_deps.py`
+- `workflows/pipelines/workflows/image_prompt_gen/__init__.py`
+- `workflows/pipelines/workflows/image_prompt_gen/run.py`
+- `workflows/pipelines/workflows/template_upload/__init__.py`
+- `workflows/pipelines/workflows/template_upload/run.py`
+- `workflows/comicbook/input_file.py`
+- `workflows/comicbook/run.py`
+- `workflows/comicbook/upload_run.py`
+- `workflows/tests/image_prompt_gen/__init__.py`
+- `workflows/tests/image_prompt_gen/test_run.py`
+- `workflows/tests/template_upload/__init__.py`
+- `workflows/tests/template_upload/test_run.py`
+- `ComicBook/comicbook/run.py`
+- `ComicBook/comicbook/upload_run.py`
 - `workflows/README.md`
 - `docs/business/repo-reorganization/index.md`
 - `docs/developer/repo-reorganization/index.md`
@@ -101,25 +117,25 @@ The first unfinished TaskGroup remained TG2, but the remaining work still spans 
 
 ## Tests run and results
 
-Focused target-tree verification command run from `workflows/`:
+Focused target-tree entry-point verification command run from `workflows/`:
 
 ```bash
-uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared/test_runtime_deps.py
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/image_prompt_gen/test_run.py tests/template_upload/test_run.py
 ```
 
 Result:
 
-- `8 passed in 0.30s`
+- `6 passed in 0.03s`
 
-Broader target-tree shared regression command run from `workflows/`:
+Broader target-tree logging/runtime regression command run from `workflows/`:
 
 ```bash
-uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared/test_logging.py tests/shared/test_config_and_deps.py tests/shared/test_repo_protection.py tests/shared/test_fingerprint.py tests/shared/test_db.py tests/shared/test_execution.py tests/shared/test_runtime_deps.py
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared/test_logging.py tests/shared/test_runtime_deps.py tests/image_prompt_gen/test_run.py tests/template_upload/test_run.py
 ```
 
 Result:
 
-- `44 passed in 1.55s`
+- `19 passed in 0.19s`
 
 Legacy runtime-entrypoint regression command run from `ComicBook/`:
 
@@ -131,28 +147,30 @@ Result:
 
 - `31 passed in 1.07s`
 
-Target-tree compatibility import check run from `workflows/`:
+Target-tree compatibility alias identity check run from `workflows/`:
 
 ```bash
 uv run --project "../ComicBook" --no-sync python - <<'PY'
-from comicbook import upload_templates as exported
-from comicbook.upload_run import upload_templates as direct
-print(exported is direct)
+from comicbook import upload_templates as package_upload_templates
+from comicbook.run import run_once as wrapped_run_once
+from pipelines.workflows.image_prompt_gen.run import run_once as moved_run_once
+from pipelines.workflows.template_upload.run import upload_templates as moved_upload_templates
+print(package_upload_templates is moved_upload_templates)
+print(wrapped_run_once is moved_run_once)
 PY
 ```
 
 Result:
 
 - printed `True`
+- printed `True`
 
 Additional verification performed:
 
-- strict red/green sequencing was adapted in this run because the repository already contained an in-progress runtime-deps draft when this session began; the smallest meaningful focused pytest scope was still run first to validate and finish that slice before broader verification
-- confirmed target-tree compatibility imports resolve through `workflows/comicbook/runtime_deps.py`
-- confirmed managed dependency construction now uses the shared logger factory while preserving the same directory-creation and resource-management behavior
-- confirmed default pricing lookup still works before the pricing asset moves by falling back to `ComicBook/comicbook/pricing.json`
-- confirmed the target-tree compatibility package still re-exports `upload_templates` from the package root
-- confirmed representative legacy runtime-entrypoint tests still pass after the wrapper conversion
+- strict TDD was followed for the new target-tree entry-point coverage: the initial focused pytest run failed because the target-tree workflow packages and moved run modules did not exist yet, then the smallest implementation needed for that scope was added
+- the first broader legacy regression run exposed that plain symbol re-export wrappers broke monkeypatch-based tests; the slice corrected that by switching `run` and `upload_run` wrappers to module aliases
+- confirmed the package-root `upload_templates` convenience export still resolves to the moved template-upload entry point
+- confirmed representative legacy runtime-entrypoint tests still pass after the entry-point move and logging adoption
 
 ## Documentation updated
 
@@ -175,43 +193,42 @@ Additional verification performed:
 
 ### ADR
 
-- no ADR update was needed in this slice because moving `runtime_deps.py` followed the already accepted migration plan and did not introduce a new architecture decision
+- no ADR update was needed in this slice because moving the two workflow entry points followed the already accepted migration plan and did not introduce a new architecture decision beyond that plan
 
 ## Blockers or open questions
 
 - No code blocker remains for this slice.
 - The local `implementation-slice-guard` skill exists in the repository but is not currently loadable through the skill tool, so slice selection used the checked-in skill file directly.
 - Direct `pytest` is still unavailable in the shell environment, so verification reused the existing locked `ComicBook` uv project with `--no-sync` to avoid package installation.
-- The handoff document had fallen behind the actual repository state before this session because the runtime-deps slice files already existed in the working tree; this update reconciles the handoff with the implemented slice and current verification evidence.
 - The legacy `ComicBook/comicbook/config.py`, `deps.py`, `repo_protection.py`, `fingerprint.py`, `db.py`, `execution.py`, and `runtime_deps.py` wrappers currently add the sibling `workflows/` directory to `sys.path` so the old package root can keep working while TG2 is incomplete. This is a temporary bridge, not the long-term compatibility mechanism.
 - `workflows/pipelines/shared/fingerprint.py` intentionally falls back to loading the legacy `ComicBook/comicbook/state.py` module for `RenderedPrompt` when the target-tree `comicbook.state` wrapper does not exist yet. This is a temporary TG2 bridge that should disappear once TG3 moves state ownership.
 - `workflows/pipelines/shared/db.py` intentionally falls back to loading the legacy `ComicBook/comicbook/state.py` module for `TemplateSummary` when the target-tree state wrapper does not exist yet. This is a temporary TG2 bridge that should disappear once TG3 moves state ownership.
 - `workflows/pipelines/shared/execution.py` intentionally falls back to loading the legacy `ComicBook/comicbook/state.py` and `ComicBook/comicbook/nodes/ingest.py` modules when target-tree wrappers do not exist yet. This is a temporary TG2 bridge that should disappear once later TG2/TG3 work moves those dependencies cleanly.
 - `workflows/pipelines/shared/runtime_deps.py` intentionally falls back to `ComicBook/comicbook/pricing.json` when the target-tree pricing asset is not present yet. This is a temporary TG2 bridge that should disappear once the workflow pricing file moves.
-- The `workflows/comicbook/__init__.py` package-root `upload_templates` re-export currently resolves through the legacy `ComicBook/comicbook/upload_run.py` module until the dedicated run/upload_run slice lands.
+- the moved entry points still call into legacy workflow modules for actual graph execution when those graph paths are not yet available in the target tree; that bridge should disappear in later TG2 slices.
 - Running Python verification touched tracked and untracked `__pycache__` artifacts under `workflows/`; they were left in place because delete/revert cleanup is approval-gated in this workflow.
 
 ## Exact next recommended slice
 
-### TG2 next slice: move the workflow CLI entry points with structured `log_event(...)` adoption
+### TG2 next slice: move the workflow graph modules with only the minimum target-tree bridge surface
 
 Recommended next implementation slice:
 
-1. move `ComicBook/comicbook/run.py` into `workflows/pipelines/workflows/image_prompt_gen/run.py` and `ComicBook/comicbook/upload_run.py` into `workflows/pipelines/workflows/template_upload/run.py`
-2. add `workflows/comicbook/run.py` and `workflows/comicbook/upload_run.py` plus any required legacy-wrapper updates so both `pipelines.*` and temporary `comicbook.*` imports continue to resolve
-3. adopt `log_event(...)` in those CLI and non-node runtime entry points while preserving current command behavior and argument parsing
-4. add focused target-tree tests that prove both entry points still work from the new root, including the package-root `upload_templates` convenience export, while keeping the slice bounded away from graph/node moves and TG3 state splitting
+1. move `ComicBook/comicbook/graph.py` into `workflows/pipelines/workflows/image_prompt_gen/graph.py` and `ComicBook/comicbook/upload_graph.py` into `workflows/pipelines/workflows/template_upload/graph.py`
+2. add the minimum target-tree compatibility scaffolding needed for those moved graph modules to import cleanly from `workflows/`, such as `workflows/comicbook/state.py`, `workflows/comicbook/upload_graph.py`, `workflows/comicbook/graph.py`, and a bounded `workflows/comicbook/nodes/` bridge if required
+3. keep node implementations, prompts, adapters, and TG3 state splitting out of that slice
+4. add focused target-tree tests that prove the moved graph modules and the already moved entry points can execute from the new root without depending on legacy run-module wrappers
 
 Why this next slice is recommended:
 
-- it is the next foundational TG2 cluster after `runtime_deps.py` because the entry points now depend on the moved shared helpers and still own the remaining non-node logging adoption called out in the implementation guide
-- `run.py` and `upload_run.py` are tightly related as the two CLI/runtime entry points, and they share one focused test strategy around argument parsing, dependency resolution, and log-event emission
-- leaving graph assembly, workflow nodes, and TG3 state splitting for later keeps the next commit narrowly focused on entrypoint ownership and observability contracts
+- it is the next dependency cluster after the entry-point move because the new `pipelines.workflows.*.run` modules still rely on legacy workflow-module bridges for graph execution
+- graph assembly is the next workflow-owned boundary below the entry points, and moving it will reduce the amount of legacy indirection without yet mixing in node moves or TG3 state splitting
+- leaving nodes, prompts, adapters, and the mixed state file untouched keeps the next commit narrowly focused and still TG2-scoped
 
 Boundaries for the next session:
 
 - do not start TG3+
-- do not move workflow graphs or nodes in the same slice as the CLI entry points
+- do not move workflow nodes in the same slice as the graph modules unless a tiny inseparable bridge is required
 - do not remove legacy paths yet
 - do not split `state.py` until TG3
 
@@ -314,6 +331,19 @@ Boundaries for the next session:
 - Expanded focused target-tree coverage in `workflows/tests/shared/test_runtime_deps.py`, including the package-root `upload_templates` re-export.
 - Verified the runtime-deps slice through focused target-tree tests, the broader target-tree shared regression scope, a direct import check for the compatibility package export, and representative legacy runtime-entrypoint regression scopes.
 - Reconciled this handoff with the repository state so the recorded completed slice now matches the implemented files and verification evidence.
+
+### 2026-04-25 — TG2 CLI entry-point implementation session
+
+- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the shared-module work.
+- Loaded and applied `pytest-tdd-guard` because moving the workflow entry points and changing compatibility-wrapper behavior is a Python refactor-risk slice.
+- Loaded and applied `docs-update-guard` because the slice changed developer-facing import ownership and runtime observability expectations.
+- Added focused target-tree tests first; the initial run failed because the target-tree workflow packages and moved run modules did not exist yet.
+- Added `workflows/pipelines/workflows/image_prompt_gen/run.py` and `workflows/pipelines/workflows/template_upload/run.py` as the new source-of-truth entry points.
+- Added target-tree compatibility aliases for `comicbook.run` and `comicbook.upload_run`, plus the minimum `comicbook.input_file` wrapper needed for the moved image entry point.
+- Converted the legacy `ComicBook/comicbook/run.py` and `upload_run.py` modules into compatibility aliases to the moved source-of-truth modules.
+- The first broader legacy regression run exposed that plain symbol re-exports broke monkeypatch-based tests; the slice corrected that by switching the run-module wrappers to module aliases.
+- Verified the slice through focused target-tree tests, broader target-tree logging/runtime regression tests, representative legacy runtime-entrypoint tests, and direct alias identity checks.
+- Updated the planning, business, and developer docs plus `workflows/README.md` to reflect the new entry-point ownership and direct `log_event(...)` adoption.
 
 ## Permission checkpoint
 

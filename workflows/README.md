@@ -31,9 +31,20 @@ The repository is in the middle of a reorganization away from the legacy
   through `pipelines/shared/runtime_deps.py`, uses the shared logger factory,
   and temporarily falls back to the legacy `ComicBook/comicbook/pricing.json`
   asset until the workflow-specific pricing file moves later in TG2.
+- the workflow CLI entry points now live under
+  `pipelines/workflows/image_prompt_gen/run.py` and
+  `pipelines/workflows/template_upload/run.py`.
+- both `workflows/comicbook/` and `ComicBook/comicbook/` now expose `run` and
+  `upload_run` as compatibility aliases to those moved modules, so old imports
+  and monkeypatch-based tests still point at the same module objects.
+- those moved entry points now emit structured `log_event(...)` records directly
+  for run lifecycle, batch lifecycle, import lifecycle, and CLI error cases.
 - `workflows/comicbook/__init__.py` now preserves the legacy package-root
   `upload_templates` re-export so the compatibility package keeps matching the
   old convenience import surface while wrappers accumulate.
+- `workflows/comicbook/input_file.py` now keeps the moved image run module
+  importable from the target tree without moving input-file parsing ownership
+  yet.
 - The live runtime code still mostly lives under `ComicBook/comicbook/`; most of
   the runtime and tests are still waiting to move.
 

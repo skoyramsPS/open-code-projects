@@ -5,10 +5,10 @@ Developer notes for the phased migration from `ComicBook/comicbook/` to `workflo
 ## Current implementation status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point slices complete)
 - TG3-TG5: not started
 
-TG1 was kept intentionally narrow so the migration now has a tested shared logging foundation before package moves begin. The next slice established `workflows/` as the target-tree project root for migrated metadata and focused pytest scopes. The following slice then moved the shared configuration and dependency-container modules into `pipelines.shared` and started the explicit `workflows/comicbook/` compatibility package. The next slice moved the repo-protection helper into `pipelines.shared` and kept the legacy script/import surface working through wrappers. The following slice moved the fingerprint helper into `pipelines.shared` and kept both target-tree and legacy imports working while state ownership is still waiting on TG3. The next slice moved the SQLite DAO into `pipelines.shared` and kept both target-tree and legacy imports working through the same thin-wrapper pattern. The next slice moved the reusable graph-execution helpers into `pipelines.shared` and kept both target-tree and legacy imports working with a temporary fallback for the still-legacy ingest/state dependencies. The latest slice moved `runtime_deps.py` into `pipelines.shared`, switched managed dependency construction to the shared logger factory, and preserved both the legacy `comicbook.runtime_deps` import path and the package-root `upload_templates` convenience export.
+TG1 was kept intentionally narrow so the migration now has a tested shared logging foundation before package moves begin. The next slice established `workflows/` as the target-tree project root for migrated metadata and focused pytest scopes. The following slice then moved the shared configuration and dependency-container modules into `pipelines.shared` and started the explicit `workflows/comicbook/` compatibility package. The next slice moved the repo-protection helper into `pipelines.shared` and kept the legacy script/import surface working through wrappers. The following slice moved the fingerprint helper into `pipelines.shared` and kept both target-tree and legacy imports working while state ownership is still waiting on TG3. The next slice moved the SQLite DAO into `pipelines.shared` and kept both target-tree and legacy imports working through the same thin-wrapper pattern. The next slice moved the reusable graph-execution helpers into `pipelines.shared` and kept both target-tree and legacy imports working with a temporary fallback for the still-legacy ingest/state dependencies. The next slice moved `runtime_deps.py` into `pipelines.shared`, switched managed dependency construction to the shared logger factory, and preserved both the legacy `comicbook.runtime_deps` import path and the package-root `upload_templates` convenience export. The latest slice moved the workflow CLI entry points into `pipelines.workflows.image_prompt_gen.run` and `pipelines.workflows.template_upload.run`, adopted `log_event(...)` in those non-node entry points, and changed the `comicbook.run` / `comicbook.upload_run` compatibility surface from plain re-exports to module aliases so monkeypatch-heavy tests keep working.
 
 ## TG1 deliverables
 
@@ -96,12 +96,24 @@ The newest slice kept TG2 on the same one-shared-module-at-a-time pattern while 
 - updated `workflows/comicbook/__init__.py` so the target-tree compatibility package preserves the legacy package-root `upload_templates` re-export that existing tests expect
 - added focused target-tree coverage in `workflows/tests/shared/test_runtime_deps.py`, including the package-root `upload_templates` re-export
 
+## TG2 CLI entry-point deliverables
+
+The newest slice kept TG2 focused on the two runtime entry points that sit on top of the already moved shared helpers.
+
+- moved the image workflow entry point into `workflows/pipelines/workflows/image_prompt_gen/run.py`
+- moved the template-upload entry point into `workflows/pipelines/workflows/template_upload/run.py`
+- added `workflows/comicbook/run.py` and `workflows/comicbook/upload_run.py` as target-tree compatibility aliases to those moved modules
+- converted `ComicBook/comicbook/run.py` and `ComicBook/comicbook/upload_run.py` into legacy compatibility aliases so existing importers and monkeypatch-based tests now point at the moved source-of-truth modules
+- adopted `log_event(...)` for batch progress, single-run lifecycle, import-run lifecycle, and CLI error handling in the moved entry points
+- added `workflows/comicbook/input_file.py` so the moved image entry point can still resolve the existing input-file helper from the target tree without pulling TG3 state work forward
+- added focused target-tree coverage in `workflows/tests/image_prompt_gen/test_run.py` and `workflows/tests/template_upload/test_run.py`
+
 ## Verification
 
 Focused verification for the migrated target-tree test scope now runs from `workflows/` while still reusing the existing locked dependency environment from `ComicBook/`:
 
 ```bash
-uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared/test_logging.py tests/shared/test_config_and_deps.py tests/shared/test_repo_protection.py tests/shared/test_fingerprint.py tests/shared/test_db.py tests/shared/test_execution.py tests/shared/test_runtime_deps.py
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared/test_logging.py tests/shared/test_runtime_deps.py tests/image_prompt_gen/test_run.py tests/template_upload/test_run.py
 ```
 
 Legacy continuity for the moved shared modules and runtime entry points was also checked from `ComicBook/`:
@@ -112,13 +124,27 @@ PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_budget_guard.py
 
 The `pythonpath = ["."]` pytest setting in `workflows/pyproject.toml` keeps the target package importable from the new root without extra shell setup. This keeps the slice install-free while proving that `workflows/pyproject.toml` can now drive the focused target-tree pytest scope.
 
+The target-tree compatibility aliases were also checked directly from `workflows/`:
+
+```bash
+uv run --project "../ComicBook" --no-sync python - <<'PY'
+from comicbook import upload_templates as package_upload_templates
+from comicbook.run import run_once as wrapped_run_once
+from pipelines.workflows.image_prompt_gen.run import run_once as moved_run_once
+from pipelines.workflows.template_upload.run import upload_templates as moved_upload_templates
+print(package_upload_templates is moved_upload_templates)
+print(wrapped_run_once is moved_run_once)
+PY
+```
+
 ## Important boundaries
 
 The completed TG1 + TG2 bootstrap work does **not** yet:
 
 - move runtime modules out of `ComicBook/comicbook/`
-- finish full CLI `log_event(...)` adoption in the moved runtime entry points
-- add more than the first few `config` / `deps` / `repo_protection` / `fingerprint` / `db` / `execution` / `runtime_deps` compatibility wrappers
+- move most workflow-owned modules such as graphs, nodes, prompts, adapters, and state out of `ComicBook/comicbook/`
+- let the moved entry points execute entirely through target-tree workflow modules without still relying on legacy workflow-module bridges
+- add more than the current `config` / `deps` / `repo_protection` / `fingerprint` / `db` / `execution` / `runtime_deps` / `input_file` / `run` / `upload_run` compatibility wrappers
 - change workflow state ownership
 - move the main legacy test suite out of `ComicBook/tests/`
 
@@ -126,7 +152,7 @@ Those changes remain sequenced behind TG2 and later TaskGroups in the implementa
 
 ## Next expected slice
 
-The next TG2 slice should continue from shared helpers into one bounded runtime-entrypoint cluster, most likely the `run.py` and `upload_run.py` CLI modules plus their structured `log_event(...)` adoption and focused entrypoint tests, while still leaving full graph/node moves and TG3 state work untouched.
+The next TG2 slice should continue from the moved entry points into the remaining workflow-local bridges they still depend on, most likely `graph.py`, `upload_graph.py`, and the minimum target-tree compatibility scaffolding needed for those modules, while still leaving node moves and TG3 state splitting untouched.
 
 ## Related documents
 

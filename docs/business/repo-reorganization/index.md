@@ -4,7 +4,7 @@ Plain-language status and operator-facing notes for the repository move into the
 
 ## What changed so far
 
-Eight migration slices have landed so far.
+Nine migration slices have landed so far.
 
 ### TG1 foundation
 
@@ -55,14 +55,21 @@ Eight migration slices have landed so far.
 - managed dependency construction now gets its logger from the shared logging foundation, while default pricing lookup still falls back to the legacy `ComicBook/comicbook/pricing.json` asset until that file moves later in TG2
 - representative legacy runtime-entrypoint tests still pass, so this slice changes helper ownership and logger construction without changing operator commands
 
+### TG2 CLI entry-point move
+
+- the image and template-upload CLI entry points now live under `workflows/pipelines/workflows/image_prompt_gen/run.py` and `workflows/pipelines/workflows/template_upload/run.py`
+- both `workflows/comicbook/` and `ComicBook/comicbook/` now expose `run` and `upload_run` as compatibility aliases to the moved modules, so existing imports and monkeypatch-based tests still behave the same way
+- the moved entry points now emit structured `log_event(...)` records directly for run lifecycle, batch lifecycle, import lifecycle, and CLI error cases
+- operators still use the same command surface today because the compatibility layer keeps the legacy import paths working while TG2 continues
+
 ## What has not changed yet
 
-The TG2 bootstrap slice does **not** move the live runtime into `workflows/`.
+TG2 has not finished moving the live runtime into `workflows/`.
 
-- the active runtime still lives under `ComicBook/comicbook/`
+- most of the active runtime still lives under `ComicBook/comicbook/`, even though the CLI entry-point source now lives under `workflows/pipelines/workflows/`
 - existing workflow commands and runtime paths are unchanged for operators
-- CLI entry points still do not emit fully structured `log_event(...)` records directly; that adoption work is still pending later in TG2
-- only a few temporary `comicbook` compatibility wrappers exist so far (`config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, and `runtime_deps`, plus the package-root `upload_templates` re-export); most legacy import paths are still pending migration
+- workflow graphs, nodes, prompts, adapters, and state ownership are still pending later TG2 and TG3 work
+- only part of the temporary `comicbook` compatibility surface exists so far (`config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, `runtime_deps`, `input_file`, `run`, and `upload_run`, plus the package-root `upload_templates` re-export); many legacy import paths are still pending migration
 
 That means the migration has updated project metadata and configuration guidance,
 but it has not rolled the runtime itself over to the new package tree yet.
@@ -76,7 +83,7 @@ TG1 establishes that shared contract first so later migration steps can adopt it
 ## Current rollout status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps slices complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point slices complete)
 - TG3-TG5: not started
 
 ## Related documents
