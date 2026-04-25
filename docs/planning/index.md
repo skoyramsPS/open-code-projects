@@ -25,7 +25,7 @@ Planning docs explain what is being built, why, and how implementation should pr
 
 - [Image Prompt Generation Workflow](Image-prompt-gen-workflow/index.md): plan and implementation guide for the LangGraph-based prompt-routing and serial image-generation workflow.
 - [Template Upload Workflow](template-upload-workflow/index.md): planning, implementation guide, and handoff for importing template JSON into the shared SQLite template library.
-- [Implementation Execution Agent](implementation-execution-agent/index.md): design and operating rules for resumable commit-sized implementation slices, including the explicit approval boundary between `/implementation-doc` and `/implement-next`.
+- [Implementation Execution Agent](implementation-execution-agent/index.md): design and operating rules for resumable commit-sized implementation slices, including the standard explicit-handoff mode and the autonomous multi-slice variant.
 
 ## Cross-cutting initiatives
 

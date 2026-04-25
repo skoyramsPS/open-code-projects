@@ -134,6 +134,7 @@ Migration to this layout is in progress — see [`docs/planning/repo-reorganizat
 - `/plan-workflow <topic>`
 - `/implementation-doc <planning-doc> [output-doc]`
 - `/implement-next <implementation-doc> [handoff-doc]`
+- `/implement-next-autonomous <implementation-doc> [handoff-doc]`
 - `/update-docs <topic>`
 - `/test-change <topic>`
 - `/adr <decision>`

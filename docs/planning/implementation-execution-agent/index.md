@@ -4,9 +4,9 @@ Planning documentation for the repository's implementation execution workflow.
 
 ## Purpose
 
-This workflow adds a dedicated implementation agent that executes repository implementation guides in small, resumable delivery slices.
+This workflow adds dedicated implementation agents that execute repository implementation guides in small, resumable delivery slices.
 
-The agent is designed to do real build work, not just restate plans. Each run should complete one commit-sized slice of an implementation guide, including testing, documentation updates, and handoff status maintenance.
+The agents are designed to do real build work, not just restate plans. The standard agent stops after one commit-sized slice. The autonomous variant keeps chaining commit-sized slices until the guide is complete or an approval-gated action blocks progress.
 
 ## Goals
 
@@ -27,11 +27,13 @@ The agent is designed to do real build work, not just restate plans. Each run sh
 
 ## Design summary
 
-### Main agent
+### Main agents
 
 `implementation-agent` lives in `.opencode/agents/implementation-agent.md`.
 
-It is responsible for:
+`autonomous-implementation-agent` lives in `.opencode/agents/autonomous-implementation-agent.md`.
+
+The standard agent is responsible for:
 
 - reading the implementation guide and current repo state
 - choosing the next eligible slice
@@ -40,9 +42,16 @@ It is responsible for:
 - updating docs when needed
 - updating the handoff file before stopping
 
+The autonomous variant keeps the same slice-selection and handoff discipline, but changes the stop rule:
+
+- it still works one commit-sized slice at a time
+- it updates the handoff after every completed slice
+- it auto-approves later handoff checkpoints within the same run
+- it stops only when the guide is complete or a gated action, blocker, or unresolved question requires user input
+
 ### Reused existing skills
 
-The agent reuses existing repo-local skills instead of duplicating their policies.
+The agents reuse existing repo-local skills instead of duplicating their policies.
 
 - `pytest-tdd-guard` for Python behavior changes, bug fixes, and risky refactors
 - `docs-update-guard` for significant documentation updates
@@ -61,14 +70,17 @@ Two new skills were added because the current repo did not already define reusab
 
 `/implement-next <implementation-doc> [handoff-doc]`
 
+`/implement-next-autonomous <implementation-doc> [handoff-doc]`
+
 Expected two-step flow:
 
 1. `/implementation-doc` writes the implementation guide, seeds `implementation-handoff.md`, and stops with a permission request.
 2. `/implement-next` executes one commit-sized slice only after the user explicitly approves moving from planning into implementation by invoking `/implement-next ...` or by clearly approving `/implement-next` in a later message.
+3. `/implement-next-autonomous` uses the same initial approval boundary, then keeps advancing across later handoff checkpoints within the same run until completion or a gated action blocks it.
 
 Generic continuation wording such as `continue`, `go ahead`, `keep going`, `continue with your task`, or `summarize and continue` is not enough to cross the planning-to-implementation boundary.
 
-Both commands default the handoff path to `implementation-handoff.md` beside the implementation guide.
+Both implementation execution commands default the handoff path to `implementation-handoff.md` beside the implementation guide.
 
 ## Permission model
 
@@ -77,10 +89,13 @@ The implementation execution workflow now uses a mixed permission posture.
 - read-only repository inspection is auto-approved
 - safe git read/get commands are auto-approved
 - test execution and loading test-related skills are auto-approved
+- `uv run` pytest execution is auto-approved for the selected slice
+- local version checks such as `python --version`, `python3 --version`, and `uv --version` are auto-approved
 - creating, editing, modifying, and moving files or folders are auto-approved when they are part of the selected implementation slice
 - package or module installation requires approval
 - delete operations require approval
 - copy operations require approval
+- `git push` and any git-related remote mutation require approval
 
 OpenCode can enforce most of this directly through the agent permission block. The remaining delete-vs-edit distinction is reinforced in the workflow instructions because edit permissions are path-based rather than operation-type aware.
 
@@ -88,7 +103,7 @@ OpenCode can enforce most of this directly through the agent permission block. T
 
 The implementation guide's TaskGroup order remains authoritative.
 
-The agent should:
+The agents should:
 
 1. find the first unfinished TaskGroup whose dependencies are satisfied
 2. determine whether the remaining work in that TaskGroup is small and cohesive enough for one commit
@@ -96,6 +111,13 @@ The agent should:
 4. if not, complete one task or one inseparable cluster of adjacent tasks from that TaskGroup
 
 The commit-sized rule is intentional. It reduces long-lived partial work and aligns implementation progress with reviewable, test-backed increments.
+
+## Stop behavior
+
+The two execution modes share the same slice-selection rules but differ in how they honor handoff checkpoints.
+
+- `implementation-agent` always stops after one completed slice and asks for another explicit `/implement-next` approval.
+- `autonomous-implementation-agent` treats later handoff checkpoints as approved within the same run and keeps going until the guide is complete or a gated action, blocker, or clarification request forces a stop.
 
 ## Handoff document contract
 
@@ -110,7 +132,7 @@ The handoff document records:
 - documentation updates
 - blockers and open questions
 - the next recommended slice
-- the explicit user-permission checkpoint before additional implementation continues
+- the explicit user-permission checkpoint before additional implementation continues, or the exact action that still needs approval when the autonomous agent stops on a gated operation
 
 The handoff should also carry an unambiguous hard-stop line so later sessions do not infer approval from generic continuation text.
 
@@ -134,9 +156,9 @@ Reference URLs:
 
 This workflow is ready when all of the following are true.
 
-- the repo contains a callable `implementation-agent`
+- the repo contains callable `implementation-agent` and `autonomous-implementation-agent` variants
 - the repo contains reusable slice-selection and handoff-maintenance skills
-- a command exists for invoking the agent against an implementation guide
+- commands exist for invoking the standard and autonomous agents against an implementation guide
 - the current `Image-prompt-gen-workflow` planning folder contains an initial handoff file
 - docs explain what the workflow is, how to use it, and how status resumes across sessions
 - the ADR record explains why the repository adopted this workflow
