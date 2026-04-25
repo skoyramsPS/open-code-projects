@@ -366,7 +366,7 @@ Current behavior:
 ## Local setup
 
 1. Work from `ComicBook/`.
-2. Copy values from `.env.example` into a local `.env` or export them in the shell.
+2. Copy values from `../workflows/.env.example` into a local `.env` in `ComicBook/`, or export the same values in the shell.
 3. Use `uv run --with pytest --with pydantic --with httpx --with langgraph python -m pytest -q` for the current full mocked suite, or narrow the path list during TDD.
 4. See `ComicBook/README.md` for the documented CLI, library, artifact-location, and operator-usage examples.
 

@@ -3,12 +3,18 @@
 This folder is the home for the multi-workflow Python package `pipelines`.
 
 The repository is in the middle of a reorganization away from the legacy
-`ComicBook/comicbook/` layout. Until the migration phases land:
+`ComicBook/comicbook/` layout. After the current TG2 slices:
 
-- The runtime code still lives under `ComicBook/comicbook/`. Tests, the CLI, and
-  agents continue to operate against that location.
-- This folder holds the **target** layout and the first piece of new code: the
-  shared logging module at `pipelines/shared/logging.py`.
+- `workflows/pyproject.toml` is now the target-tree project metadata, so focused
+  pytest scopes for migrated code can run from this directory.
+- `workflows/.env.example` is now the shared environment template for the
+  migration.
+- `pipelines/shared/` now owns the shared logging, configuration, and dependency
+  container modules.
+- `workflows/comicbook/` has started as the temporary explicit compatibility
+  package for legacy imports while the rest of TG2 is still in progress.
+- The live runtime code still mostly lives under `ComicBook/comicbook/`; most of
+  the runtime and tests are still waiting to move.
 
 The plan, the phases, and the import-shim strategy are documented in
 [`docs/planning/repo-reorganization/plan.md`](../docs/planning/repo-reorganization/plan.md).

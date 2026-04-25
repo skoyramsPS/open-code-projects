@@ -27,7 +27,7 @@ The shipped workflow currently supports:
 
 Work from the `ComicBook/` directory.
 
-1. Create a local `.env` from `.env.example`.
+1. Create a local `.env` in `ComicBook/` from `../workflows/.env.example`.
 2. Fill in the required Azure values.
 3. Leave optional paths and budget settings at their defaults unless you need to override them.
 
@@ -51,7 +51,8 @@ Optional workflow values:
 - `COMICBOOK_ROUTER_PROMPT_VERSION`
 - `COMICBOOK_ENABLE_ROUTER_PREFLIGHT`
 
-See `ComicBook/.env.example` for the current defaults.
+See `workflows/.env.example` from the repo root (or `../workflows/.env.example`
+from `ComicBook/`) for the current defaults.
 
 ## Run the mocked test suite
 

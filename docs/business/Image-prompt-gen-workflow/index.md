@@ -53,7 +53,7 @@ Operators can now provide:
 - Azure OpenAI connection settings
 - optional workflow controls such as dry-run, forced regeneration, exact panel count, per-run budget, prompt redaction, and resume identifiers
 
-The supported operational setup is still preparing the environment variables documented in `ComicBook/.env.example`.
+The supported operational setup is still preparing the environment variables documented in `workflows/.env.example`.
 
 The workflow now automatically:
 

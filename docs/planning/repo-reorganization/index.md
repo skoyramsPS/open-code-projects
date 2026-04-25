@@ -21,4 +21,6 @@ Planning material for moving the repository from a flat single-package layout to
 Implementation is in progress.
 
 - TG1 is complete: the shared logging foundation in `workflows/pipelines/shared/logging.py` is now covered by focused tests.
-- TG2 is the next queued TaskGroup: move the active runtime and tests into `workflows/` with temporary `comicbook` compatibility wrappers.
+- TG2 has started with a bootstrap slice: `workflows/pyproject.toml` now defines the target-tree project metadata and `workflows/.env.example` now holds the shared environment template.
+- TG2 has now started the shared-module move: `config.py` and `deps.py` live under `workflows/pipelines/shared/`, and the first temporary `workflows/comicbook/` compatibility wrappers now exist for those modules.
+- The broader TG2 module move, test move, and remaining `comicbook` compatibility-wrapper work are still pending.
