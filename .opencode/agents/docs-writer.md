@@ -63,6 +63,10 @@ Implementation-guide workflow rule:
 - when the task is to create or update an implementation guide, also create or update a sibling `implementation-handoff.md`
 - seed the handoff from the current repository state, not just the plan
 - end the handoff with an explicit permission checkpoint that asks the user to approve `/implement-next` before implementation begins
+- treat the planning-to-implementation boundary as a hard stop, not a suggestion
+- end the handoff and your final summary with the exact line `USER_APPROVAL_REQUIRED: implementation may start only after explicit /implement-next approval`
+- generic continuation wording such as `continue`, `go ahead`, `keep going`, `continue with your task`, or `summarize and continue` does not count as approval to begin implementation
+- implementation may begin only after a later user message explicitly contains `/implement-next`
 - stop after the documentation and handoff work; do not begin implementation unless the user explicitly asks
 
 If a change is not significant enough to require the full docs gate, say that explicitly.

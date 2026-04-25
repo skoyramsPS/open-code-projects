@@ -34,6 +34,8 @@ The workflow will:
 - otherwise complete one task or one inseparable task cluster from the next eligible TaskGroup
 - reuse `pytest-tdd-guard` and `docs-update-guard` instead of duplicating their policies
 - maintain an `implementation-handoff.md` file in the same planning folder as the implementation guide so the next session can resume from explicit status
+- treat the boundary between `/implementation-doc` and `/implement-next` as a hard permission checkpoint
+- require explicit approval that names `/implement-next` before the first implementation slice begins; generic continuation wording is not sufficient
 - auto-approve read-only inspection, safe git read/get commands, tests, and normal in-slice edits or moves
 - require approval for package installation, copy operations, and delete operations
 
@@ -67,6 +69,7 @@ Tradeoffs and costs:
 
 - each implementation workflow now carries an extra handoff document that must be maintained
 - there is a small amount of process overhead at the end of each session
+- callers must preserve the explicit approval boundary instead of inferring permission from generic continuation text
 - agent authors must keep the handoff doc and implementation guide clearly separated in purpose
 
 Follow-up work:

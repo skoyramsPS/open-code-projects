@@ -64,7 +64,9 @@ Two new skills were added because the current repo did not already define reusab
 Expected two-step flow:
 
 1. `/implementation-doc` writes the implementation guide, seeds `implementation-handoff.md`, and stops with a permission request.
-2. `/implement-next` executes one commit-sized slice only after the user explicitly approves moving from planning into implementation.
+2. `/implement-next` executes one commit-sized slice only after the user explicitly approves moving from planning into implementation by invoking `/implement-next ...` or by clearly approving `/implement-next` in a later message.
+
+Generic continuation wording such as `continue`, `go ahead`, `keep going`, `continue with your task`, or `summarize and continue` is not enough to cross the planning-to-implementation boundary.
 
 Both commands default the handoff path to `implementation-handoff.md` beside the implementation guide.
 
@@ -109,6 +111,8 @@ The handoff document records:
 - blockers and open questions
 - the next recommended slice
 - the explicit user-permission checkpoint before additional implementation continues
+
+The handoff should also carry an unambiguous hard-stop line so later sessions do not infer approval from generic continuation text.
 
 The implementation guide remains the source of truth for intended order and technical contracts. The handoff doc becomes the source of truth for current implementation status.
 

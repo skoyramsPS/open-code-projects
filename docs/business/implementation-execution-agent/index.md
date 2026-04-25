@@ -34,6 +34,8 @@ When the workflow is used correctly, the guide-creation step and the build step 
 
 - `/implementation-doc` creates the implementation guide and handoff, then stops
 - the handoff asks the user for permission before `/implement-next` starts coding
+- generic wording such as `continue` or `go ahead` is not enough to start coding after `/implementation-doc`
+- the next coding step should start only after someone explicitly approves `/implement-next`
 - `/implement-next` completes one slice and then asks again before any further slice continues
 
 ## Approval expectations

@@ -29,8 +29,10 @@ Expected control flow:
 
 1. `/implementation-doc` creates the execution guide and seeds the handoff file.
 2. `/implementation-doc` stops and asks the user whether to proceed.
-3. `/implement-next` executes one slice only after that explicit approval.
+3. `/implement-next` executes one slice only after that explicit approval, which must explicitly name `/implement-next`.
 4. `/implement-next` updates the handoff and asks again before any later slice.
+
+Generic continuation wording such as `continue`, `go ahead`, `keep going`, `continue with your task`, or `summarize and continue` is not sufficient approval for the first implementation slice.
 
 ## Execution model
 
@@ -96,6 +98,7 @@ Minimum required content:
 - blockers or open questions
 - next recommended slice
 - explicit permission checkpoint before additional implementation proceeds
+- a hard-stop marker that makes the approval boundary machine-readable to later sessions
 - append-only session log
 
 Recommended status values:

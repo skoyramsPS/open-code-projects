@@ -25,6 +25,8 @@ Required actions:
 10. Summarize what was created or updated and call out any remaining assumptions or unresolved decisions.
 11. Stop after the implementation guide, index updates, and handoff updates are complete. Do not edit application code, tests, runtime docs, or examples as part of this command.
 12. End with a direct handoff asking the user whether to proceed with `/implement-next <implementation-doc> [handoff-doc]`.
+13. End the handoff and the final result with the exact line `USER_APPROVAL_REQUIRED: implementation may start only after explicit /implement-next approval`.
+14. Treat generic continuation wording such as `continue`, `go ahead`, `keep going`, `continue with your task`, or `summarize and continue` as insufficient approval. Implementation may begin only after a later user message explicitly invokes `/implement-next <implementation-doc> [handoff-doc]` or clearly says `approve /implement-next ...`.
 
 Permission notes for this command:
 
@@ -38,3 +40,4 @@ Output expectations:
 - the implementation doc must be detailed enough that an implementation team can use it as its primary build document
 - prefer the smallest set of document edits that fully satisfies the request
 - this command is planning-only and handoff-only; it must not auto-transition into implementation work
+- the output must make the hard stop unambiguous to the caller and to any later subagent invocation

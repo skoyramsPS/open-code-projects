@@ -75,6 +75,9 @@ Priorities:
 Execution contract:
 
 - Start by reading the implementation guide, the current handoff document if it exists, and the relevant code/docs for the next unfinished work.
+- If the guide or handoff says implementation has not started and is waiting for approval, do not begin unless the caller clearly states that the current user message explicitly approved `/implement-next`.
+- Generic continuation wording such as `continue`, `go ahead`, `keep going`, `continue with your task`, or `summarize and continue` is not enough to cross from planning into implementation.
+- If that approval is missing or ambiguous, stop immediately and return `USER_APPROVAL_REQUIRED: explicit /implement-next approval missing`.
 - Read-only repository inspection is pre-approved. Prefer read, glob, grep, and safe git inspection commands before making changes.
 - Use `implementation-slice-guard` before editing to choose the next eligible slice.
 - Complete the whole next TaskGroup only when its remaining work is tightly related and reasonably small enough to fit one coherent commit.
