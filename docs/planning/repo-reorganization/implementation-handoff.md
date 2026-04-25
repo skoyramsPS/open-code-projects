@@ -1,89 +1,76 @@
 # Implementation Handoff: Repository Reorganization
 
-- Status: TG1 completed, TG2 in progress, TG3 pending, TG4 pending, TG5 pending
-- Last updated: 2026-04-25
-- Implementation guide: `docs/planning/repo-reorganization/implementation.md`
-- Planning index: `docs/planning/repo-reorganization/index.md`
-- Business doc: `docs/business/repo-reorganization/index.md`
-- Developer doc: `docs/developer/repo-reorganization/index.md`
-- ADR: `docs/planning/adr/ADR-0002-repo-reorganization.md`
+| Field | Value |
+| --- | --- |
+| Status | TG1 completed; TG2 in progress (substantial slices landed); TG3–TG5 pending |
+| Last updated | 2026-04-25 |
+| Active implementation guide | `docs/planning/repo-reorganization/implementation-v2.md` |
+| Preserved prior guide | `docs/planning/repo-reorganization/implementation.md` (historical; superseded by v2 — kept on disk for traceability of earlier execution) |
+| Source plan | `docs/planning/repo-reorganization/plan.md` |
+| Planning index | `docs/planning/repo-reorganization/index.md` |
+| Business doc | `docs/business/repo-reorganization/index.md` |
+| Developer doc | `docs/developer/repo-reorganization/index.md` |
+| ADR | `docs/planning/adr/ADR-0002-repo-reorganization.md` (status: **Accepted**, set when TG1 landed) |
+
+> The `/implementation-doc` command was re-run on 2026-04-25 with stricter quality requirements; the resulting `implementation-v2.md` is now authoritative. Going forward, every slice references the canonical task IDs from v2 (`TG{N}-T{M}`). Previously completed work is mapped to those IDs in the table below so no execution detail is lost.
 
 ## Current status summary
 
-The repository has now completed TG1 plus twenty-two TG2 slices: the project-root bootstrap, the shared config/deps move, the shared repo-protection move, the shared fingerprint move, the shared database move, the shared execution-helper move, the shared runtime-deps move, the workflow CLI entry-point move, the workflow graph move, the image-helper-module move, the explicit target-tree state/node-wrapper move, the first bounded image-test-relocation move, the bounded image-helper-test-relocation move, the bounded template-upload-test-relocation move, the bounded image budget-guard test-relocation move, the bounded shared config/state-contract test-relocation move, the bounded example-continuity test move, the bounded fingerprint-regression expansion move, the bounded node-wrapper continuity move, the bounded template-upload preflight node move, the bounded template-upload backfill node move, and the bounded template-upload persist node move.
+The shared logging foundation landed under TG1 and has remained stable. TG2 has executed many of its sub-tasks: the target-tree project metadata is in place (`workflows/pyproject.toml`, `workflows/.env.example`); the seven shared infrastructure modules now live in `pipelines.shared.*`; both workflow entry points and graph modules now live under `pipelines.workflows.*`; the image-workflow helpers (input file support, router/metadata prompts, router/image client adapters, pricing asset) have moved into `pipelines.workflows.image_prompt_gen.*`; explicit `workflows/comicbook/state.py` and `workflows/comicbook/nodes/` wrappers replace the prior `__path__`-based fallback; non-node runtime logging is adopted in `runtime_deps.py` and both run modules; bounded test relocation into `workflows/tests/` has started across shared, image-prompt-gen, and template-upload subtrees.
 
-What is true after this session:
+What is **not yet** done in TG2: the actual node modules still live under `ComicBook/comicbook/nodes/` (only wrappers exist in the target tree); `ComicBook/examples/` and `ComicBook/DoNotChange/` have not moved to `workflows/`; many legacy tests under `ComicBook/tests/` still co-exist with their relocated counterparts; the doc-slug normalization (`Image-prompt-gen-workflow` → `image-prompt-gen-workflow`) has not happened; `pipelines.shared.execution`, `pipelines.shared.fingerprint`, `pipelines.shared.db`, and `pipelines.shared.runtime_deps` still carry temporary fallbacks to legacy modules until TG3 splits state and TG2 cleanup retires the legacy paths.
 
-- `workflows/pipelines/shared/logging.py` remains the tested shared logging foundation for the target tree
-- focused shared logging tests still exist under `workflows/tests/shared/test_logging.py`
-- `workflows/pyproject.toml` now drives focused target-tree pytest scopes from `workflows/`
-- `workflows/.env.example` remains the shared environment-template path for the migration
-- `workflows/pipelines/shared/config.py`, `deps.py`, `repo_protection.py`, `fingerprint.py`, `db.py`, `execution.py`, and `runtime_deps.py` are the source-of-truth homes for the moved shared infrastructure modules
-- `workflows/pipelines/workflows/image_prompt_gen/run.py` and `workflows/pipelines/workflows/template_upload/run.py` are the source-of-truth workflow entry points
-- `workflows/pipelines/workflows/image_prompt_gen/graph.py` and `workflows/pipelines/workflows/template_upload/graph.py` are the source-of-truth workflow graph modules
-- `workflows/pipelines/workflows/image_prompt_gen/input_file.py`, `prompts/router_prompts.py`, `prompts/metadata_prompts.py`, `adapters/router_llm.py`, `adapters/image_client.py`, and `pricing.json` remain the moved image-workflow helper surface in the target tree
-- `workflows/comicbook/state.py` now exists as an explicit target-tree compatibility wrapper for the still-legacy combined state module
-- `workflows/comicbook/nodes/` now exists as an explicit target-tree compatibility wrapper package for the legacy node modules the moved graph layer still relies on
-- `workflows/comicbook/__init__.py` still preserves the package-root `upload_templates` convenience export, but no longer extends `comicbook.__path__` into `ComicBook/comicbook`
-- target-tree compatibility aliases now exist for the moved shared/run/graph/helper surface plus the new `state` and `nodes/*` bridge wrappers
-- `ComicBook/comicbook/input_file.py`, `router_prompts.py`, `metadata_prompts.py`, `router_llm.py`, and `image_client.py` still act as legacy compatibility aliases to the moved helper modules
-- focused target-tree compatibility coverage now exists in `workflows/tests/shared/test_compat_state_and_nodes.py`
-- bounded target-tree image graph scenario coverage now also exists in `workflows/tests/image_prompt_gen/test_graph_scenarios.py`
-- `workflows/tests/image_prompt_gen/support.py` now provides shared target-tree test fixtures and fake transports for the relocated image graph scenarios
-- bounded target-tree helper coverage now also exists in `workflows/tests/image_prompt_gen/test_input_file_support.py`, `test_router_validation.py`, and `test_image_client.py`
-- bounded target-tree budget/dry-run coverage now also exists in `workflows/tests/image_prompt_gen/test_budget_guard.py`
-- bounded target-tree shared config/state-contract coverage now also exists in `workflows/tests/shared/test_config_and_compat_state.py`
-- bounded target-tree example continuity coverage now also exists in `workflows/tests/image_prompt_gen/test_example_single_portrait.py`
-- bounded target-tree fingerprint regression expansion now also exists in `workflows/tests/shared/test_fingerprint.py`
-- bounded target-tree node-wrapper continuity coverage now also exists in `workflows/tests/image_prompt_gen/test_node_ingest_summarize.py`
-- bounded target-tree template-upload preflight node coverage now also exists in `workflows/tests/template_upload/test_node_preflight.py`
-- bounded target-tree template-upload backfill node coverage now also exists in `workflows/tests/template_upload/test_node_backfill_metadata.py`
-- bounded target-tree template-upload persist node coverage now also exists in `workflows/tests/template_upload/test_node_persist.py`
-- bounded target-tree template-upload coverage now also exists in `workflows/tests/template_upload/support.py`, `test_graph_scenarios.py`, and `test_run_cli.py`
-- broader target-tree regression coverage still exists for runtime-deps, moved helpers, moved graphs, moved runs, relocated shared config/state/fingerprint tests, relocated image graph/helper/budget/example/node-wrapper tests, and relocated template-upload graph/CLI/preflight-node/backfill-node/persist-node tests
-
-What is still true after this session:
-
-- the live tests still reside primarily under `ComicBook/tests/`, even though bounded image and template-upload relocation into `workflows/tests/` has now started
-- most workflow-owned node implementations and true state ownership still live under `ComicBook/comicbook/`
-- the moved graph modules still execute through legacy-backed node/state bridges; full target-tree workflow execution is not complete yet
-- compatibility wrappers now exist for `config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, `runtime_deps`, `state`, `nodes/*`, `input_file`, `router_prompts`, `metadata_prompts`, `router_llm`, `image_client`, `run`, `upload_run`, `graph`, and `upload_graph`, plus the package-root `upload_templates` re-export
-- `workflows/pipelines/shared/fingerprint.py` and `workflows/pipelines/shared/db.py` still fall back to legacy `comicbook.state` loading until TG3 moves state ownership cleanly
-- `workflows/pipelines/shared/execution.py` still falls back to legacy ingest/state loading until later TG2/TG3 work moves those dependencies cleanly
-- `workflows/pipelines/shared/runtime_deps.py` now resolves the target-tree pricing asset first, but still keeps the legacy `ComicBook/comicbook/pricing.json` path as a temporary fallback guard until TG2 cleanup finishes
-
-## TaskGroup status table
+## TaskGroup progress table
 
 | TaskGroup | Title | Status | Notes |
 | --- | --- | --- | --- |
-| TG1 | Finalize and verify the shared logging foundation | completed | Shared logging module aligned with the standard, covered by focused pytest scope, and documented across the triad. |
-| TG2 | Move package and tests into `workflows/` with compatibility wrappers | in progress | Bootstrap plus twenty-two TG2 slices are complete: target-tree project metadata landed, seven shared modules now live in `pipelines.shared`, both workflow CLI entry points now live under `pipelines.workflows.*.run`, both workflow graph modules now live under `pipelines.workflows.*.graph`, the image helper modules plus pricing asset now live under `pipelines.workflows.image_prompt_gen.*`, explicit target-tree `comicbook.state` / `comicbook.nodes.*` wrappers now replace the old package-path fallback, and bounded shared/image/template-upload/example/fingerprint/node-wrapper/preflight-node/backfill-node/persist-node test relocation into `workflows/tests/` has started. Broader test relocation and real runtime ownership moves are still pending. |
-| TG3 | Split shared and workflow-specific state modules | pending | Blocked on TG2 completing the package move. |
-| TG4 | Complete structured logging adoption and template-upload naming cleanup | pending | Blocked on TG3. |
-| TG5 | Remove compatibility layer, promote reused modules, and close out docs | pending | Blocked on TG4. |
+| TG1 | Shared logging foundation | completed | `workflows/pipelines/shared/logging.py` matches the standard; covered by `workflows/tests/shared/test_logging.py`. ADR-0002 set to **Accepted**. |
+| TG2 | Move package + tests into `workflows/`, add `comicbook` shim, normalize doc slugs, adopt non-node logging | in progress | TG2-T1, TG2-T2, TG2-T3, TG2-T4, TG2-T5 complete. TG2-T6 partially complete (target-tree node *wrappers* exist; actual node moves still pending). TG2-T7 not started (examples/DoNotChange not moved). TG2-T8 partially complete (runtime-deps + both run modules use shared logger). TG2-T9 in progress (bounded relocation across shared/image/template-upload subtrees). TG2-T10, TG2-T11, TG2-T12, TG2-T13 not started. |
+| TG3 | Split state modules | not started | Blocked on TG2 completion. |
+| TG4 | Adopt node logging + remove `upload_` prefix | not started | Blocked on TG3. |
+| TG5 | Remove the `comicbook` shim and close the migration | not started | Blocked on TG4. |
+
+### TG2 sub-task map (canonical IDs from `implementation-v2.md`)
+
+| Task | Status | Evidence |
+| --- | --- | --- |
+| TG2-T1 — finalize `workflows/pyproject.toml` | completed | `workflows/pyproject.toml` drives target-tree pytest from `workflows/`; package discovery includes both `pipelines*` and `comicbook*`; `pythonpath = ["."]` in place. |
+| TG2-T2 — move `.env.example` | completed | `git mv ComicBook/.env.example workflows/.env.example` landed; references updated. |
+| TG2-T3 — move shared modules | completed | `pipelines/shared/{config,deps,repo_protection,fingerprint,db,execution,runtime_deps}.py` are the source-of-truth homes. Legacy `ComicBook/comicbook/*.py` modules converted to thin wrappers. Target-tree wrappers exist under `workflows/comicbook/`. Temporary state-fallbacks remain in `fingerprint.py`, `db.py`, `execution.py`, and a temporary pricing-path fallback remains in `runtime_deps.py`; all are scheduled for TG3/TG5 cleanup. |
+| TG2-T4 — move workflow entry points + graphs | completed | `pipelines/workflows/image_prompt_gen/{run,graph}.py` and `pipelines/workflows/template_upload/{run,graph}.py` are the source-of-truth modules. Run-module wrappers use module-alias compatibility (Pattern 2) to preserve monkey-patch identity. |
+| TG2-T5 — move image-workflow helpers | completed | `pipelines/workflows/image_prompt_gen/{input_file.py,prompts/router_prompts.py,prompts/metadata_prompts.py,adapters/router_llm.py,adapters/image_client.py,pricing.json}` moved. Legacy modules and target-tree wrappers exist. Default pricing-path resolution prefers the target-tree asset with a temporary legacy fallback. |
+| TG2-T6 — move nodes (mechanical) | partial | Only **wrapper** modules exist under `workflows/comicbook/nodes/` and explicit `workflows/comicbook/state.py`. Actual node implementations still live under `ComicBook/comicbook/nodes/`. Real node moves into `pipelines/workflows/<workflow>/nodes/` are pending. |
+| TG2-T7 — move adjacent assets (`examples/`, `DoNotChange/`) | not started | Both still under `ComicBook/`. `pipelines.shared.repo_protection` constants still reference legacy path. |
+| TG2-T8 — adopt non-node structured logging | partial | `pipelines.shared.runtime_deps` uses `get_logger("pipelines.run")`; both run modules emit lifecycle events via `log_event(...)`. Other non-node call sites not yet swept. |
+| TG2-T9 — relocate tests | in progress | Relocated so far under `workflows/tests/`: `shared/test_logging.py`, `shared/test_runtime_deps.py`, `shared/test_config_and_compat_state.py`, `shared/test_compat_state_and_nodes.py`, `shared/test_fingerprint.py`; `image_prompt_gen/test_graph_scenarios.py`, `support.py`, `test_input_file_support.py`, `test_router_validation.py`, `test_image_client.py`, `test_budget_guard.py`, `test_example_single_portrait.py`, `test_node_ingest_summarize.py`; `template_upload/support.py`, `test_graph_scenarios.py`, `test_run_cli.py`, `test_node_preflight.py`, `test_node_backfill_metadata.py`, `test_node_persist.py`. Many legacy `ComicBook/tests/*` still co-exist (delete operations are approval-gated). |
+| TG2-T10 — normalize doc-tree slugs | not started | `docs/planning/Image-prompt-gen-workflow/` still uses mixed case. |
+| TG2-T11 — update tooling references | not started | Pending end-of-TG2 sweep; some references already cleaned opportunistically during prior slices. |
+| TG2-T12 — run full target-tree test suite | not started | `pytest -q` from `workflows/` has not yet been run as a TG2 exit gate; focused subtree scopes pass. |
+| TG2-T13 — TG2 documentation gate | not started | Triad pages are updated incrementally per slice but the full TG2 close-out gate has not yet been executed. |
 
 ## Last completed slice
 
 ### Selected TaskGroup and slice
 
 - **TaskGroup:** TG2
-- **Slice:** TG2 bounded template-upload persist node move — add target-tree coverage for the explicit `comicbook.nodes.upload_persist` wrapper that backs the still-legacy persistence node surface from the `workflows/` root without changing runtime ownership
+- **Slice (legacy ID):** bounded template-upload persist node test relocation
+- **Canonical ID under v2:** TG2-T9 (test relocation), specifically the upload-persist subset
 
 ### Why this slice size was chosen
 
-The first unfinished TaskGroup remained TG2, and after the prior bounded shared/image/template-upload/example/fingerprint/node-wrapper/preflight/backfill relocation slices the next highest-value adjacent work was the next isolated upload-node continuity step: persistence. The local `implementation-slice-guard` skill was present in the repository at `.opencode/skills/implementation-slice-guard/SKILL.md` but was not exposed through the skill tool, so its selection rules were applied manually again. Following that guidance, this slice was chosen because `upload_persist` is one cohesive node with a small fake-db harness, fits one narrow pytest scope, and still avoids mixing in cleanup/deletes, runtime module moves, or TG3 state splitting.
+The first unfinished TaskGroup remained TG2. After the prior bounded shared/image/template-upload/example/fingerprint/node-wrapper/preflight/backfill relocation slices, the next isolated work was the upload-persist continuity coverage. The local `implementation-slice-guard` skill was applied manually (the skill file is checked in but is not currently exposed through the skill tool). Following its rules, this slice was selected because `upload_persist` is one cohesive node with a small fake-db harness, fits one narrow pytest scope, and stays clear of cleanup/deletes, runtime module moves, and TG3 state splitting.
 
 ### Completed work from this session
 
-1. Added `workflows/tests/template_upload/test_node_persist.py` as target-root coverage for the explicit `comicbook.nodes.upload_persist` wrapper.
-2. Verified wrapper-backed upload persistence still handles inserted, updated, skipped-duplicate, and failed-validation outcomes correctly from the `workflows/` root.
-3. Verified wrapper-backed upload persistence still nulls unresolved supersedes targets while preserving the warning in the recorded row result.
-4. Kept the slice intentionally bounded to the persistence node rather than starting cleanup/delete work or broader upload-node relocation.
-5. Verified the new focused target-tree persist-node scope successfully on the first run.
-6. Re-ran the broader target-tree shared/workflow regression scope successfully with the new persist-node tests included.
-7. Re-ran the matching representative legacy `ComicBook/tests/test_upload_persist.py` scope successfully to confirm continuity while the old test file remains in place.
+- Added `workflows/tests/template_upload/test_node_persist.py` as target-root coverage for the explicit `comicbook.nodes.upload_persist` wrapper.
+- Verified wrapper-backed upload persistence still handles inserted, updated, skipped-duplicate, and failed-validation outcomes correctly from the `workflows/` root.
+- Verified wrapper-backed upload persistence still nulls unresolved supersedes targets while preserving the warning in the recorded row result.
+- Kept the slice intentionally bounded to the persistence node rather than starting cleanup/delete work or broader upload-node relocation.
+- Ran the focused target-tree persist-node scope, the broader target-tree shared/workflow regression scope, and the matching legacy `ComicBook/tests/test_upload_persist.py` scope — all green.
 
 ## Files changed in this session
+
+(unchanged from the prior persist-node slice; this handoff revision adds new doc files only)
 
 - `workflows/tests/template_upload/test_node_persist.py`
 - `workflows/README.md`
@@ -91,6 +78,12 @@ The first unfinished TaskGroup remained TG2, and after the prior bounded shared/
 - `docs/developer/repo-reorganization/index.md`
 - `docs/planning/repo-reorganization/index.md`
 - `docs/planning/repo-reorganization/implementation-handoff.md`
+
+In addition, on 2026-04-25 the `/implementation-doc` command was re-run, producing:
+
+- `docs/planning/repo-reorganization/implementation-v2.md` (new authoritative guide)
+- updates to `.opencode/commands/implementation-doc.md`, `.opencode/agents/docs-writer.md`, `.opencode/skills/implementation-handoff-guard/SKILL.md` (command/agent/skill quality bar tightened)
+- this handoff revision
 
 ## Tests run and results
 
@@ -100,9 +93,7 @@ Focused target-tree template-upload persist verification command run from `workf
 uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/template_upload/test_node_persist.py
 ```
 
-Result:
-
-- `5 passed in 0.03s`
+Result: `5 passed in 0.03s`.
 
 Broader target-tree shared and workflow regression command run from `workflows/`:
 
@@ -110,9 +101,7 @@ Broader target-tree shared and workflow regression command run from `workflows/`
 uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared tests/image_prompt_gen tests/template_upload
 ```
 
-Result:
-
-- `145 passed in 3.96s`
+Result: `145 passed in 3.96s`.
 
 Representative legacy template-upload persist regression command run from `ComicBook/`:
 
@@ -120,338 +109,149 @@ Representative legacy template-upload persist regression command run from `Comic
 PYTHONPATH=. uv run --project "." --no-sync pytest -q tests/test_upload_persist.py
 ```
 
-Result:
+Result: `5 passed in 0.03s`.
 
-- `5 passed in 0.03s`
-
-Additional verification performed:
-
-- strict TDD was adapted for this relocation slice because these tests were re-homed from already-green legacy coverage rather than created to drive new runtime behavior
-- confirmed the explicit `comicbook.nodes.upload_persist` wrapper now has target-root continuity coverage from `workflows/`
-- confirmed the broader target-tree shared/workflow scope still passes with the new persist-node tests included
-- confirmed the matching legacy upload persist regressions still pass unchanged while the old test file remains in place
+No tests were run during the 2026-04-25 documentation-only session that produced `implementation-v2.md` and the command/agent/skill updates; that session changed planning material only.
 
 ## Documentation updated
 
 ### Planning
 
-- updated `docs/planning/repo-reorganization/index.md`
-- updated this handoff file
+- created `docs/planning/repo-reorganization/implementation-v2.md`
+- updated this handoff (`docs/planning/repo-reorganization/implementation-handoff.md`) to point at v2 and re-map prior progress to canonical TG{N}-T{M} IDs
+- the prior `docs/planning/repo-reorganization/implementation.md` remains on disk as historical reference; planning index entry should be updated in the next slice to label v2 as current
 
 ### Business
 
-- updated `docs/business/repo-reorganization/index.md`
+- no business-doc changes in the documentation-only session
+- prior slice updates to `docs/business/repo-reorganization/index.md` remain in place
 
 ### Developer
 
-- updated `docs/developer/repo-reorganization/index.md`
+- no developer-doc changes in the documentation-only session
+- prior slice updates to `docs/developer/repo-reorganization/index.md` remain in place
 
 ### README / setup docs
 
-- updated `workflows/README.md`
+- no README changes in the documentation-only session
+- `workflows/README.md` retains its prior persist-node slice update
 
 ### ADR
 
-- no ADR update was needed in this slice because continuing bounded test relocation followed the already accepted migration plan and did not introduce a new architecture decision beyond that plan
+- no ADR change in this revision; ADR-0002 remains **Accepted** (set at TG1 close); transitions to **Accepted and Implemented** at TG5.
+
+### Tooling / agents
+
+- updated `.opencode/commands/implementation-doc.md` to mandate verified-baseline inspection, canonical task IDs, full enumerated tables, mandatory appendices, runnable exit criteria, rollback notes per TaskGroup, and auto-versioning for non-empty existing implementation guides
+- updated `.opencode/agents/docs-writer.md` with the matching implementation-guide rules
+- updated `.opencode/skills/implementation-handoff-guard/SKILL.md` to require the canonical TG{N}-T{M} IDs, explicit pairing with one authoritative implementation guide, and a permission-checkpoint section
 
 ## Blockers or open questions
 
-- No code blocker remains for this slice.
-- The local `implementation-slice-guard` skill exists in the repository but is not currently loadable through the skill tool, so slice selection used the checked-in skill file directly.
-- Direct `pytest` is still unavailable in the shell environment, so verification reused the existing locked `ComicBook` uv project with `--no-sync` to avoid package installation.
-- The legacy `ComicBook/comicbook/config.py`, `deps.py`, `repo_protection.py`, `fingerprint.py`, `db.py`, `execution.py`, and `runtime_deps.py` wrappers still add the sibling `workflows/` directory to `sys.path` so the old package root can keep working while TG2 is incomplete. This is a temporary bridge, not the long-term compatibility mechanism.
-- `workflows/pipelines/shared/fingerprint.py` still intentionally falls back to the legacy state module for `RenderedPrompt` until TG3 moves state ownership.
-- `workflows/pipelines/shared/db.py` still intentionally falls back to the legacy state module for `TemplateSummary` until TG3 moves state ownership.
-- `workflows/pipelines/shared/execution.py` still intentionally falls back to the legacy state and ingest modules even though target-tree wrappers now exist; that helper should be cleaned up in a later TG2/TG3 slice when ownership fully moves.
-- `workflows/pipelines/shared/runtime_deps.py` still keeps the legacy `ComicBook/comicbook/pricing.json` path as a fallback guard even though the target-tree pricing asset now exists. That fallback should disappear during later TG2/TG5 cleanup.
-- the legacy `ComicBook/tests/test_graph_happy.py`, `test_graph_cache_hit.py`, `test_graph_resume.py`, and `test_graph_new_template.py` files still remain in place for now from the prior slice; delete operations are still approval-gated and later TG2 cleanup will decide when to retire them.
-- the legacy `ComicBook/tests/test_input_file_support.py`, `test_router_validation.py`, and `test_image_client.py` files also still remain in place for now; this slice added target-tree equivalents but intentionally did not remove the old files because TG2 cleanup is still pending and delete operations are approval-gated.
-- the legacy `ComicBook/tests/test_upload_graph.py` and `test_upload_run_cli.py` files also still remain in place for now; this slice added target-tree equivalents but intentionally did not remove the old files because TG2 cleanup is still pending and delete operations are approval-gated.
-- the legacy `ComicBook/tests/test_budget_guard.py` file also still remains in place for now; this slice added a target-tree equivalent but intentionally did not remove the old file because TG2 cleanup is still pending and delete operations are approval-gated.
-- the legacy `ComicBook/tests/test_config.py` file also still remains in place for now; this slice added a target-tree shared equivalent but intentionally did not remove the old file because TG2 cleanup is still pending and delete operations are approval-gated.
-- the legacy `ComicBook/tests/test_example_single_portrait.py` file also still remains in place for now; this slice added target-tree example continuity coverage but intentionally did not remove the old file because TG2 cleanup is still pending and delete operations are approval-gated.
-- the legacy `ComicBook/tests/test_fingerprint.py` file also still remains in place for now; this slice expanded target-tree shared equivalents but intentionally did not remove the old file because TG2 cleanup is still pending and delete operations are approval-gated.
-- the legacy `ComicBook/tests/test_node_ingest_summarize.py` file also still remains in place for now; this slice added target-tree wrapper continuity coverage but intentionally did not remove the old file because TG2 cleanup is still pending and delete operations are approval-gated.
-- the legacy `ComicBook/tests/test_upload_load_file.py`, `test_upload_parse_and_validate.py`, `test_upload_resume_filter.py`, and `test_upload_decide_write_mode.py` files also still remain in place for now; this slice added target-tree wrapper continuity coverage but intentionally did not remove the old files because TG2 cleanup is still pending and delete operations are approval-gated.
-- the legacy `ComicBook/tests/test_upload_backfill_metadata.py` file also still remains in place for now; this slice added target-tree wrapper continuity coverage but intentionally did not remove the old file because TG2 cleanup is still pending and delete operations are approval-gated.
-- the legacy `ComicBook/tests/test_upload_persist.py` file also still remains in place for now; this slice added target-tree wrapper continuity coverage but intentionally did not remove the old file because TG2 cleanup is still pending and delete operations are approval-gated.
-- Running Python verification touched tracked and untracked `__pycache__` artifacts under `workflows/`; they were left in place because delete/revert cleanup is approval-gated in this workflow.
+- The local `implementation-slice-guard` skill is checked in at `.opencode/skills/implementation-slice-guard/SKILL.md` but is not currently loadable through the skill tool, so slice selection continues to apply the skill rules manually.
+- Direct `pytest` is unavailable in the shell environment used for prior slices; verification reuses the locked `ComicBook` uv project with `--no-sync` to avoid package installation.
+- Legacy `ComicBook/comicbook/{config,deps,repo_protection,fingerprint,db,execution,runtime_deps}.py` wrappers still mutate `sys.path` to add the sibling `workflows/` directory; this is a temporary bridge, not the long-term compatibility mechanism, and should be retired as part of TG2 cleanup.
+- `pipelines.shared.fingerprint` still falls back to legacy state for `RenderedPrompt`; `pipelines.shared.db` still falls back to legacy state for `TemplateSummary`; both are scheduled to clear when TG3 lands.
+- `pipelines.shared.execution` still falls back to legacy state and ingest modules; should clean up in a later TG2 or early TG3 slice.
+- `pipelines.shared.runtime_deps` still keeps the legacy `ComicBook/comicbook/pricing.json` path as a fallback; should clear during late TG2 cleanup or TG5.
+- Multiple legacy `ComicBook/tests/test_*.py` files remain alongside their relocated counterparts (graph_happy, graph_cache_hit, graph_resume, graph_new_template, input_file_support, router_validation, image_client, upload_graph, upload_run_cli, budget_guard, config, example_single_portrait, fingerprint, node_ingest_summarize, upload_load_file, upload_parse_and_validate, upload_resume_filter, upload_decide_write_mode, upload_backfill_metadata, upload_persist). Delete operations remain approval-gated.
+- Running Python verification touched tracked and untracked `__pycache__` artifacts under `workflows/`; left in place because revert/delete cleanup is approval-gated.
 
 ## Exact next recommended slice
 
-### TG2 next slice: continue bounded shared or cleanup-oriented test relocation into `workflows/tests/`
+**Recommended TaskGroup:** TG2.
 
-Recommended next implementation slice:
+**Recommended task focus:** continue TG2-T9 (bounded relocation of remaining cross-cutting tests into `workflows/tests/`), or alternatively pick up an early piece of TG2-T6 cleanup that does not require approval-gated deletes (for example, tightening target-tree node-wrapper coverage around still-legacy node modules).
 
-1. relocate one small remaining batch of already-moved shared or cross-cutting tests into `workflows/tests/`, or tighten existing target-tree test coverage around the remaining wrapper/import surfaces that still rely on legacy modules
-2. update imports and shared test helpers only as needed so those tests run from the target root without changing workflow behavior
-3. keep the slice limited to test ownership/coverage and path cleanup; do not mix in runtime module moves, node-test relocation, or delete cleanup yet
-4. verify the target-tree scope from `workflows/` first, then run a representative legacy continuity scope if any old test entry points remain coupled
+**Why this slice:**
 
-Why this next slice is recommended:
+- TG2 is still the first unfinished TaskGroup. After bounded shared, image, template-upload, example, fingerprint, node-wrapper, upload-preflight, upload-backfill, and upload-persist continuity coverage, the remaining safe work is most likely another small wrapper/import-surface or bounded continuity move rather than a large workflow-owned cluster.
+- Smaller import-surface or wrapper-coverage slices keep TG2 moving without prematurely mixing in still-legacy node-owned tests or any approval-gated delete cleanup.
+- Node-owned tests remain a poor fit for relocation until either runtime ownership moves cleanly or a dedicated slice is chosen to migrate the underlying nodes themselves.
 
-- TG2 is still the first unfinished TaskGroup, and after bounded shared plus image plus template-upload plus example plus fingerprint plus node-wrapper plus upload-preflight plus upload-backfill plus upload-persist continuity coverage the remaining safe work is likely another small wrapper/import-surface or bounded continuity movement rather than a large workflow-owned cluster
-- a smaller shared/import-surface slice can keep TG2 moving without prematurely mixing in still-legacy node-owned tests
-- node-owned tests remain a poor fit until runtime ownership is cleaner or a dedicated slice is chosen
+**Boundaries for the next session:**
 
-Boundaries for the next session:
-
-- do not start TG3+
-- do not move workflow node implementations in the next slice
-- do not remove legacy paths yet
-- keep the next slice narrowly scoped to one bounded shared/cleanup-oriented test cluster; leave node tests and delete cleanup for later slices
+- do not start TG3 or any later TaskGroup;
+- do not move workflow node implementations in the next slice (that is part of TG2-T6 proper, scheduled for a deliberate slice);
+- do not remove legacy paths yet (TG5);
+- keep the next slice narrowly scoped to one bounded shared/cleanup-oriented test cluster or one bounded wrapper/import-surface improvement.
 
 ## Session log
 
 ### 2026-04-24 — Planning session
 
-- Created `docs/planning/repo-reorganization/implementation.md` as the primary implementation document.
-- Created the initial `docs/planning/repo-reorganization/implementation-handoff.md` handoff ledger.
-- Updated planning indexes for the new implementation material.
-- No runtime code changed in that session.
+- Created the original `docs/planning/repo-reorganization/implementation.md` as the primary implementation document.
+- Created the initial `docs/planning/repo-reorganization/implementation-handoff.md` ledger.
+- Updated planning indexes for the new implementation material. No runtime code changed.
 
 ### 2026-04-25 — TG1 implementation session
 
-- Reviewed the implementation guide, current handoff, `workflows/pipelines/shared/logging.py`, the logging standard, and the local `implementation-slice-guard` instructions to choose the next eligible slice.
-- Loaded and applied `pytest-tdd-guard` because the slice changed Python behavior in the shared logging module.
-- Loaded and applied `docs-update-guard` because the slice materially changed observability infrastructure and developer-facing migration status.
-- Completed TG1 as one cohesive slice.
-- Added focused logging tests and ran the TG1 pytest scope successfully.
-- Updated the planning, business, and developer docs plus ADR-0002 to reflect that implementation has started and TG1 is complete.
+- Reviewed the implementation guide, current handoff, `workflows/pipelines/shared/logging.py`, the logging standard, and the local `implementation-slice-guard` instructions.
+- Loaded `pytest-tdd-guard` because the slice changed Python behavior in the shared logging module; loaded `docs-update-guard` because the slice materially changed observability infrastructure and developer-facing migration status.
+- Completed TG1 as one cohesive slice. Added focused logging tests; ran the TG1 pytest scope successfully.
+- Updated planning, business, developer docs and ADR-0002 to reflect that implementation has started and TG1 is complete.
 
-### 2026-04-25 — TG2 bootstrap implementation session
+### 2026-04-25 — TG2 bootstrap (TG2-T1, TG2-T2)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill file to choose the next eligible commit-sized slice.
-- Loaded and applied `docs-update-guard` because this slice changed developer setup expectations and setup-facing documentation.
-- Added `workflows/pyproject.toml` and configured target-tree package discovery plus pytest settings for `workflows/`.
-- Moved `ComicBook/.env.example` to `workflows/.env.example`.
-- Updated setup-facing READMEs plus planning, business, and developer docs to reflect the new target-tree project-root metadata and environment-template path.
-- The first verification run exposed that `pipelines` was not importable during pytest collection from `workflows/`; the slice fixed that by adding `pythonpath = ["."]` to `workflows/pyproject.toml`.
-- Re-ran the focused target-tree pytest scope successfully from `workflows/`.
+- Added `workflows/pyproject.toml` and configured target-tree package discovery plus pytest settings; moved `.env.example`. First focused run exposed that `pipelines` was not importable during pytest collection from `workflows/`; added `pythonpath = ["."]` to the new pyproject.
 
-### 2026-04-25 — TG2 shared config/deps implementation session
+### 2026-04-25 — TG2 shared config/deps move (TG2-T3 partial)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill file to choose the next eligible commit-sized slice after the bootstrap work.
-- Loaded and applied `pytest-tdd-guard` because moving shared modules and adding compatibility wrappers is a Python refactor-risk slice.
-- Loaded and applied `docs-update-guard` because the slice changed import/location contracts and maintainer-facing migration status.
-- Added a focused target-tree test first; the initial run failed because `pipelines.shared.config` and `pipelines.shared.deps` did not exist yet.
-- Added `workflows/pipelines/shared/config.py` and `workflows/pipelines/shared/deps.py` as the new source-of-truth homes for the shared configuration and dependency-container modules.
-- Added the first target-tree `workflows/comicbook/` wrappers for `config` and `deps`.
-- Converted the legacy `ComicBook/comicbook/config.py` and `deps.py` modules into thin wrappers so the old package root can still resolve the migrated shared modules during TG2.
-- Added focused target-tree tests for the shared modules and wrapper identity, then re-ran both target-tree and legacy regression scopes successfully.
-- Updated planning, business, developer, and setup docs to reflect that TG2 has started the real shared-module move.
+- Added focused target-tree test first; the initial run failed because `pipelines.shared.config` and `deps` did not exist yet. Added the new modules; converted legacy `ComicBook/comicbook/{config,deps}.py` to thin wrappers; added matching wrappers under `workflows/comicbook/`. Re-ran target-tree and legacy regression scopes successfully.
 
-### 2026-04-25 — TG2 repo-protection implementation session
+### 2026-04-25 — TG2 repo-protection move (TG2-T3)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill file to choose the next eligible commit-sized slice after the config/deps work.
-- Loaded and applied `pytest-tdd-guard` because moving `repo_protection.py` behind wrapper layers is a Python refactor-risk slice.
-- Loaded and applied `docs-update-guard` because the slice changed a path-sensitive helper contract and maintainer-facing migration status.
-- Added a focused target-tree test first; the initial run failed because `pipelines.shared.repo_protection` did not exist yet.
-- Added `workflows/pipelines/shared/repo_protection.py` as the new source-of-truth home for repo-protection helpers.
-- Added the matching `workflows/comicbook/repo_protection.py` target-tree compatibility wrapper and converted the legacy `ComicBook/comicbook/repo_protection.py` module into a thin wrapper.
-- Verified the migrated helper through focused target-tree tests, the legacy CLI script path, and the legacy repo-protection regression scope.
-- Updated planning, business, developer, and setup docs to reflect that TG2 now includes a moved path-sensitive helper while the protected asset itself still remains under `ComicBook/DoNotChange`.
+- Added `pipelines.shared.repo_protection` and matching wrappers; legacy module became a thin wrapper. Verified through focused target-tree tests, the legacy CLI script path, and the legacy repo-protection regression scope.
 
-### 2026-04-25 — TG2 fingerprint implementation session
+### 2026-04-25 — TG2 fingerprint move (TG2-T3)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill file to choose the next eligible commit-sized slice after the repo-protection work.
-- Loaded and applied `pytest-tdd-guard` because moving `fingerprint.py` behind wrapper layers is a Python refactor-risk slice.
-- Loaded and applied `docs-update-guard` because the slice changed shared-module ownership and maintainer-facing migration status.
-- Added a focused target-tree test first; the initial run failed because `pipelines.shared.fingerprint` did not exist yet.
-- Added `workflows/pipelines/shared/fingerprint.py` as the new source-of-truth home for prompt fingerprinting and prompt materialization helpers.
-- Added the matching `workflows/comicbook/fingerprint.py` target-tree compatibility wrapper and converted the legacy `ComicBook/comicbook/fingerprint.py` module into a thin wrapper.
-- Kept the moved helper importable from the target tree by adding a temporary fallback to the legacy `RenderedPrompt` model until TG3 moves state ownership.
-- Verified the migrated helper through focused target-tree tests and the legacy fingerprint regression scope, then re-ran the broader shared-module regression scopes successfully.
-- Updated planning, business, developer, and setup docs to reflect that TG2 now includes a moved fingerprint helper while state ownership still remains deferred.
+- Added `pipelines.shared.fingerprint` and matching wrappers. Kept a temporary fallback to legacy `RenderedPrompt` until TG3 lands. Verified through focused target-tree tests and broader shared-module regression scopes.
 
-### 2026-04-25 — TG2 database implementation session
+### 2026-04-25 — TG2 database move (TG2-T3)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill file to choose the next eligible commit-sized slice after the fingerprint work.
-- Loaded and applied `pytest-tdd-guard` because moving `db.py` behind wrapper layers is a Python refactor-risk slice.
-- Loaded and applied `docs-update-guard` because the slice changed shared-module ownership, persistence-helper import contracts, and maintainer-facing migration status.
-- Added a focused target-tree test first; the initial run failed because `pipelines.shared.db` did not exist yet.
-- Added `workflows/pipelines/shared/db.py` as the new source-of-truth home for the shared SQLite DAO, persistence dataclasses, and run-lock helpers.
-- Added the matching `workflows/comicbook/db.py` target-tree compatibility wrapper and converted the legacy `ComicBook/comicbook/db.py` module into a thin wrapper.
-- Kept the moved helper importable from the target tree by adding a temporary fallback to the legacy `TemplateSummary` model until TG3 moves state ownership.
-- Verified the migrated helper through focused target-tree tests, a broader target-tree shared regression scope, and representative legacy image-workflow and template-upload smoke tests.
-- Updated planning, business, developer, and setup docs to reflect that TG2 now includes a moved database helper while state ownership and runtime logging adoption still remain deferred.
+- Added `pipelines.shared.db` and matching wrappers; kept a temporary fallback to legacy `TemplateSummary` until TG3 lands. Verified through focused target-tree tests, broader target-tree shared regression, and representative legacy image and template-upload smoke tests.
 
-### 2026-04-25 — TG2 execution implementation session
+### 2026-04-25 — TG2 execution move (TG2-T3)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill file to choose the next eligible commit-sized slice after the database work.
-- Loaded and applied `pytest-tdd-guard` because moving `execution.py` behind wrapper layers is a Python refactor-risk slice.
-- Loaded and applied `docs-update-guard` because the slice changed shared-module ownership, orchestration-helper import contracts, and maintainer-facing migration status.
-- Added a focused target-tree test first; the initial run failed because `pipelines.shared.execution` did not exist yet.
-- Added `workflows/pipelines/shared/execution.py` as the new source-of-truth home for shared graph-execution helpers.
-- Added the matching `workflows/comicbook/execution.py` target-tree compatibility wrapper and converted the legacy `ComicBook/comicbook/execution.py` module into a thin wrapper.
-- Kept the moved helper importable from the target tree by adding temporary fallbacks to the legacy ingest/state modules until later TG2 and TG3 work moves those dependencies cleanly.
-- Verified the migrated helper through focused target-tree tests, a broader target-tree shared regression scope, and representative legacy image-workflow, template-upload, and example-workflow smoke tests.
-- Updated planning, business, developer, and setup docs to reflect that TG2 now includes moved execution helpers while runtime construction, state ownership, and runtime logging adoption still remain deferred.
+- Added `pipelines.shared.execution` and matching wrappers; kept temporary fallbacks to legacy ingest/state modules. Verified through focused target-tree tests, broader target-tree shared regression, and representative legacy image, template-upload, and example smoke tests.
 
-### 2026-04-25 — TG2 runtime-deps implementation session
+### 2026-04-25 — TG2 runtime-deps move (TG2-T3 + TG2-T8 partial)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill file to choose the next eligible commit-sized slice after the execution work.
-- Loaded and applied `pytest-tdd-guard` because moving `runtime_deps.py` behind wrapper layers and changing logger construction is a Python refactor-risk slice.
-- Loaded and applied `docs-update-guard` because the slice changed shared-module ownership, runtime-construction behavior, and maintainer-facing migration status.
-- Adapted strict red/green sequencing because the repository already contained an in-progress runtime-deps draft when this session began; instead, the focused target-tree pytest scope was run first to validate and finish the existing slice cleanly.
-- Added `workflows/pipelines/shared/runtime_deps.py` as the new source-of-truth home for pricing loading, managed dependency construction, dependency reuse, and runtime resource cleanup.
-- Added the matching `workflows/comicbook/runtime_deps.py` target-tree compatibility wrapper and converted `ComicBook/comicbook/runtime_deps.py` into a thin legacy wrapper.
-- Switched managed dependency construction to `get_logger(__name__)`, kept default pricing resolution working through a temporary fallback to the legacy pricing asset, and kept the package-root `upload_templates` convenience export available from `workflows/comicbook/__init__.py`.
-- Expanded focused target-tree coverage in `workflows/tests/shared/test_runtime_deps.py`, including the package-root `upload_templates` re-export.
-- Verified the runtime-deps slice through focused target-tree tests, the broader target-tree shared regression scope, a direct import check for the compatibility package export, and representative legacy runtime-entrypoint regression scopes.
-- Reconciled this handoff with the repository state so the recorded completed slice now matches the implemented files and verification evidence.
+- Added `pipelines.shared.runtime_deps`. Switched managed dependency construction to `get_logger(__name__)`. Kept a temporary fallback to the legacy pricing asset. Expanded focused coverage in `workflows/tests/shared/test_runtime_deps.py`. Verified through focused target-tree tests, broader target-tree shared regression, a direct import check for `comicbook.upload_templates`, and representative legacy runtime-entrypoint regressions.
 
-### 2026-04-25 — TG2 CLI entry-point implementation session
+### 2026-04-25 — TG2 CLI entry-point move (TG2-T4 partial + TG2-T8 partial)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the shared-module work.
-- Loaded and applied `pytest-tdd-guard` because moving the workflow entry points and changing compatibility-wrapper behavior is a Python refactor-risk slice.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing import ownership and runtime observability expectations.
-- Added focused target-tree tests first; the initial run failed because the target-tree workflow packages and moved run modules did not exist yet.
-- Added `workflows/pipelines/workflows/image_prompt_gen/run.py` and `workflows/pipelines/workflows/template_upload/run.py` as the new source-of-truth entry points.
-- Added target-tree compatibility aliases for `comicbook.run` and `comicbook.upload_run`, plus the minimum `comicbook.input_file` wrapper needed for the moved image entry point.
-- Converted the legacy `ComicBook/comicbook/run.py` and `upload_run.py` modules into compatibility aliases to the moved source-of-truth modules.
-- The first broader legacy regression run exposed that plain symbol re-exports broke monkeypatch-based tests; the slice corrected that by switching the run-module wrappers to module aliases.
-- Verified the slice through focused target-tree tests, broader target-tree logging/runtime regression tests, representative legacy runtime-entrypoint tests, and direct alias identity checks.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to reflect the new entry-point ownership and direct `log_event(...)` adoption.
+- Added `pipelines.workflows.image_prompt_gen.run` and `pipelines.workflows.template_upload.run`. Added target-tree compatibility aliases for `comicbook.run`, `comicbook.upload_run`, and `comicbook.input_file`. Discovered that plain symbol re-exports broke monkey-patch-based tests; switched run-module wrappers to module aliases (Pattern 2). Adopted `log_event(...)` lifecycle calls in the moved run modules.
 
-### 2026-04-25 — TG2 workflow-graph implementation session
+### 2026-04-25 — TG2 workflow-graph move (TG2-T4)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the entry-point move.
-- Loaded and applied `pytest-tdd-guard` because moving the workflow graph modules and changing the compatibility-wrapper path behavior is a Python refactor-risk slice.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing import ownership and target-tree execution behavior.
-- Added focused target-tree tests first; the initial run failed because the target-tree workflow graph modules did not exist yet.
-- Added `workflows/pipelines/workflows/image_prompt_gen/graph.py` and `workflows/pipelines/workflows/template_upload/graph.py` as the new source-of-truth graph modules.
-- Added target-tree compatibility aliases for `comicbook.graph` and `comicbook.upload_graph`, and extended the target-tree compatibility package path so still-legacy workflow-local modules can keep resolving during TG2.
-- Converted the legacy `ComicBook/comicbook/graph.py` and `ComicBook/comicbook/upload_graph.py` modules into compatibility aliases to the moved source-of-truth graph modules.
-- Switched the moved run modules to call the moved graph modules directly instead of routing back through legacy graph imports.
-- Verified the slice through focused target-tree graph tests, broader target-tree workflow regression tests, representative legacy graph tests, and direct alias identity checks.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to reflect the new graph ownership and the temporary compatibility-package path fallback.
+- Added `pipelines.workflows.image_prompt_gen.graph` and `pipelines.workflows.template_upload.graph`. Added wrappers; converted legacy graph modules to compatibility aliases. Switched the moved run modules to import from the moved graph modules directly.
 
-### 2026-04-25 — TG2 image-helper-module implementation session
+### 2026-04-25 — TG2 image-helper-module move (TG2-T5)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the workflow-graph move.
-- Loaded and applied `pytest-tdd-guard` because moving the helper modules and pricing asset behind compatibility aliases is a Python refactor-risk slice.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing import ownership, pricing-asset resolution, and maintainer-facing migration status.
-- Added focused target-tree tests first; the initial run failed because the target-tree image helper modules did not exist yet and because `_default_pricing_path()` still resolved the legacy pricing asset first.
-- Added the target-tree source-of-truth helper modules under `workflows/pipelines/workflows/image_prompt_gen/`, including `input_file.py`, prompt helpers, adapter helpers, and `pricing.json`.
-- Added target-tree compatibility aliases for `comicbook.input_file`, `router_prompts`, `metadata_prompts`, `router_llm`, and `image_client`.
-- Converted the legacy `ComicBook/comicbook/input_file.py`, `router_prompts.py`, `metadata_prompts.py`, `router_llm.py`, and `image_client.py` modules into compatibility aliases to the moved source-of-truth helper modules.
-- Switched the moved image entry point to import its input-file helpers directly from the moved target-tree helper module.
-- Verified the slice through focused target-tree helper tests, broader target-tree image-workflow regression tests, and representative legacy helper/node/workflow tests.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to reflect the new helper ownership and target-tree pricing-asset resolution.
+- Added target-tree image helpers under `pipelines.workflows.image_prompt_gen/{input_file.py,prompts/*,adapters/*,pricing.json}`. Added matching wrappers. Switched the moved image entry point to import helpers directly from the moved modules. Pricing-path resolution prefers the target-tree asset with a temporary legacy fallback.
 
-### 2026-04-25 — TG2 explicit state-and-node-wrapper implementation session
+### 2026-04-25 — TG2 explicit state-and-node-wrapper move (TG2-T6 partial)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the image-helper-module move.
-- Loaded and applied `pytest-tdd-guard` because replacing the package-path fallback with explicit wrappers is a Python refactor-risk slice.
-- Loaded and applied `docs-update-guard` because the slice changed compatibility-wrapper behavior and maintainer-facing migration status.
-- Added focused target-tree tests first; the initial run failed because `workflows/comicbook/__init__.py` still appended `ComicBook/comicbook` to `comicbook.__path__` and because explicit target-tree `state` / `nodes` wrappers did not exist yet.
-- Added `workflows/comicbook/state.py` plus `workflows/comicbook/nodes/` wrapper modules as explicit target-tree bridges to the still-legacy state and node modules.
-- Removed the old compatibility-package path fallback from `workflows/comicbook/__init__.py` while keeping the package-root `upload_templates` convenience export.
-- Verified the slice through focused target-tree compatibility tests, a broader target-tree moved-module regression scope, representative legacy node/graph regressions, and a direct alias identity check.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to reflect that TG2 now uses explicit `state` / `nodes` wrappers instead of hidden package-path fallback.
+- Replaced the package-path fallback with explicit `workflows/comicbook/state.py` and `workflows/comicbook/nodes/*` wrapper modules. Removed the old `comicbook.__path__` extension. Verified through focused compatibility tests, broader target-tree regression, representative legacy node/graph regressions, and identity checks. (Note: actual node implementations still live under `ComicBook/comicbook/nodes/`; only wrappers exist in the target tree.)
 
-### 2026-04-25 — TG2 bounded image-test-relocation implementation session
+### 2026-04-25 — TG2 bounded test relocations (TG2-T9, multiple sessions)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the explicit state/node-wrapper move.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout and migration-status documentation.
-- Started bounded TG2 test relocation with the legacy image graph scenario coverage because those tests target a workflow graph module that already has a target-tree source of truth.
-- Added `workflows/tests/image_prompt_gen/test_graph_scenarios.py` and `workflows/tests/image_prompt_gen/support.py` so those scenarios can run from `workflows/` against `pipelines.workflows.image_prompt_gen.graph` and the moved shared helpers.
-- The first focused target-tree run failed because the new test module referenced a `db` fixture that had not been imported from the shared support module yet; importing that fixture was the only code change needed to turn the scope green.
-- Verified the slice through the focused relocated-test scope, a broader target-tree image workflow scope, and the matching legacy image graph regressions.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded test relocation into `workflows/tests/` has now started.
+- Bounded relocation across shared, image-prompt-gen, and template-upload subtrees: image graph scenarios, image helpers (input file support, router validation, image client), template-upload graph + run-CLI, image budget-guard, shared config + state-contract continuity, image example-single-portrait continuity, shared fingerprint expansion, image node-wrapper continuity (ingest + summarize), template-upload preflight nodes (load_file, parse_and_validate, resume_filter, decide_write_mode), template-upload backfill node, template-upload persist node. Each slice ran the focused new scope, the broader target-tree regression scope, and a matching legacy regression scope.
 
-### 2026-04-25 — TG2 bounded image-helper-test-relocation implementation session
+### 2026-04-25 — Documentation-only revision (this session)
 
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the first bounded image graph test relocation.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout and migration-status documentation.
-- Added `workflows/tests/image_prompt_gen/test_input_file_support.py`, `test_router_validation.py`, and `test_image_client.py` as the next bounded relocation cluster for already-moved non-node image-workflow helper modules.
-- Switched the relocated tests to import the moved target-tree helper modules directly, while continuing to rely on `comicbook.state` only where the unsplit legacy state models are still the source of truth.
-- Verified the slice through the focused relocated-helper scope, a broader target-tree image workflow scope, and the matching legacy helper regressions.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded image-helper test relocation into `workflows/tests/` is now in place.
-
-### 2026-04-25 — TG2 bounded template-upload-test-relocation implementation session
-
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the bounded image-helper test relocation.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout and migration-status documentation.
-- Added `workflows/tests/template_upload/support.py`, `test_graph_scenarios.py`, and `test_run_cli.py` as the next bounded relocation cluster for already-moved template-upload graph and CLI/run behavior.
-- Switched the relocated tests to import `pipelines.workflows.template_upload.graph` and `pipelines.workflows.template_upload.run` directly while reusing target-tree shared helpers from `pipelines.shared.*`.
-- Verified the slice through the focused relocated template-upload scope, a broader target-tree workflow scope, and the matching legacy template-upload regressions.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded template-upload test relocation into `workflows/tests/` is now in place.
-
-### 2026-04-25 — TG2 bounded image budget-guard test-relocation implementation session
-
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the bounded template-upload test relocation.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout and migration-status documentation.
-- Added `workflows/tests/image_prompt_gen/test_budget_guard.py` as the next bounded relocation cluster for already-moved image-workflow budget guard, dry-run redaction, panel-count forwarding, and CLI budget-flag behavior.
-- Switched the relocated tests to import `pipelines.workflows.image_prompt_gen.graph` and `pipelines.workflows.image_prompt_gen.run` directly while reusing target-tree shared config/deps/db helpers.
-- Verified the slice through the focused relocated budget-guard scope, a broader target-tree workflow scope, and the matching legacy budget-guard regressions.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded image budget-guard test relocation into `workflows/tests/` is now in place.
-
-### 2026-04-25 — TG2 bounded shared config/state-contract test-relocation implementation session
-
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the bounded image budget-guard test relocation.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout and migration-status documentation.
-- Added `workflows/tests/shared/test_config_and_compat_state.py` as the next bounded relocation cluster for shared config loading and the temporary `comicbook.state` compatibility surface while TG3 remains pending.
-- Switched the relocated tests to import `pipelines.shared.config` directly while validating the target-tree `comicbook.state` wrapper contract.
-- Verified the slice through the focused relocated shared scope, a broader target-tree shared/workflow scope, and the matching legacy config/state regressions.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded shared config/state-contract test relocation into `workflows/tests/` is now in place.
-
-### 2026-04-25 — TG2 bounded example-continuity test implementation session
-
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the bounded shared config/state-contract test relocation.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout and migration-status documentation.
-- Added `workflows/tests/image_prompt_gen/test_example_single_portrait.py` as target-root coverage for the still-legacy single-portrait example module and for shared-module import boundaries.
-- Loaded the legacy example file by path inside the new target-tree test so the example is exercised from the `workflows/` root without requiring an example-file move yet.
-- Verified the slice through the focused example scope, a broader target-tree shared/workflow scope, and the matching legacy example regressions.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded example continuity coverage from `workflows/tests/` is now in place.
-
-### 2026-04-25 — TG2 bounded fingerprint-regression expansion session
-
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the bounded example-continuity move.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout/status documentation.
-- Expanded `workflows/tests/shared/test_fingerprint.py` with the remaining non-node legacy fingerprint cases for render-input drift and prompt/template ordering invariants.
-- Kept the slice intentionally bounded by leaving the still-node-owned `persist_template` fingerprint regressions in the legacy test file for now.
-- Verified the slice through the focused shared fingerprint scope, a broader target-tree shared/workflow scope, and the matching legacy fingerprint regressions.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded target-tree fingerprint-regression expansion is now in place.
-
-### 2026-04-25 — TG2 bounded node-wrapper continuity session
-
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the bounded fingerprint-regression expansion move.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout/status documentation.
-- Added `workflows/tests/image_prompt_gen/test_node_ingest_summarize.py` as target-root continuity coverage for the explicit `comicbook.nodes.ingest` and `comicbook.nodes.summarize` wrappers.
-- Kept the slice intentionally bounded to two wrapper-backed nodes rather than starting broad node relocation or cross-workflow node migration.
-- Verified the slice through the focused node-wrapper scope, a broader target-tree shared/workflow scope, and the matching legacy node regressions.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded target-tree node-wrapper continuity coverage is now in place.
-
-### 2026-04-25 — TG2 bounded template-upload preflight node session
-
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the bounded node-wrapper continuity move.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout/status documentation.
-- Added `workflows/tests/template_upload/test_node_preflight.py` as target-root continuity coverage for the explicit `comicbook.nodes.upload_load_file`, `upload_parse_and_validate`, `upload_resume_filter`, and `upload_decide_write_mode` wrappers.
-- Kept the slice intentionally bounded to the upload preflight node cluster rather than starting later upload-node relocation such as backfill metadata or persistence.
-- Verified the slice through the focused preflight-node scope, a broader target-tree shared/workflow scope, and the matching legacy upload preflight regressions.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded target-tree upload preflight node continuity coverage is now in place.
-
-### 2026-04-25 — TG2 bounded template-upload backfill node session
-
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the bounded template-upload preflight node move.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout/status documentation.
-- Added `workflows/tests/template_upload/test_node_backfill_metadata.py` as target-root continuity coverage for the explicit `comicbook.nodes.upload_backfill_metadata` wrapper.
-- Kept the slice intentionally bounded to the metadata-backfill node rather than starting later upload persistence-node relocation.
-- Verified the slice through the focused backfill-node scope, a broader target-tree shared/workflow scope, and the matching legacy upload backfill regressions.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded target-tree upload backfill node continuity coverage is now in place.
-
-### 2026-04-25 — TG2 bounded template-upload persist node session
-
-- Reviewed the implementation guide, current handoff, repository state, and the checked-in `implementation-slice-guard` skill guidance to choose the next eligible commit-sized slice after the bounded template-upload backfill node move.
-- Loaded and applied `docs-update-guard` because the slice changed developer-facing test layout/status documentation.
-- Added `workflows/tests/template_upload/test_node_persist.py` as target-root continuity coverage for the explicit `comicbook.nodes.upload_persist` wrapper.
-- Kept the slice intentionally bounded to the persistence node rather than starting cleanup/delete work or broader upload-node relocation.
-- Verified the slice through the focused persist-node scope, a broader target-tree shared/workflow scope, and the matching legacy upload persist regressions.
-- Updated the planning, business, and developer docs plus `workflows/README.md` to record that bounded target-tree upload persist node continuity coverage is now in place.
+- Re-ran `/implementation-doc` against the existing planning doc with stricter quality requirements; produced `implementation-v2.md` next to the preserved original `implementation.md`.
+- Updated `.opencode/commands/implementation-doc.md` to mandate verified-baseline inspection, canonical `TG{N}-T{M}` task IDs, fully enumerated file lists, mandatory appendices, runnable exit-criteria checks, per-TaskGroup rollback notes, and auto-versioning for non-empty existing implementation guides.
+- Updated `.opencode/agents/docs-writer.md` with the matching implementation-guide rules.
+- Updated `.opencode/skills/implementation-handoff-guard/SKILL.md` to require canonical task IDs, single-authoritative-guide pairing, and an explicit permission checkpoint section.
+- Updated this handoff to point at `implementation-v2.md` as authoritative, re-mapped prior progress to canonical TG{N}-T{M} IDs, and recorded the documentation-only session.
+- No runtime code or test files were changed in this session.
 
 ## Permission checkpoint
 
-- Additional approval is **not** required for the next bounded TG2 test-relocation slice when continuing under `/implement-next-autonomous`.
-- Additional approval **will** still be required before any install, copy, delete, git-push, or other remote-mutation work.
+- The next bounded TG2 test-relocation or wrapper/import-surface slice is pre-approved under `/implement-next-autonomous` per the prior standing approval.
+- Additional approval **is required** before any of the following: install/copy/delete operations on legacy `ComicBook/` files, `git push` or remote-mutation work, removing any compatibility wrapper, deleting any legacy test that has a relocated counterpart, starting TG3 or any later TaskGroup, or moving actual node implementations out of `ComicBook/comicbook/nodes/`.
+- Implementation work against `implementation-v2.md` may begin only after the user explicitly invokes `/implement-next docs/planning/repo-reorganization/implementation-v2.md docs/planning/repo-reorganization/implementation-handoff.md` (or clearly says `approve /implement-next ...`). Generic continuation phrases do not count as approval.
+
+`USER_APPROVAL_REQUIRED: implementation may start only after explicit /implement-next approval`

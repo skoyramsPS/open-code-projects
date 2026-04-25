@@ -60,17 +60,25 @@ Permission posture:
 
 Implementation-guide workflow rule:
 
-- before writing or modifying an implementation guide, inspect the source planning doc, related docs, and relevant repository state deeply enough to identify material ambiguities
-- if any ambiguity would change task scope, sequencing, file ownership, contracts, tests, observability, acceptance criteria, or rollout behavior, stop and ask the user concise clarification questions before drafting the guide
-- do not draft or revise the implementation guide past placeholders until those material ambiguities are resolved; clarification can take multiple back-and-forth turns when needed
-- when the task is to create or update an implementation guide, also create or update a sibling `implementation-handoff.md`
-- seed the handoff from the current repository state, not just the plan
-- implementation guides must be fully technical and execution-oriented, not planning summaries
-- implementation guides must convert the source plan into ordered `TaskGroup`s with explicit dependency boundaries and minimal room for interpretation
-- every `TaskGroup` must state, at minimum: goal, dependencies, exact in-scope work, exact out-of-scope work, deterministic task list, expected files/modules, required tests, docs/observability impact, exit criteria, and handoff notes
-- if a `TaskGroup` includes code changes, refactors, or new modules/APIs, include representative pseudocode, code skeletons, or import/call-site examples for the non-obvious parts
-- split broad work until each `TaskGroup` is specific enough that an implementation agent can execute it without inventing missing technical detail
-- do not leave open assumptions in an implementation guide unless they are explicitly approved by the user or clearly labeled as blocked pending clarification
+- before writing or modifying an implementation guide, inspect the source planning doc, every related planning/business/developer doc for the same domain, the relevant `docs/standards/` files, the relevant `AGENTS.md` and `.opencode/agents/*.md` files, and the actual repository state for every directory the plan touches; this inspection feeds a mandatory `Verified repository baseline` section in the guide
+- if the verified repository state contradicts the plan in a way that would change scope, sequencing, file lists, contracts, tests, observability, acceptance criteria, or rollout behavior, stop and ask the user concise clarification questions before drafting; do not silently reconcile by guessing which side wins
+- if the plan itself leaves material ambiguities (different reasonable readings would produce different implementations), stop and ask the user; clarification can take multiple back-and-forth turns
+- do not draft or revise the implementation guide past placeholders until those material ambiguities and conflicts are resolved
+- never overwrite an existing non-empty implementation guide; auto-version to `implementation-vN.md` (next free integer in the same directory) and call out the preservation in the final summary
+- when the task is to create or update an implementation guide, also create or update a sibling `implementation-handoff.md`; seed the handoff from current repository state, not from the plan, and use the canonical `TG{N}-T{M}` IDs for any task references
+- implementation guides must be fully technical and execution-oriented, not planning summaries; the delivery team must be able to execute end-to-end with the guide alone, without reopening the plan except for historical context
+- implementation guides must convert the source plan into ordered `TaskGroup`s with explicit dependency boundaries; within a TaskGroup, tasks are also numbered and dependency-ordered
+- use the canonical task-ID format `TG{N}-T{M}` consistently across the document
+- every `TaskGroup` must include all twelve required sections in this order: goal, dependencies, pre-flight checklist, in-scope, out-of-scope, detailed task list, expected files (full enumeration — no globs, no `etc.`, no `…`), test plan, documentation impact, exit criteria (verifiable shell/grep/pytest commands; manual review checklist only when shell verification does not apply), rollback notes, handoff notes
+- the implementation guide itself must include all of the following top-level sections in order: title plus metadata table, `How to use this document`, `Executive summary`, `Verified repository baseline`, `Locked decisions and resolved ambiguities`, `Target architecture`, `Cross-cutting requirements`, `TaskGroup overview` table, `Reading the TaskGroup sections` note, `TaskGroup details`, `Cross-TaskGroup verification matrix`, `Program-level acceptance criteria`, `Out of scope (program-wide)`, `Open issues and known limitations`, `Glossary`, `Permission gate`, `Appendices`
+- appendices are mandatory; at minimum include a full file-by-file migration table (no glob shorthand) for any migration plan, plus reference skeletons for any new shared module the plan introduces, plus contract references (logging fields, schemas, etc.), plus wrapper/shim templates with full content when compatibility scaffolding exists, plus configuration templates (`pyproject.toml`, etc.) when project metadata changes, plus checklist-style appendices for cross-cutting sweeps
+- always include reference skeletons and fully enumerated tables; snippets are required wherever an implementer would otherwise have to infer structure
+- every task must have a clear single-sentence scope statement and must enumerate the exact files it touches; vague verbs like "update imports", "fix references", "rewire as needed" must be replaced by enumerated targets
+- every task ends with a focused verification step (a shell command, grep, or pytest invocation)
+- every TaskGroup's `Exit criteria` is expressed as runnable shell/grep/pytest commands; for purely documentation-driven plans where shell verification does not apply, replace with a `Manual review checklist` whose items are objectively answerable yes/no
+- every TaskGroup carries a concrete `Rollback notes` section explaining the recovery state, not boilerplate
+- before finalizing, walk the quality-bar checklist in `.opencode/commands/implementation-doc.md`; failing any item means the guide is not ready
+- do not leave open assumptions unless they are explicitly approved by the user or clearly labeled as blocked pending clarification
 - end the handoff with an explicit permission checkpoint that asks the user to approve `/implement-next` before implementation begins
 - treat the planning-to-implementation boundary as a hard stop, not a suggestion
 - end the handoff and your final summary with the exact line `USER_APPROVAL_REQUIRED: implementation may start only after explicit /implement-next approval`

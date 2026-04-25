@@ -5,7 +5,8 @@ Planning material for moving the repository from a flat single-package layout to
 ## Documents
 
 - [Reorganization plan](plan.md)
-- [Implementation guide](implementation.md)
+- [Implementation guide (current, v2)](implementation-v2.md) — authoritative; rewritten on 2026-04-25 with stricter standards (verified-baseline section, canonical `TG{N}-T{M}` task IDs, fully enumerated file lists, mandatory appendices, runnable exit criteria, and per-TaskGroup rollback notes).
+- [Implementation guide (preserved, v1)](implementation.md) — historical; superseded by v2 but kept on disk for traceability of earlier execution.
 - [Implementation handoff](implementation-handoff.md)
 
 ## Related
