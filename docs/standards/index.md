@@ -7,3 +7,4 @@ These files are loaded through `opencode.json` as shared instructions.
 - [Code quality standards](code-quality.md)
 - [Documentation standards](documentation-standards.md)
 - [Repository structure standards](repo-structure.md)
+- [Logging standards](logging-standards.md)

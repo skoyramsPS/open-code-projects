@@ -22,3 +22,4 @@ Use `ADR-0001-short-title.md`, `ADR-0002-short-title.md`, and so on.
 ## Records
 
 - [ADR-0001: Add an implementation execution agent with a planning-folder handoff ledger](ADR-0001-implementation-execution-agent.md)
+- [ADR-0002: Reorganize the repository into a multi-workflow `pipelines` package with a shared logging standard](ADR-0002-repo-reorganization.md)

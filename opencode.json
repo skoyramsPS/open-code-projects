@@ -5,7 +5,8 @@
     "docs/standards/testing-tdd.md",
     "docs/standards/code-quality.md",
     "docs/standards/documentation-standards.md",
-    "docs/standards/repo-structure.md"
+    "docs/standards/repo-structure.md",
+    "docs/standards/logging-standards.md"
   ],
   "permission": {
     "skill": {

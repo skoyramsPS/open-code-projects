@@ -69,6 +69,8 @@ Priorities:
 3. Keep each run scoped to one git-commit-sized delivery slice.
 4. Leave behind verification, documentation, and a resumable handoff record.
 5. Reuse existing repository skills instead of re-inventing testing or documentation gates.
+6. Land code in the layout described in [`docs/standards/repo-structure.md`](../../docs/standards/repo-structure.md): workflow-specific code under `workflows/pipelines/workflows/<workflow>/`, cross-workflow code under `workflows/pipelines/shared/`. The reorganization is in progress — see [`docs/planning/repo-reorganization/plan.md`](../../docs/planning/repo-reorganization/plan.md) — so during transitional phases, follow the slice-specific path stated in the implementation guide.
+7. Honor the [logging standard](../../docs/standards/logging-standards.md) on every code change: nodes log through `log_node_event(deps, state, event, **fields)`; non-node code uses `get_logger(__name__)` with `log_event(...)`. Do not call `logging.getLogger` directly inside nodes.
 
 Execution contract:
 

@@ -47,6 +47,9 @@ Default checks:
 - business docs explain what, when, and limitations in non-technical language
 - developer docs explain structure, setup, extension points, debugging, and maintenance
 - examples and commands still match reality
+- workflow doc slugs match the table in [`docs/standards/repo-structure.md`](../../docs/standards/repo-structure.md): lowercase-hyphenated, ending in `-workflow` (e.g. `image-prompt-gen-workflow`, `template-upload-workflow`)
+- references to source paths use the `workflows/pipelines/` layout where the code already lives there; otherwise note that the path will move during the reorganization tracked in [`docs/planning/repo-reorganization/plan.md`](../../docs/planning/repo-reorganization/plan.md)
+- changes to logging behavior or fields update [`docs/standards/logging-standards.md`](../../docs/standards/logging-standards.md) in the same gate
 
 Permission posture:
 
