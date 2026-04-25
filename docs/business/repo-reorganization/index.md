@@ -4,7 +4,7 @@ Plain-language status and operator-facing notes for the repository move into the
 
 ## What changed so far
 
-Three migration slices have landed so far.
+Eight migration slices have landed so far.
 
 ### TG1 foundation
 
@@ -24,14 +24,45 @@ Three migration slices have landed so far.
 - the target tree now includes the first explicit `workflows/comicbook/` compatibility wrappers for legacy `comicbook.config` and `comicbook.deps` imports
 - legacy tests still pass for the moved configuration surface, so this slice changes module ownership without changing operator behavior
 
+### TG2 repo-protection move
+
+- the repo-protection helper now lives under `workflows/pipelines/shared/repo_protection.py`
+- the target tree now also exposes `workflows/comicbook/repo_protection.py` so migrated code and temporary legacy imports share one implementation
+- the legacy `ComicBook/scripts/check_do_not_change.py` script path still works, and the protected path remains `ComicBook/DoNotChange` until that asset moves later in TG2
+
+### TG2 fingerprint move
+
+- the fingerprint helper now lives under `workflows/pipelines/shared/fingerprint.py`
+- the target tree now also exposes `workflows/comicbook/fingerprint.py` so legacy `comicbook.fingerprint` imports keep working during the migration
+- prompt fingerprinting and rendered-prompt materialization behavior is unchanged in tests, even though the underlying helper module now lives in the target tree
+
+### TG2 database move
+
+- the shared SQLite DAO now lives under `workflows/pipelines/shared/db.py`
+- the target tree now also exposes `workflows/comicbook/db.py` so legacy `comicbook.db` imports keep working during the migration
+- database behavior is unchanged in focused persistence tests and representative legacy workflow smoke tests, even though the underlying module now lives in the target tree
+
+### TG2 execution-helper move
+
+- the shared graph-execution helpers now live under `workflows/pipelines/shared/execution.py`
+- the target tree now also exposes `workflows/comicbook/execution.py` so legacy `comicbook.execution` imports keep working during the migration
+- workflow orchestration behavior is unchanged in focused helper tests and representative legacy workflow smoke tests, even though the underlying helper module now lives in the target tree
+
+### TG2 runtime-deps move
+
+- the managed runtime-dependency helper now lives under `workflows/pipelines/shared/runtime_deps.py`
+- the target tree now also exposes `workflows/comicbook/runtime_deps.py` so legacy `comicbook.runtime_deps` imports keep working during the migration
+- managed dependency construction now gets its logger from the shared logging foundation, while default pricing lookup still falls back to the legacy `ComicBook/comicbook/pricing.json` asset until that file moves later in TG2
+- representative legacy runtime-entrypoint tests still pass, so this slice changes helper ownership and logger construction without changing operator commands
+
 ## What has not changed yet
 
 The TG2 bootstrap slice does **not** move the live runtime into `workflows/`.
 
 - the active runtime still lives under `ComicBook/comicbook/`
 - existing workflow commands and runtime paths are unchanged for operators
-- no production workflow has been rewired to the new logger yet
-- only the first temporary `comicbook` compatibility wrappers exist so far; most legacy import paths are still pending migration
+- CLI entry points still do not emit fully structured `log_event(...)` records directly; that adoption work is still pending later in TG2
+- only a few temporary `comicbook` compatibility wrappers exist so far (`config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, and `runtime_deps`, plus the package-root `upload_templates` re-export); most legacy import paths are still pending migration
 
 That means the migration has updated project metadata and configuration guidance,
 but it has not rolled the runtime itself over to the new package tree yet.
@@ -45,7 +76,7 @@ TG1 establishes that shared contract first so later migration steps can adopt it
 ## Current rollout status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps slice complete)
+- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps slices complete)
 - TG3-TG5: not started
 
 ## Related documents
