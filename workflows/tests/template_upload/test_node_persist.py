@@ -39,11 +39,11 @@ class FakeDB:
 
 
 def test_target_tree_upload_persist_inserts_new_templates_and_records_inserted() -> None:
-    from comicbook.nodes.upload_persist import upload_persist
+    from pipelines.workflows.template_upload.nodes.persist import persist
 
     deps = SimpleNamespace(db=FakeDB())
 
-    delta = upload_persist(
+    delta = persist(
         {
             "import_run_id": "import-run-1",
             "source_file_hash": "hash-123",
@@ -77,7 +77,7 @@ def test_target_tree_upload_persist_inserts_new_templates_and_records_inserted()
 
 
 def test_target_tree_upload_persist_updates_changed_templates_and_records_diff() -> None:
-    from comicbook.nodes.upload_persist import upload_persist
+    from pipelines.workflows.template_upload.nodes.persist import persist
 
     deps = SimpleNamespace(
         db=FakeDB(
@@ -94,7 +94,7 @@ def test_target_tree_upload_persist_updates_changed_templates_and_records_diff()
         )
     )
 
-    delta = upload_persist(
+    delta = persist(
         {
             "import_run_id": "import-run-1",
             "source_file_hash": "hash-123",
@@ -129,11 +129,11 @@ def test_target_tree_upload_persist_updates_changed_templates_and_records_diff()
 
 
 def test_target_tree_upload_persist_turns_skip_write_mode_into_failed_row_result() -> None:
-    from comicbook.nodes.upload_persist import upload_persist
+    from pipelines.workflows.template_upload.nodes.persist import persist
 
     deps = SimpleNamespace(db=FakeDB())
 
-    delta = upload_persist(
+    delta = persist(
         {
             "import_run_id": "import-run-1",
             "source_file_hash": "hash-123",
@@ -162,7 +162,7 @@ def test_target_tree_upload_persist_turns_skip_write_mode_into_failed_row_result
 
 
 def test_target_tree_upload_persist_turns_zero_diff_update_into_skipped_duplicate() -> None:
-    from comicbook.nodes.upload_persist import upload_persist
+    from pipelines.workflows.template_upload.nodes.persist import persist
 
     deps = SimpleNamespace(
         db=FakeDB(
@@ -179,7 +179,7 @@ def test_target_tree_upload_persist_turns_zero_diff_update_into_skipped_duplicat
         )
     )
 
-    delta = upload_persist(
+    delta = persist(
         {
             "import_run_id": "import-run-1",
             "source_file_hash": "hash-123",
@@ -213,11 +213,11 @@ def test_target_tree_upload_persist_turns_zero_diff_update_into_skipped_duplicat
 
 
 def test_target_tree_upload_persist_nulls_unresolved_supersedes_id_and_keeps_warning() -> None:
-    from comicbook.nodes.upload_persist import upload_persist
+    from pipelines.workflows.template_upload.nodes.persist import persist
 
     deps = SimpleNamespace(db=FakeDB())
 
-    delta = upload_persist(
+    delta = persist(
         {
             "import_run_id": "import-run-1",
             "source_file_hash": "hash-123",

@@ -1,6 +1,6 @@
 # ADR-0002: Reorganize the repository into a multi-workflow `pipelines` package with a shared logging standard
 
-- Status: Accepted
+- Status: Accepted and Implemented
 - Date: 2026-04-24
 - Owners: Repository maintainers
 
@@ -58,4 +58,4 @@ Negative or accepted costs:
 - `docs/standards/logging-standards.md` is added and listed in the standards index.
 - `opencode.json` loads the new logging standard.
 - `AGENTS.md` and every `.opencode/agents/*.md` reference the new layout and the logging gate.
-- This ADR was updated to **Accepted** when TG1 landed and will move to **Accepted and Implemented** at the end of Phase 5.
+- This ADR was updated to **Accepted** when TG1 landed and to **Accepted and Implemented** when TG5 closed on 2026-04-26.

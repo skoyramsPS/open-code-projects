@@ -2,9 +2,11 @@
 
 Plain-language status and operator-facing notes for the repository move into the `workflows/pipelines/` layout.
 
-## What changed so far
+## Current status
 
-Additional migration slices have landed so far.
+The repository reorganization cleanup has landed. The live runtime now ships only the `pipelines` package under `workflows/`, and the temporary `comicbook` compatibility shim has been removed.
+
+Final closeout verification is still pending because the old locked local uv project was removed during cleanup and the replacement `workflows/` environment has not yet been synced with pytest in this session.
 
 ### TG1 foundation
 

@@ -3,17 +3,14 @@ from __future__ import annotations
 import pytest
 
 
-def test_target_tree_wrapper_points_to_image_graph_module() -> None:
-    from comicbook.graph import build_workflow_graph as wrapped_build_workflow_graph
-    from comicbook.graph import run_workflow as wrapped_run_workflow
-    from comicbook.graph import runtime_gate as wrapped_runtime_gate
+def test_image_graph_module_exposes_expected_entry_points() -> None:
     from pipelines.workflows.image_prompt_gen.graph import build_workflow_graph
     from pipelines.workflows.image_prompt_gen.graph import run_workflow
     from pipelines.workflows.image_prompt_gen.graph import runtime_gate
 
-    assert wrapped_build_workflow_graph is build_workflow_graph
-    assert wrapped_run_workflow is run_workflow
-    assert wrapped_runtime_gate is runtime_gate
+    assert callable(build_workflow_graph)
+    assert callable(run_workflow)
+    assert callable(runtime_gate)
 
 
 def test_image_run_module_uses_moved_graph_module(monkeypatch: pytest.MonkeyPatch) -> None:

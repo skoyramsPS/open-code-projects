@@ -1,9 +1,9 @@
 repos:
   - repo: local
     hooks:
-      - id: protect-comicbook-do-not-change
+      - id: protect-workflows-do-not-change
         name: Protect workflows DoNotChange files
-        entry: uv run --project ComicBook python ComicBook/scripts/check_do_not_change.py
+        entry: uv run --project workflows --no-sync python -m pipelines.shared.repo_protection
         language: system
         pass_filenames: false
         always_run: true

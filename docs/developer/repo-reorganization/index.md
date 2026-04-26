@@ -1,6 +1,6 @@
 # Repository Reorganization
 
-Developer notes for the phased migration from `ComicBook/comicbook/` to `workflows/pipelines/`.
+Developer notes and completion record for the repository move from `ComicBook/comicbook/` to `workflows/pipelines/`.
 
 ## Current implementation status
 
@@ -8,7 +8,7 @@ Developer notes for the phased migration from `ComicBook/comicbook/` to `workflo
 - TG2: complete
 - TG3: complete
 - TG4: complete
-- TG5: not started
+- TG5: in progress (cleanup landed; final verification blocked on install approval)
 
 TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, the full current pytest tree into `workflows/tests/`, and the real workflow node modules into `workflows/` while preserving legacy import behavior through compatibility aliases. TG2 also completed the image-workflow doc-slug normalization, refreshed maintainer/tooling references, and closed with a green full target-tree pytest run. TG3 then split the monolithic state contract into `pipelines.shared.state`, `pipelines.workflows.image_prompt_gen.state`, and `pipelines.workflows.template_upload.state`, updated all workflow/runtime importers to use the right module, and replaced both compatibility `state.py` wrappers with re-export surfaces that no longer duplicate type definitions. TG4 then completed two related runtime cleanups: reusable decorators wrap every node entry point so `node_started`, `node_completed`, and `node_failed` records emit through `log_node_event(...)` with consistent workflow/run/node fields and duration data, and the template-upload source-of-truth node modules/functions dropped the redundant `upload_` prefix while compatibility wrappers preserved the legacy API.
 

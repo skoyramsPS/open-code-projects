@@ -46,7 +46,7 @@ class FakeExistingTemplateDB:
 
 
 def test_target_tree_upload_load_file_accepts_bare_array_input(tmp_path: Path) -> None:
-    from comicbook.nodes.upload_load_file import upload_load_file
+    from pipelines.workflows.template_upload.nodes.load_file import load_file
 
     payload = [
         {
@@ -61,7 +61,7 @@ def test_target_tree_upload_load_file_accepts_bare_array_input(tmp_path: Path) -
     encoded = json.dumps(payload).encode("utf-8")
     source_file.write_bytes(encoded)
 
-    delta = upload_load_file(
+    delta = load_file(
         {
             "source_file_path": str(source_file),
             "allow_external_path": True,
@@ -77,7 +77,7 @@ def test_target_tree_upload_load_file_accepts_bare_array_input(tmp_path: Path) -
 
 
 def test_target_tree_upload_load_file_accepts_versioned_envelope_input(tmp_path: Path) -> None:
-    from comicbook.nodes.upload_load_file import upload_load_file
+    from pipelines.workflows.template_upload.nodes.load_file import load_file
 
     payload = {
         "version": 1,
@@ -92,7 +92,7 @@ def test_target_tree_upload_load_file_accepts_versioned_envelope_input(tmp_path:
     source_file = tmp_path / "templates.json"
     source_file.write_text(json.dumps(payload), encoding="utf-8")
 
-    delta = upload_load_file(
+    delta = load_file(
         {
             "source_file_path": str(source_file),
             "allow_external_path": True,
@@ -105,7 +105,7 @@ def test_target_tree_upload_load_file_accepts_versioned_envelope_input(tmp_path:
 
 
 def test_target_tree_upload_load_file_accepts_stdin_payload() -> None:
-    from comicbook.nodes.upload_load_file import upload_load_file
+    from pipelines.workflows.template_upload.nodes.load_file import load_file
 
     stdin_text = json.dumps(
         [
@@ -117,7 +117,7 @@ def test_target_tree_upload_load_file_accepts_stdin_payload() -> None:
         ]
     )
 
-    delta = upload_load_file(
+    delta = load_file(
         {
             "stdin_text": stdin_text,
             "allow_external_path": False,
@@ -132,13 +132,13 @@ def test_target_tree_upload_load_file_accepts_stdin_payload() -> None:
 
 
 def test_target_tree_upload_load_file_rejects_invalid_top_level_shape(tmp_path: Path) -> None:
-    from comicbook.nodes.upload_load_file import upload_load_file
+    from pipelines.workflows.template_upload.nodes.load_file import load_file
 
     source_file = tmp_path / "templates.json"
     source_file.write_text(json.dumps({"template_id": "not-an-array"}), encoding="utf-8")
 
     with pytest.raises(ValueError, match="top-level"):
-        upload_load_file(
+        load_file(
             {
                 "source_file_path": str(source_file),
                 "allow_external_path": True,
@@ -148,13 +148,13 @@ def test_target_tree_upload_load_file_rejects_invalid_top_level_shape(tmp_path: 
 
 
 def test_target_tree_upload_load_file_rejects_external_path_when_disallowed(tmp_path: Path) -> None:
-    from comicbook.nodes.upload_load_file import upload_load_file
+    from pipelines.workflows.template_upload.nodes.load_file import load_file
 
     source_file = tmp_path / "templates.json"
     source_file.write_text("[]", encoding="utf-8")
 
     with pytest.raises(ValueError, match="outside the allowed tree"):
-        upload_load_file(
+        load_file(
             {
                 "source_file_path": str(source_file),
                 "allow_external_path": False,
@@ -164,9 +164,9 @@ def test_target_tree_upload_load_file_rejects_external_path_when_disallowed(tmp_
 
 
 def test_target_tree_upload_parse_and_validate_preserves_empty_tags_without_backfill() -> None:
-    from comicbook.nodes.upload_parse_and_validate import upload_parse_and_validate
+    from pipelines.workflows.template_upload.nodes.parse_and_validate import parse_and_validate
 
-    delta = upload_parse_and_validate(
+    delta = parse_and_validate(
         {
             "raw_rows": [
                 {
@@ -190,9 +190,9 @@ def test_target_tree_upload_parse_and_validate_preserves_empty_tags_without_back
 
 
 def test_target_tree_upload_parse_and_validate_ignores_created_by_run_with_warning() -> None:
-    from comicbook.nodes.upload_parse_and_validate import upload_parse_and_validate
+    from pipelines.workflows.template_upload.nodes.parse_and_validate import parse_and_validate
 
-    delta = upload_parse_and_validate(
+    delta = parse_and_validate(
         {
             "raw_rows": [
                 {
@@ -212,9 +212,9 @@ def test_target_tree_upload_parse_and_validate_ignores_created_by_run_with_warni
 
 
 def test_target_tree_upload_parse_and_validate_marks_missing_required_fields_per_row() -> None:
-    from comicbook.nodes.upload_parse_and_validate import upload_parse_and_validate
+    from pipelines.workflows.template_upload.nodes.parse_and_validate import parse_and_validate
 
-    delta = upload_parse_and_validate(
+    delta = parse_and_validate(
         {
             "raw_rows": [
                 {
@@ -232,10 +232,10 @@ def test_target_tree_upload_parse_and_validate_marks_missing_required_fields_per
 
 
 def test_target_tree_upload_parse_and_validate_rejects_files_over_row_limit() -> None:
-    from comicbook.nodes.upload_parse_and_validate import upload_parse_and_validate
+    from pipelines.workflows.template_upload.nodes.parse_and_validate import parse_and_validate
 
     with pytest.raises(ValueError, match="max rows"):
-        upload_parse_and_validate(
+        parse_and_validate(
             {
                 "raw_rows": [
                     {"template_id": "row-1", "name": "One", "style_text": "alpha"},
@@ -247,7 +247,7 @@ def test_target_tree_upload_parse_and_validate_rejects_files_over_row_limit() ->
 
 
 def test_target_tree_upload_resume_filter_skips_only_prior_terminal_successes() -> None:
-    from comicbook.nodes.upload_resume_filter import upload_resume_filter
+    from pipelines.workflows.template_upload.nodes.resume_filter import resume_filter
 
     deps = SimpleNamespace(
         db=FakeResumeDB(
@@ -259,7 +259,7 @@ def test_target_tree_upload_resume_filter_skips_only_prior_terminal_successes() 
         )
     )
 
-    delta = upload_resume_filter(
+    delta = resume_filter(
         {
             "source_file_hash": "hash-123",
             "parsed_rows": [
@@ -282,9 +282,9 @@ def test_target_tree_upload_resume_filter_skips_only_prior_terminal_successes() 
 
 
 def test_target_tree_upload_decide_write_mode_marks_validation_failures_as_skip() -> None:
-    from comicbook.nodes.upload_decide_write_mode import upload_decide_write_mode
+    from pipelines.workflows.template_upload.nodes.decide_write_mode import decide_write_mode
 
-    delta = upload_decide_write_mode(
+    delta = decide_write_mode(
         {
             "parsed_rows": [
                 {
@@ -305,7 +305,7 @@ def test_target_tree_upload_decide_write_mode_marks_validation_failures_as_skip(
 
 
 def test_target_tree_upload_decide_write_mode_marks_existing_templates_as_update() -> None:
-    from comicbook.nodes.upload_decide_write_mode import upload_decide_write_mode
+    from pipelines.workflows.template_upload.nodes.decide_write_mode import decide_write_mode
 
     deps = SimpleNamespace(
         db=FakeExistingTemplateDB(
@@ -324,7 +324,7 @@ def test_target_tree_upload_decide_write_mode_marks_existing_templates_as_update
         )
     )
 
-    delta = upload_decide_write_mode(
+    delta = decide_write_mode(
         {
             "parsed_rows": [
                 {
@@ -345,9 +345,9 @@ def test_target_tree_upload_decide_write_mode_marks_existing_templates_as_update
 
 
 def test_target_tree_upload_decide_write_mode_marks_missing_templates_as_insert() -> None:
-    from comicbook.nodes.upload_decide_write_mode import upload_decide_write_mode
+    from pipelines.workflows.template_upload.nodes.decide_write_mode import decide_write_mode
 
-    delta = upload_decide_write_mode(
+    delta = decide_write_mode(
         {
             "parsed_rows": [
                 {
@@ -368,9 +368,9 @@ def test_target_tree_upload_decide_write_mode_marks_missing_templates_as_insert(
 
 
 def test_target_tree_upload_decide_write_mode_defers_unresolved_same_run_supersedes_target() -> None:
-    from comicbook.nodes.upload_decide_write_mode import upload_decide_write_mode
+    from pipelines.workflows.template_upload.nodes.decide_write_mode import decide_write_mode
 
-    delta = upload_decide_write_mode(
+    delta = decide_write_mode(
         {
             "parsed_rows": [
                 {

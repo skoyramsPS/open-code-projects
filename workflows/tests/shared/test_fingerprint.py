@@ -4,8 +4,6 @@ from dataclasses import dataclass
 
 import pytest
 
-from comicbook.fingerprint import compute_prompt_fingerprint as legacy_compute_prompt_fingerprint
-from comicbook.fingerprint import materialize_rendered_prompts as legacy_materialize_rendered_prompts
 from pipelines.shared.fingerprint import compute_prompt_fingerprint, materialize_rendered_prompts, render_prompt_text
 from pipelines.workflows.image_prompt_gen.state import RenderedPrompt
 
@@ -27,11 +25,6 @@ class PromptStub:
 @dataclass(frozen=True)
 class PlanStub:
     prompts: list[PromptStub]
-
-
-def test_legacy_wrapper_points_to_shared_fingerprint_module() -> None:
-    assert legacy_compute_prompt_fingerprint is compute_prompt_fingerprint
-    assert legacy_materialize_rendered_prompts is materialize_rendered_prompts
 
 
 def test_compute_prompt_fingerprint_is_deterministic() -> None:

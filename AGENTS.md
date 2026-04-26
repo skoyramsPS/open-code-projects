@@ -101,6 +101,8 @@ The runtime code lives in the `pipelines` package under the top-level `workflows
         │   ├── execution.py
         │   ├── db.py
         │   ├── fingerprint.py
+        │   ├── responses.py
+        │   ├── metadata_backfill.py
         │   ├── repo_protection.py
         │   ├── logging.py
         │   └── state.py
@@ -120,7 +122,7 @@ The runtime code lives in the `pipelines` package under the top-level `workflows
                 └── nodes/
 ```
 
-Migration to this layout is in progress — see [`docs/planning/repo-reorganization/plan.md`](docs/planning/repo-reorganization/plan.md). During the transition, legacy compatibility wrappers may still exist under `ComicBook/comicbook/`, but new work should target the `pipelines` layout and update the migration plan if a new affordance is needed.
+This layout is now the implemented repository baseline. Historical migration details live under [`docs/planning/repo-reorganization/`](docs/planning/repo-reorganization/).
 
 ## OpenCode layout
 

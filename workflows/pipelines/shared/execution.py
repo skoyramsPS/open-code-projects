@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import importlib.util
 import os
-import sys
 from datetime import datetime, timezone
 from functools import lru_cache
-from pathlib import Path
 from typing import Callable, Protocol, cast
 
 from pipelines.shared.deps import Deps
@@ -28,20 +25,8 @@ GraphFactory = Callable[[Deps], CompiledWorkflow]
 
 @lru_cache(maxsize=1)
 def _load_ingest_callable() -> NodeCallable:
-    try:
-        from comicbook.nodes.ingest import ingest
-    except ModuleNotFoundError:
-        legacy_ingest_path = Path(__file__).resolve().parents[3] / "ComicBook" / "comicbook" / "nodes" / "ingest.py"
-        module_name = "_legacy_comicbook_nodes_ingest"
-        module = sys.modules.get(module_name)
-        if module is None:
-            spec = importlib.util.spec_from_file_location(module_name, legacy_ingest_path)
-            if spec is None or spec.loader is None:
-                raise RuntimeError(f"Unable to load legacy ingest module from {legacy_ingest_path}")
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-        ingest = module.ingest
+    from pipelines.workflows.image_prompt_gen.nodes.ingest import ingest
+
     return cast(NodeCallable, ingest)
 
 

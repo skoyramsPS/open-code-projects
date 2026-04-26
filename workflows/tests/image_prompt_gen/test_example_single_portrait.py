@@ -63,10 +63,6 @@ def test_target_tree_shared_modules_do_not_import_workflow_entry_modules() -> No
     shared_root = Path(__file__).resolve().parents[2] / "pipelines" / "shared"
     offenders: list[str] = []
     forbidden_imports = {
-        "comicbook.graph",
-        "comicbook.run",
-        "comicbook.upload_graph",
-        "comicbook.upload_run",
         "pipelines.workflows.image_prompt_gen.graph",
         "pipelines.workflows.image_prompt_gen.run",
         "pipelines.workflows.template_upload.graph",

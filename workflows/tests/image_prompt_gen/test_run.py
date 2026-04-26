@@ -5,24 +5,20 @@ from types import SimpleNamespace
 import pytest
 
 
-def test_target_tree_wrapper_points_to_image_run_entry_points() -> None:
-    from comicbook.run import main as wrapped_main
-    from comicbook.run import parse_args as wrapped_parse_args
-    from comicbook.run import run_batch as wrapped_run_batch
-    from comicbook.run import run_once as wrapped_run_once
+def test_image_run_module_exposes_expected_entry_points() -> None:
     from pipelines.workflows.image_prompt_gen.run import main
     from pipelines.workflows.image_prompt_gen.run import parse_args
     from pipelines.workflows.image_prompt_gen.run import run_batch
     from pipelines.workflows.image_prompt_gen.run import run_once
 
-    assert wrapped_main is main
-    assert wrapped_parse_args is parse_args
-    assert wrapped_run_batch is run_batch
-    assert wrapped_run_once is run_once
+    assert callable(main)
+    assert callable(parse_args)
+    assert callable(run_batch)
+    assert callable(run_once)
 
 
 def test_run_batch_emits_structured_log_events(monkeypatch: pytest.MonkeyPatch) -> None:
-    from comicbook.input_file import InputPromptRecord
+    from pipelines.workflows.image_prompt_gen.input_file import InputPromptRecord
     from pipelines.workflows.image_prompt_gen import run as run_module
 
     records = [

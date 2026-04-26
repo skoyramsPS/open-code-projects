@@ -2,6 +2,8 @@
 
 Planning documentation for the image prompt and image generation workflow.
 
+Current runtime home: `workflows/pipelines/workflows/image_prompt_gen/`.
+
 ## Documents
 
 - [Plan](plan.md): design requirements, tradeoffs, and acceptance targets.

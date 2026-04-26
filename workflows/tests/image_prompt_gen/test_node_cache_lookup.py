@@ -115,7 +115,7 @@ def make_rendered_prompt(
 def test_target_tree_cache_lookup_wrapper_partitions_cache_hits_and_deduplicates_generation_queue(
     tmp_path: Path, db: ComicBookDB
 ) -> None:
-    from comicbook.nodes.cache_lookup import cache_lookup
+    from pipelines.workflows.image_prompt_gen.nodes.cache_lookup import cache_lookup
 
     storybook = db.insert_template(
         template_id="storybook-soft",
@@ -211,7 +211,7 @@ def test_target_tree_cache_lookup_wrapper_partitions_cache_hits_and_deduplicates
 def test_target_tree_cache_lookup_wrapper_force_regenerate_ignores_existing_successful_image(
     tmp_path: Path, db: ComicBookDB
 ) -> None:
-    from comicbook.nodes.cache_lookup import cache_lookup
+    from pipelines.workflows.image_prompt_gen.nodes.cache_lookup import cache_lookup
 
     storybook = db.insert_template(
         template_id="storybook-soft",
@@ -284,7 +284,7 @@ def test_target_tree_cache_lookup_wrapper_force_regenerate_ignores_existing_succ
 def test_target_tree_cache_lookup_wrapper_does_not_treat_failed_images_as_cache_hits(
     tmp_path: Path, db: ComicBookDB
 ) -> None:
-    from comicbook.nodes.cache_lookup import cache_lookup
+    from pipelines.workflows.image_prompt_gen.nodes.cache_lookup import cache_lookup
 
     rendered_prompt = "Moody silhouette in heavy rain."
     fingerprint = compute_prompt_fingerprint(

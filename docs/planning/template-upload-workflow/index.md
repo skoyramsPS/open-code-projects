@@ -2,6 +2,8 @@
 
 Planning documentation for the template-upload workflow.
 
+Current runtime home: `workflows/pipelines/workflows/template_upload/`.
+
 ## Documents
 
 - [Plan](plan.md): design requirements, architecture, tradeoffs, and acceptance targets.

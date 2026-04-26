@@ -84,7 +84,7 @@ def make_row(
 
 
 def test_target_tree_upload_backfill_metadata_fills_missing_fields_and_tracks_usage() -> None:
-    from comicbook.nodes.upload_backfill_metadata import upload_backfill_metadata
+    from pipelines.workflows.template_upload.nodes.backfill_metadata import backfill_metadata
 
     transport = FakeRouterTransport(
         responses=[
@@ -108,7 +108,7 @@ def test_target_tree_upload_backfill_metadata_fills_missing_fields_and_tracks_us
         },
     )
 
-    delta = upload_backfill_metadata(
+    delta = backfill_metadata(
         {
             "parsed_rows": [make_row(row_index=0, template_id="storybook-soft")],
             "rows_to_process": [0],
@@ -132,7 +132,7 @@ def test_target_tree_upload_backfill_metadata_fills_missing_fields_and_tracks_us
 
 
 def test_target_tree_upload_backfill_metadata_retries_invalid_response_once_then_succeeds() -> None:
-    from comicbook.nodes.upload_backfill_metadata import upload_backfill_metadata
+    from pipelines.workflows.template_upload.nodes.backfill_metadata import backfill_metadata
 
     transport = FakeRouterTransport(
         responses=[
@@ -148,7 +148,7 @@ def test_target_tree_upload_backfill_metadata_retries_invalid_response_once_then
         ]
     )
 
-    delta = upload_backfill_metadata(
+    delta = backfill_metadata(
         {
             "parsed_rows": [make_row(row_index=0, template_id="storybook-soft")],
             "rows_to_process": [0],
@@ -164,11 +164,11 @@ def test_target_tree_upload_backfill_metadata_retries_invalid_response_once_then
 
 
 def test_target_tree_upload_backfill_metadata_marks_rows_failed_when_backfill_disabled() -> None:
-    from comicbook.nodes.upload_backfill_metadata import upload_backfill_metadata
+    from pipelines.workflows.template_upload.nodes.backfill_metadata import backfill_metadata
 
     transport = FakeRouterTransport(responses=[])
 
-    delta = upload_backfill_metadata(
+    delta = backfill_metadata(
         {
             "parsed_rows": [make_row(row_index=0, template_id="storybook-soft")],
             "rows_to_process": [0],
@@ -194,11 +194,11 @@ def test_target_tree_upload_backfill_metadata_marks_rows_failed_when_backfill_di
 
 
 def test_target_tree_upload_backfill_metadata_allows_missing_optional_when_backfill_disabled() -> None:
-    from comicbook.nodes.upload_backfill_metadata import upload_backfill_metadata
+    from pipelines.workflows.template_upload.nodes.backfill_metadata import backfill_metadata
 
     transport = FakeRouterTransport(responses=[])
 
-    delta = upload_backfill_metadata(
+    delta = backfill_metadata(
         {
             "parsed_rows": [make_row(row_index=0, template_id="storybook-soft")],
             "rows_to_process": [0],
@@ -217,7 +217,7 @@ def test_target_tree_upload_backfill_metadata_allows_missing_optional_when_backf
 
 
 def test_target_tree_upload_backfill_metadata_marks_budget_exceeded_before_transport_call() -> None:
-    from comicbook.nodes.upload_backfill_metadata import upload_backfill_metadata
+    from pipelines.workflows.template_upload.nodes.backfill_metadata import backfill_metadata
 
     transport = FakeRouterTransport(responses=[])
     deps = make_deps(
@@ -232,7 +232,7 @@ def test_target_tree_upload_backfill_metadata_marks_budget_exceeded_before_trans
         },
     )
 
-    delta = upload_backfill_metadata(
+    delta = backfill_metadata(
         {
             "parsed_rows": [make_row(row_index=0, template_id="storybook-soft")],
             "rows_to_process": [0],
@@ -248,7 +248,7 @@ def test_target_tree_upload_backfill_metadata_marks_budget_exceeded_before_trans
 
 
 def test_target_tree_upload_backfill_metadata_trips_short_circuit_after_two_transport_failures() -> None:
-    from comicbook.nodes.upload_backfill_metadata import upload_backfill_metadata
+    from pipelines.workflows.template_upload.nodes.backfill_metadata import backfill_metadata
 
     transport = FakeRouterTransport(
         responses=[
@@ -259,7 +259,7 @@ def test_target_tree_upload_backfill_metadata_trips_short_circuit_after_two_tran
         ]
     )
 
-    delta = upload_backfill_metadata(
+    delta = backfill_metadata(
         {
             "parsed_rows": [
                 make_row(row_index=0, template_id="row-0"),

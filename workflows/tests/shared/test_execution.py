@@ -71,18 +71,12 @@ def make_deps(tmp_path: Path, *, db: object) -> Deps:
     )
 
 
-def test_legacy_wrapper_points_to_shared_execution_surface() -> None:
-    from comicbook.execution import bind_node as legacy_bind_node
-    from comicbook.execution import format_timestamp as legacy_format_timestamp
-    from comicbook.execution import pid_is_alive as legacy_pid_is_alive
-    from comicbook.execution import prepare_initial_state as legacy_prepare_initial_state
-    from comicbook.execution import run_graph_with_lock as legacy_run_graph_with_lock
-
-    assert legacy_bind_node is bind_node
-    assert legacy_format_timestamp is format_timestamp
-    assert legacy_pid_is_alive is pid_is_alive
-    assert legacy_prepare_initial_state is prepare_initial_state
-    assert legacy_run_graph_with_lock is run_graph_with_lock
+def test_shared_execution_module_exposes_expected_helpers() -> None:
+    assert callable(bind_node)
+    assert callable(format_timestamp)
+    assert callable(pid_is_alive)
+    assert callable(prepare_initial_state)
+    assert callable(run_graph_with_lock)
 
 
 def test_bind_node_injects_deps(tmp_path: Path) -> None:
@@ -124,7 +118,7 @@ def test_pid_is_alive_handles_expected_os_results(monkeypatch: pytest.MonkeyPatc
     assert pid_is_alive(123) is True
 
 
-def test_prepare_initial_state_uses_ingest_fallback_from_legacy_tree(tmp_path: Path) -> None:
+def test_prepare_initial_state_uses_image_workflow_ingest_callable(tmp_path: Path) -> None:
     deps = make_deps(tmp_path, db=FakeDB())
 
     prepared = prepare_initial_state({"user_prompt": "  traveler portrait  "}, deps)

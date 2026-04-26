@@ -26,7 +26,7 @@ Repository layout assumptions:
 - the multi-workflow Python package is `pipelines`, under `workflows/pipelines/`
 - tests mirror the package: `workflows/tests/shared/`, `workflows/tests/image_prompt_gen/`, `workflows/tests/template_upload/`, `workflows/tests/integration/`
 - shared modules (`pipelines.shared.*`) and per-workflow modules (`pipelines.workflows.<workflow>.*`) get their tests in the matching subdirectory
-- the layout migration is in progress, but the canonical pytest tree now lives under `workflows/tests/`; any remaining legacy `ComicBook/tests/` mention should be treated as historical context only
+- the canonical pytest tree lives under `workflows/tests/`; any legacy pre-migration test-path mention should be treated as historical context only
 
 When asked to test or validate a change:
 

@@ -57,7 +57,7 @@ def make_deps(tmp_path: Path, templates: list[TemplateSummary]) -> Deps:
 
 
 def test_target_tree_load_templates_wrapper_keeps_full_catalog_when_count_is_30_or_fewer(tmp_path: Path) -> None:
-    from comicbook.nodes.load_templates import load_templates
+    from pipelines.workflows.image_prompt_gen.nodes.load_templates import load_templates
 
     templates = [
         make_template(
@@ -84,7 +84,7 @@ def test_target_tree_load_templates_wrapper_keeps_full_catalog_when_count_is_30_
 
 
 def test_target_tree_load_templates_wrapper_prefilters_large_catalog_before_router(tmp_path: Path) -> None:
-    from comicbook.nodes.load_templates import load_templates
+    from pipelines.workflows.image_prompt_gen.nodes.load_templates import load_templates
 
     templates = [
         make_template(

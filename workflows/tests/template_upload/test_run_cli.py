@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import importlib
 import io
 import json
 import logging
-import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -119,20 +117,6 @@ def test_upload_templates_is_reexported_and_runs_with_provided_deps(tmp_path: Pa
     assert final_state["run_status"] == "succeeded"
     assert final_state["row_results"][0]["status"] == "inserted"
     assert db.get_template_by_id("storybook-soft") is not None
-
-
-def test_package_reexport_is_lazy_until_upload_templates_is_accessed() -> None:
-    sys.modules.pop("comicbook", None)
-    sys.modules.pop("comicbook.upload_run", None)
-
-    package = importlib.import_module("comicbook")
-
-    assert "comicbook.upload_run" not in sys.modules
-
-    upload_templates_fn = package.upload_templates
-
-    assert callable(upload_templates_fn)
-    assert "comicbook.upload_run" in sys.modules
 
 
 def test_upload_templates_accepts_stdin_text_with_provided_deps(tmp_path: Path, db: ComicBookDB) -> None:

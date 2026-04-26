@@ -64,6 +64,8 @@ workflows/pipelines/
 │   ├── execution.py          # bind_node, run_graph_with_lock
 │   ├── db.py                 # SQLite adapter
 │   ├── fingerprint.py        # cross-workflow fingerprint helpers
+│   ├── responses.py          # shared Responses API transport helpers
+│   ├── metadata_backfill.py  # shared metadata-backfill prompt/schema helpers
 │   ├── repo_protection.py
 │   ├── logging.py            # see docs/standards/logging-standards.md
 │   └── state.py              # WorkflowError, UsageTotals, RunSummary, common literals
@@ -76,8 +78,7 @@ workflows/pipelines/
     │   ├── state.py          # RunState + image-prompt-only models
     │   ├── pricing.json
     │   ├── prompts/
-    │   │   ├── router_prompts.py
-    │   │   └── metadata_prompts.py
+    │   │   └── router_prompts.py
     │   ├── adapters/
     │   │   ├── image_client.py
     │   │   └── router_llm.py

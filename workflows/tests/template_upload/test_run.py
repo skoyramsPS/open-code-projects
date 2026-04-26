@@ -10,17 +10,14 @@ import pytest
 from pipelines.shared.db import RunLockError
 
 
-def test_target_tree_wrapper_points_to_template_upload_entry_points() -> None:
-    from comicbook.upload_run import main as wrapped_main
-    from comicbook.upload_run import parse_args as wrapped_parse_args
-    from comicbook.upload_run import upload_templates as wrapped_upload_templates
+def test_template_upload_run_module_exposes_expected_entry_points() -> None:
     from pipelines.workflows.template_upload.run import main
     from pipelines.workflows.template_upload.run import parse_args
     from pipelines.workflows.template_upload.run import upload_templates
 
-    assert wrapped_main is main
-    assert wrapped_parse_args is parse_args
-    assert wrapped_upload_templates is upload_templates
+    assert callable(main)
+    assert callable(parse_args)
+    assert callable(upload_templates)
 
 
 def test_upload_templates_emits_structured_log_events(

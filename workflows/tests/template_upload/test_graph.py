@@ -3,14 +3,12 @@ from __future__ import annotations
 import pytest
 
 
-def test_target_tree_wrapper_points_to_template_upload_graph_module() -> None:
-    from comicbook.upload_graph import build_upload_graph as wrapped_build_upload_graph
-    from comicbook.upload_graph import run_upload_workflow as wrapped_run_upload_workflow
+def test_template_upload_graph_module_exposes_expected_entry_points() -> None:
     from pipelines.workflows.template_upload.graph import build_upload_graph
     from pipelines.workflows.template_upload.graph import run_upload_workflow
 
-    assert wrapped_build_upload_graph is build_upload_graph
-    assert wrapped_run_upload_workflow is run_upload_workflow
+    assert callable(build_upload_graph)
+    assert callable(run_upload_workflow)
 
 
 def test_template_upload_run_module_uses_moved_graph_module(monkeypatch: pytest.MonkeyPatch) -> None:

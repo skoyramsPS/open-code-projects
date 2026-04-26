@@ -25,4 +25,4 @@ Developer docs make workflows maintainable without relying on tribal knowledge.
 
 ## Cross-cutting initiatives
 
-- [Repository Reorganization](repo-reorganization/index.md): migration status, shared logging foundation details, and verification guidance for the phased package move.
+- [Repository Reorganization](repo-reorganization/index.md): completed migration record, shared-module ownership notes, and final verification guidance for the package move.

@@ -86,7 +86,7 @@ def make_deps(tmp_path: Path, db: ComicBookDB) -> Deps:
 def test_target_tree_persist_template_wrapper_inserts_extracted_template_before_prompt_materialization(
     tmp_path: Path, db: ComicBookDB
 ) -> None:
-    from comicbook.nodes.persist_template import persist_template
+    from pipelines.workflows.image_prompt_gen.nodes.persist_template import persist_template
 
     existing = db.insert_template(
         template_id="storybook-soft",
@@ -141,7 +141,7 @@ def test_target_tree_persist_template_wrapper_inserts_extracted_template_before_
 def test_target_tree_persist_template_wrapper_reuses_existing_duplicate_and_normalizes_prompt_ids(
     tmp_path: Path, db: ComicBookDB
 ) -> None:
-    from comicbook.nodes.persist_template import persist_template
+    from pipelines.workflows.image_prompt_gen.nodes.persist_template import persist_template
 
     existing = db.insert_template(
         template_id="sunlit-portrait",
@@ -185,7 +185,7 @@ def test_target_tree_persist_template_wrapper_reuses_existing_duplicate_and_norm
 def test_target_tree_persist_template_wrapper_noops_when_router_did_not_extract_template(
     tmp_path: Path, db: ComicBookDB
 ) -> None:
-    from comicbook.nodes.persist_template import persist_template
+    from pipelines.workflows.image_prompt_gen.nodes.persist_template import persist_template
 
     plan = make_plan(
         extract_new_template=False,

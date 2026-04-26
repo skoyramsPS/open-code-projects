@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import Any, get_args, get_type_hints
 
-import comicbook.state as compat_state
-
 from pipelines.shared import state as shared_state
 from pipelines.workflows.image_prompt_gen import state as image_state
 from pipelines.workflows.template_upload import state as upload_state
@@ -29,15 +27,6 @@ def test_workflow_state_modules_reuse_shared_base_types() -> None:
     assert image_hints["summary"] is shared_state.RunSummary
     assert upload_hints["usage"] is shared_state.UsageTotals
     assert get_args(upload_hints["errors"])[0] is shared_state.WorkflowError
-
-
-def test_compat_state_wrapper_reexports_symbols_from_split_modules() -> None:
-    assert compat_state.TemplateSummary is image_state.TemplateSummary
-    assert compat_state.RunState is image_state.RunState
-    assert compat_state.ImportRunState is upload_state.ImportRunState
-    assert compat_state.TemplateImportRowResult is upload_state.TemplateImportRowResult
-    assert compat_state.WorkflowError is shared_state.WorkflowError
-    assert compat_state.UsageTotals is shared_state.UsageTotals
 
 
 def test_split_state_models_validate_known_good_payloads() -> None:

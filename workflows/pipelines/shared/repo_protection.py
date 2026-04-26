@@ -92,3 +92,7 @@ __all__ = [
     "main",
     "resolve_repo_root",
 ]
+
+
+if __name__ == "__main__":  # pragma: no cover - exercised by subprocess tests
+    raise SystemExit(main())

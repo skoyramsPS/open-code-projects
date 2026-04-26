@@ -81,7 +81,7 @@ def make_deps(tmp_path: Path, transport: FakeRouterTransport) -> Deps:
 
 
 def test_target_tree_router_wrapper_sends_expected_request_and_parses_valid_plan(tmp_path: Path) -> None:
-    from comicbook.nodes.router import router
+    from pipelines.workflows.image_prompt_gen.nodes.router import router
 
     template = make_template(
         "storybook-soft",
@@ -159,7 +159,7 @@ def test_target_tree_router_wrapper_sends_expected_request_and_parses_valid_plan
 
 
 def test_target_tree_router_wrapper_repairs_invalid_first_response_once(tmp_path: Path) -> None:
-    from comicbook.nodes.router import router
+    from pipelines.workflows.image_prompt_gen.nodes.router import router
 
     template = make_template(
         "storybook-soft",
@@ -246,7 +246,7 @@ def test_target_tree_router_wrapper_repairs_invalid_first_response_once(tmp_path
 
 
 def test_target_tree_router_wrapper_escalates_to_stronger_model_when_requested(tmp_path: Path) -> None:
-    from comicbook.nodes.router import router
+    from pipelines.workflows.image_prompt_gen.nodes.router import router
 
     template = make_template(
         "storybook-soft",

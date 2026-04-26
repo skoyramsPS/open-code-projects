@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
-from comicbook.deps import Deps
-from comicbook.execution import bind_node, run_graph_with_lock
-from comicbook.nodes.cache_lookup import cache_lookup
-from comicbook.nodes.generate_images_serial import generate_images_serial
-from comicbook.nodes.ingest import ingest
-from comicbook.nodes.load_templates import load_templates
-from comicbook.nodes.persist_template import persist_template
-from comicbook.nodes.router import router
-from comicbook.nodes.summarize import summarize
+from pipelines.shared.deps import Deps
+from pipelines.shared.execution import bind_node, run_graph_with_lock
+from pipelines.workflows.image_prompt_gen.nodes.cache_lookup import cache_lookup
+from pipelines.workflows.image_prompt_gen.nodes.generate_images_serial import generate_images_serial
+from pipelines.workflows.image_prompt_gen.nodes.ingest import ingest
+from pipelines.workflows.image_prompt_gen.nodes.load_templates import load_templates
+from pipelines.workflows.image_prompt_gen.nodes.persist_template import persist_template
+from pipelines.workflows.image_prompt_gen.nodes.router import router
+from pipelines.workflows.image_prompt_gen.nodes.summarize import summarize
 from pipelines.workflows.image_prompt_gen.state import RunState
 
 

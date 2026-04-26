@@ -7,10 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from comicbook.config import AppConfig as LegacyAppConfig
-from comicbook.config import ConfigError as LegacyConfigError
-from comicbook.config import load_config as legacy_load_config
-from comicbook.deps import Deps as LegacyDeps
 from pipelines.shared.config import AppConfig, ConfigError, load_config
 from pipelines.shared.deps import Deps
 
@@ -42,13 +38,6 @@ ALL_ENV_VARS = (
 def clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ALL_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
-
-
-def test_legacy_wrappers_point_to_shared_config_and_deps() -> None:
-    assert LegacyAppConfig is AppConfig
-    assert LegacyConfigError is ConfigError
-    assert legacy_load_config is load_config
-    assert LegacyDeps is Deps
 
 
 def test_load_config_reads_dotenv_and_defaults_from_target_tree(tmp_path: Path) -> None:

@@ -25,4 +25,4 @@ Business docs explain workflows in plain language for non-technical readers.
 
 ## Cross-cutting initiatives
 
-- [Repository Reorganization](repo-reorganization/index.md): rollout status, operator impact, and logging-foundation progress for the move into `workflows/pipelines/`.
+- [Repository Reorganization](repo-reorganization/index.md): completed rollout record, operator impact summary, and final migration state for the move into `workflows/pipelines/`.

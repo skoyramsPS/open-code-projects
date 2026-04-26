@@ -22,15 +22,10 @@ LOGGER = get_logger(__name__)
 
 
 def _default_pricing_path() -> Path:
-    candidates = (
-        Path(__file__).resolve().parents[1] / "workflows" / "image_prompt_gen" / "pricing.json",
-        Path(__file__).resolve().parents[3] / "ComicBook" / "comicbook" / "pricing.json",
-    )
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    joined = ", ".join(str(candidate) for candidate in candidates)
-    raise FileNotFoundError(f"Unable to locate default pricing.json in any expected location: {joined}")
+    candidate = Path(__file__).resolve().parents[1] / "workflows" / "image_prompt_gen" / "pricing.json"
+    if candidate.exists():
+        return candidate
+    raise FileNotFoundError(f"Unable to locate default pricing.json at expected location: {candidate}")
 
 
 def load_pricing(pricing_path: Path | None = None) -> dict[str, Any]:

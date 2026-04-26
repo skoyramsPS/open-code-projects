@@ -29,4 +29,4 @@ Planning docs explain what is being built, why, and how implementation should pr
 
 ## Cross-cutting initiatives
 
-- [Repository Reorganization](repo-reorganization/index.md): plan, implementation guide, handoff, and ADR for moving to the multi-workflow `pipelines` package and adopting a shared logging standard.
+- [Repository Reorganization](repo-reorganization/index.md): completed migration record, implementation guide, handoff, and ADR for the move to the multi-workflow `pipelines` package and shared logging standard.

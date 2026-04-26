@@ -26,27 +26,6 @@ def make_config(tmp_path: Path) -> AppConfig:
     )
 
 
-def test_legacy_wrapper_points_to_shared_runtime_deps_surface() -> None:
-    from comicbook.runtime_deps import build_runtime_deps as legacy_build_runtime_deps
-    from comicbook.runtime_deps import close_managed_runtime_deps as legacy_close_managed_runtime_deps
-    from comicbook.runtime_deps import load_pricing as legacy_load_pricing
-    from comicbook.runtime_deps import resolve_runtime_deps as legacy_resolve_runtime_deps
-    from pipelines.shared.runtime_deps import build_runtime_deps, close_managed_runtime_deps, load_pricing, resolve_runtime_deps
-
-    assert legacy_load_pricing is load_pricing
-    assert legacy_build_runtime_deps is build_runtime_deps
-    assert legacy_resolve_runtime_deps is resolve_runtime_deps
-    assert legacy_close_managed_runtime_deps is close_managed_runtime_deps
-
-
-def test_target_tree_package_root_still_reexports_upload_templates() -> None:
-    from comicbook import upload_templates as package_export
-    from comicbook.upload_run import upload_templates as legacy_upload_templates
-
-    assert package_export is legacy_upload_templates
-    assert callable(package_export)
-
-
 def test_load_pricing_reads_explicit_path(tmp_path: Path) -> None:
     from pipelines.shared.runtime_deps import load_pricing
 

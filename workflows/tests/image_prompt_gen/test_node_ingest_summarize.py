@@ -78,7 +78,7 @@ def make_plan() -> RouterPlan:
 
 
 def test_target_tree_ingest_wrapper_fills_runtime_defaults_without_graph(tmp_path: Path, db: ComicBookDB) -> None:
-    from comicbook.nodes.ingest import ingest
+    from pipelines.workflows.image_prompt_gen.nodes.ingest import ingest
 
     deps = make_deps(tmp_path, db)
 
@@ -116,7 +116,7 @@ def test_target_tree_ingest_wrapper_fills_runtime_defaults_without_graph(tmp_pat
 
 
 def test_target_tree_summarize_wrapper_writes_artifacts_and_finalizes_run_without_graph(tmp_path: Path, db: ComicBookDB) -> None:
-    from comicbook.nodes.summarize import summarize
+    from pipelines.workflows.image_prompt_gen.nodes.summarize import summarize
 
     deps = make_deps(tmp_path, db)
     db.acquire_run_lock(

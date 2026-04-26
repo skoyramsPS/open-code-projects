@@ -121,8 +121,8 @@ def test_target_tree_generate_images_serial_wrapper_resumes_existing_file_and_ge
     db: ComicBookDB,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from comicbook.nodes.generate_images_serial import generate_images_serial
-    import comicbook.image_client as image_client
+    from pipelines.workflows.image_prompt_gen.nodes.generate_images_serial import generate_images_serial
+    from pipelines.workflows.image_prompt_gen.adapters import image_client
 
     monkeypatch.setattr(image_client.time, "sleep", lambda _: None)
 
@@ -168,8 +168,8 @@ def test_target_tree_generate_images_serial_wrapper_continues_after_non_retryabl
     db: ComicBookDB,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from comicbook.nodes.generate_images_serial import generate_images_serial
-    import comicbook.image_client as image_client
+    from pipelines.workflows.image_prompt_gen.nodes.generate_images_serial import generate_images_serial
+    from pipelines.workflows.image_prompt_gen.adapters import image_client
 
     monkeypatch.setattr(image_client.time, "sleep", lambda _: None)
 
@@ -215,8 +215,8 @@ def test_target_tree_generate_images_serial_wrapper_stops_after_two_consecutive_
     db: ComicBookDB,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from comicbook.nodes.generate_images_serial import generate_images_serial
-    import comicbook.image_client as image_client
+    from pipelines.workflows.image_prompt_gen.nodes.generate_images_serial import generate_images_serial
+    from pipelines.workflows.image_prompt_gen.adapters import image_client
 
     monkeypatch.setattr(image_client.time, "sleep", lambda _: None)
 

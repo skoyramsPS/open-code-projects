@@ -5,9 +5,6 @@ from pathlib import Path
 
 import pytest
 
-from comicbook.db import ComicBookDB as LegacyComicBookDB
-from comicbook.db import RunLockError as LegacyRunLockError
-from comicbook.db import SCHEMA_SQL as LEGACY_SCHEMA_SQL
 from pipelines.shared.db import ComicBookDB, RunLockError, SCHEMA_SQL
 from pipelines.workflows.image_prompt_gen.state import TemplateSummary
 
@@ -30,12 +27,6 @@ def db(tmp_path: Path) -> ComicBookDB:
         yield database
     finally:
         database.close()
-
-
-def test_legacy_wrapper_points_to_shared_db_surface() -> None:
-    assert LegacyComicBookDB is ComicBookDB
-    assert LegacyRunLockError is RunLockError
-    assert LEGACY_SCHEMA_SQL == SCHEMA_SQL
 
 
 def test_initialize_is_idempotent_and_enables_wal(db: ComicBookDB) -> None:

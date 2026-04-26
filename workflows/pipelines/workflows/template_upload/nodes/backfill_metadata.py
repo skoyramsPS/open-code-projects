@@ -6,9 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from pipelines.shared.deps import Deps
-from pipelines.shared.state import UsageTotals
-from pipelines.workflows.template_upload.nodes import instrument_template_upload_node
-from pipelines.workflows.image_prompt_gen.prompts.metadata_prompts import (
+from pipelines.shared.metadata_backfill import (
     METADATA_BACKFILL_RESPONSE_FORMAT,
     MetadataBackfillResult,
     MetadataBackfillValidationError,
@@ -16,7 +14,9 @@ from pipelines.workflows.image_prompt_gen.prompts.metadata_prompts import (
     build_metadata_backfill_payload,
     validate_metadata_backfill_response,
 )
-from pipelines.workflows.image_prompt_gen.adapters.router_llm import RouterTransportError, call_structured_response
+from pipelines.shared.responses import ResponsesTransportError, call_structured_response
+from pipelines.shared.state import UsageTotals
+from pipelines.workflows.template_upload.nodes import instrument_template_upload_node
 from pipelines.workflows.template_upload.state import ImportRunState, TemplateImportRow, TemplateImportRowResult
 
 _ESTIMATED_OUTPUT_TOKENS = 80
@@ -147,7 +147,7 @@ def _request_metadata_backfill(row: TemplateImportRow, deps: Deps) -> _BackfillS
                 ),
                 transport=deps.router_transport,
             )
-        except RouterTransportError as exc:
+        except ResponsesTransportError as exc:
             if router_calls >= 2:
                 return _BackfillFailure(
                     reason=f"metadata_backfill_failed:{exc}",

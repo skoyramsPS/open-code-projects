@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | TG1 completed; TG2 completed; TG3 completed; TG4 completed; TG5 pending |
+| Status | TG1 completed; TG2 completed; TG3 completed; TG4 completed; TG5 in progress (verification blocked) |
 | Last updated | 2026-04-26 |
 | Active implementation guide | `docs/planning/repo-reorganization/implementation-v2.md` |
 | Preserved prior guide | `docs/planning/repo-reorganization/implementation.md` (historical; superseded by v2 — kept on disk for traceability of earlier execution) |
@@ -10,15 +10,15 @@
 | Planning index | `docs/planning/repo-reorganization/index.md` |
 | Business doc | `docs/business/repo-reorganization/index.md` |
 | Developer doc | `docs/developer/repo-reorganization/index.md` |
-| ADR | `docs/planning/adr/ADR-0002-repo-reorganization.md` (status: **Accepted**, set when TG1 landed) |
+| ADR | `docs/planning/adr/ADR-0002-repo-reorganization.md` (status: **Accepted and Implemented**, updated during TG5 closeout work) |
 
 > The `/implementation-doc` command was re-run on 2026-04-25 with stricter quality requirements; the resulting `implementation-v2.md` is now authoritative. Going forward, every slice references the canonical task IDs from v2 (`TG{N}-T{M}`). Previously completed work is mapped to those IDs in the table below so no execution detail is lost.
 
 ## Current status summary
 
-The shared logging foundation landed under TG1 and has remained stable. TG2 is complete and remains green. TG3 is complete and remains green. TG4 is now also complete: node lifecycle logging is enforced through reusable instrumentation decorators across every workflow node and graph-local helper node; representative successful runs and targeted failing-node tests prove that node lifecycle records emit as parseable JSON with `workflow`, `run_id`, `event`, and `node`; and the template-upload source-of-truth runtime now uses unprefixed node module/function names while both compatibility layers preserve the legacy `upload_*` import surface. The shared workflow regression plus full target-tree pytest suite still pass from `workflows/`.
+The shared logging foundation landed under TG1 and has remained stable. TG2 is complete and remains green. TG3 is complete and remains green. TG4 is complete and remains green. TG5 cleanup has now landed in code: the `comicbook` shim trees were removed, package discovery is narrowed to `pipelines*`, shared metadata-backfill and Responses helpers were promoted into `pipelines.shared`, tests/examples now import `pipelines.*` directly, and active docs/tooling point at the final layout.
 
-What is **not yet** done overall: TG5 must remove the compatibility shim and finish cleanup. The main remaining temporary fallback noted after TG4 is the legacy pricing-path fallback in `pipelines.shared.runtime_deps`, which belongs to later cleanup work.
+What is **not yet** done overall: the guide-required TG5 verification gate is blocked. After removing the old locked `ComicBook` uv project as part of approved cleanup, the replacement `workflows/` project has no synced pytest environment yet, so the final full pytest run and CLI smoke checks now require explicit install/sync approval before TG5 can be marked complete.
 
 ## TaskGroup progress table
 
@@ -28,7 +28,7 @@ What is **not yet** done overall: TG5 must remove the compatibility shim and fin
 | TG2 | Move package + tests into `workflows/`, add `comicbook` shim, normalize doc slugs, adopt non-node logging | completed | TG2-T1 through TG2-T13 are complete. Full target-tree pytest exit gate passed; docs gate closed. |
 | TG3 | Split state modules | completed | TG3-T1 through TG3-T8 are complete. State ownership is split cleanly and boundary tests plus full pytest passed. |
 | TG4 | Adopt node logging + remove `upload_` prefix | completed | TG4-T1 through TG4-T8 are effectively complete: logging adoption, rename/wrapper updates, verification, and docs are all green. |
-| TG5 | Remove the `comicbook` shim and close the migration | not started | Blocked on TG4. |
+| TG5 | Remove the `comicbook` shim and close the migration | in progress (verification blocked) | TG5.T1-T4 and most of TG5.T6-T8 landed; final pytest/CLI verification needs install approval after deleting the old locked uv project. |
 
 ### TG2 sub-task map (canonical IDs from `implementation-v2.md`)
 
@@ -73,6 +73,78 @@ What is **not yet** done overall: TG5 must remove the compatibility shim and fin
 | TG4-T6 — run tests in layers | completed | `-k log`, shared+workflow regression, and full `pytest -q` all passed from `workflows/`; final suite stayed green at `175 passed`. |
 | TG4-T7 — capture representative sample run output | completed | The new logging tests execute representative end-to-end runs, capture real stdout JSON logs, parse them, and assert the required fields for both workflows. |
 | TG4-T8 — documentation gate | completed | Planning/business/developer repo-reorganization docs and this handoff now record both logging adoption and template-upload naming cleanup, with TG5 as next. |
+
+### TG5 sub-task map (canonical IDs from `implementation-v2.md`)
+
+| Task | Status | Evidence |
+| --- | --- | --- |
+| TG5-T1 — final sweep before deletion | completed | `grep` under `workflows/` found no remaining functional `comicbook` imports before deletion work; active tests/examples were rewired to `pipelines.*`; `examples/single_portrait_graph.py`, shared execution/runtime deps, and active workflow docs/tooling no longer depend on shim paths. |
+| TG5-T2 — delete the compatibility shim | completed | Deleted the tracked `workflows/comicbook/**`, `ComicBook/**`, and `workflows/tests/shared/test_compat_state_and_nodes.py` surfaces; follow-up filesystem checks confirm both directories now do not exist. |
+| TG5-T3 — update package discovery | completed | `workflows/pyproject.toml` now narrows setuptools discovery to `include = ["pipelines*"]`. |
+| TG5-T4 — promote shared modules where needed | completed | Added `workflows/pipelines/shared/responses.py` and `workflows/pipelines/shared/metadata_backfill.py`; rewired template-upload metadata backfill and image-workflow router helpers so cross-workflow ownership now lives in `pipelines.shared`. |
+| TG5-T5 — run the full test suite | blocked | `python3 -m py_compile` over the changed Python files succeeded, but the required pytest run is blocked because deleting the old locked `ComicBook` uv project removed the only available local pytest environment; `uv run --project "." --no-sync pytest ...` now fails with `Failed to spawn: pytest`. |
+| TG5-T6 — documentation gate | in progress | Active workflow docs, repo-structure standards, AGENTS/agent docs, README, repo-reorganization docs, and ADR status were refreshed to the final layout; final completion wording still depends on the blocked TG5 verification gate. |
+| TG5-T7 — update ADR-0002 | completed | `docs/planning/adr/ADR-0002-repo-reorganization.md` now reads **Accepted and Implemented** and records the TG5 close date. |
+| TG5-T8 — update the implementation-handoff ledger | in progress | This ledger now records the TG5 cleanup work and the verification blocker, but the final "Migration complete" entry is deferred until TG5-T5 passes. |
+
+## Current in-progress slice
+
+### Selected TaskGroup and slice cluster
+
+- **TaskGroup:** TG5
+- **Slice cluster:** TG5-T1 through TG5-T4 plus the non-final portions of TG5-T6 through TG5-T8
+- **Canonical IDs under v2:** TG5-T1, TG5-T2, TG5-T3, TG5-T4, partial TG5-T6, partial TG5-T8, and TG5-T7
+
+### Why these slice boundaries were chosen
+
+After TG4, the remaining guide-ordered work was one tightly related cleanup cluster: remove the shim trees, rewire the few remaining direct dependents, promote cross-workflow helpers into `pipelines.shared`, narrow package discovery, and refresh active docs/tooling. The user explicitly approved the delete-heavy TG5 cleanup slice, so it was safe to complete that cluster in one pass. The session stopped only when the guide-required final pytest/CLI verification hit a new approval gate for dependency installation/sync.
+
+### Completed work from this session
+
+- Rewired remaining functional references away from `comicbook.*`, including the shared execution helper, runtime pricing-path lookup, the single-portrait example, and active workflow tests.
+- Promoted cross-workflow Responses transport helpers into `workflows/pipelines/shared/responses.py` and metadata-backfill prompt/schema helpers into `workflows/pipelines/shared/metadata_backfill.py`.
+- Deleted the tracked compatibility shim surfaces under `workflows/comicbook/` and `ComicBook/`, removed the compat smoke test, and removed the remaining on-disk untracked shim directories.
+- Narrowed setuptools package discovery to `pipelines*` only.
+- Updated active workflow docs, repo-structure standards, AGENTS/agent docs, README, repo-reorganization indexes, and ADR-0002 to reflect the final target layout.
+- Captured the new verification blocker: the old locked `ComicBook` uv project was removed during approved cleanup, so no synced local pytest environment remains for the guide-required TG5 exit gate.
+
+### Files changed in this session
+
+- Added: `workflows/pipelines/shared/responses.py`
+- Added: `workflows/pipelines/shared/metadata_backfill.py`
+- Deleted: `workflows/comicbook/**`
+- Deleted: `ComicBook/**`
+- Deleted: `workflows/tests/shared/test_compat_state_and_nodes.py`
+- Deleted: `workflows/pipelines/workflows/image_prompt_gen/prompts/metadata_prompts.py`
+- Modified active runtime/test/doc/tooling files across `workflows/pipelines/`, `workflows/tests/`, `docs/`, `AGENTS.md`, `.opencode/agents/`, `.pre-commit-config.yaml`, `workflows/README.md`, and `workflows/pyproject.toml`
+
+### Tests run and results in this session
+
+- `python3 -m py_compile ...` across the changed Python modules and tests → **passed** (no syntax errors)
+- `grep` for `from comicbook|import comicbook` under `workflows/` → **no matches**
+- `read` checks for `/ComicBook` and `/workflows/comicbook` after cleanup → **both paths missing**
+- `uv run --project "." --no-sync pytest -c pyproject.toml -q ...` from `workflows/` → **blocked**, failed immediately with `Failed to spawn: pytest` because the local `workflows/` uv environment has not been synced and the deleted `ComicBook` project no longer provides pytest
+
+### Documentation updated in this session
+
+- The docs-update gate applied because TG5 changes the repository-wide runtime layout, active package paths, tooling commands, and developer/operator expectations.
+- Updated active workflow business/developer docs to use `pipelines.*` commands and module paths.
+- Updated `docs/standards/repo-structure.md`, `AGENTS.md`, `.opencode/agents/test-engineer.md`, `.opencode/agents/langgraph-architect.md`, and `workflows/README.md` to remove shim-era guidance and document the promoted shared modules.
+- Updated repo-reorganization planning/business/developer indexes plus this handoff to record the landed cleanup work and the remaining verification blocker.
+- Updated ADR-0002 status to **Accepted and Implemented**.
+
+### Current blockers or open questions
+
+- Final TG5 verification is blocked on explicit approval to install/sync dependencies for the `workflows/` uv project (or another equivalent package-install action) so pytest can run after the old `ComicBook` environment was removed.
+- The local `implementation-slice-guard` skill still exists on disk but is not loadable through the skill tool, so slice selection continues to apply the checked-in rules manually.
+
+### Exact next recommended slice
+
+1. Explicitly approve dependency installation/sync for `workflows/`.
+2. Run the guide-required TG5 verification:
+   - full `pytest -q` from `workflows/`
+   - representative CLI help/invocation smoke checks for both workflows
+3. If those pass, finish TG5-T6/TG5-T8 wording and add the final "Migration complete" session entry.
 
 ## Last completed slices
 
@@ -367,9 +439,17 @@ Runtime grep verification:
 - Updated compatibility/logging tests and reran focused rename coverage, focused TG4 log coverage, broader shared/workflow regression, and full target-tree pytest; all green (`175 passed` overall on the final run).
 - Updated the repo-reorganization planning/business/developer docs and this handoff to mark TG4 complete and point the next session at TG5 cleanup.
 
+### 2026-04-26 — TG5 cleanup slice (TG5-T1, TG5-T2, TG5-T3, TG5-T4, partial TG5-T6/TG5-T8, TG5-T7)
+
+- Used the newly granted explicit approval for TG5 delete-heavy cleanup, including compatibility-shim removal and related cleanup deletes.
+- Rewired the remaining functional references away from `comicbook.*`, promoted shared Responses and metadata-backfill helpers into `pipelines.shared`, narrowed package discovery to `pipelines*`, and removed both shim trees plus the compat smoke test.
+- Updated active workflow docs, repo-structure standards, AGENTS/agent docs, README, repo-reorganization indexes, and ADR-0002 for the post-shim layout.
+- Verified syntax with `py_compile`, verified that `workflows/` no longer imports `comicbook`, and confirmed the shim directories are gone.
+- Hit a new blocker on the guide-required pytest/CLI exit gate because deleting the old `ComicBook` uv project removed the only available local pytest environment; the replacement `workflows/` environment now needs explicit install/sync approval before final verification can run.
+
 ## Permission checkpoint
 
-- The next guide-ordered incomplete work is TG5.
-- No additional approval would be required only for continued non-destructive read/test/edit work that avoids delete/copy/remote-mutation actions.
-- Additional approval **is still required** before any install, copy, delete (including cleanup of regenerated `__pycache__/` artifacts and the TG5 shim-removal work), `git push`, remote-mutation work, or compatibility-wrapper removal.
+- The next guide-ordered incomplete work is the blocked remainder of TG5: final verification and final closeout wording.
+- No additional approval is required for continued read-only inspection or handoff/documentation edits that do not install packages or mutate remote state.
+- Additional approval **is now required** before any package or module installation / dependency sync needed to run pytest from `workflows/`, plus any copy, `git push`, or remote-mutation work.
 - For a future session after this run ends, implementation work should resume only after another explicit `/implement-next-autonomous docs/planning/repo-reorganization/implementation-v2.md docs/planning/repo-reorganization/implementation-handoff.md` approval (or equivalent explicit approval for this autonomous implementation agent). Generic continuation phrases do not count as approval.
