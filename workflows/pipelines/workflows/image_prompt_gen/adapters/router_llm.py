@@ -6,9 +6,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from comicbook.state import RouterPlan, TemplateSummary
-
 from pipelines.shared.config import AppConfig
+from pipelines.workflows.image_prompt_gen.state import RouterPlan, TemplateSummary
 from pipelines.workflows.image_prompt_gen.prompts.router_prompts import (
     ROUTER_ALLOWED_MODELS,
     ROUTER_RESPONSE_FORMAT,

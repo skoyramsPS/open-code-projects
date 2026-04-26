@@ -8,7 +8,8 @@ from typing import Any
 
 import pytest
 
-from comicbook.state import ImageResult, RenderedPrompt, RouterPlan, UsageTotals
+from pipelines.shared.state import UsageTotals
+from pipelines.workflows.image_prompt_gen.state import ImageResult, RenderedPrompt, RouterPlan
 from pipelines.shared.config import AppConfig
 from pipelines.shared.db import ComicBookDB
 from pipelines.shared.deps import Deps

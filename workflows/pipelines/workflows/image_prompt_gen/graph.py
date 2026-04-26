@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
-from comicbook.state import RunState, UsageTotals, WorkflowError
-
 from pipelines.shared.deps import Deps
+from pipelines.shared.state import UsageTotals, WorkflowError
 from pipelines.shared.execution import bind_node, run_graph_with_lock
+from pipelines.workflows.image_prompt_gen.nodes import instrument_image_node
+from pipelines.workflows.image_prompt_gen.state import RunState
 from pipelines.workflows.image_prompt_gen.nodes.cache_lookup import cache_lookup
 from pipelines.workflows.image_prompt_gen.nodes.generate_images_serial import generate_images_serial
 from pipelines.workflows.image_prompt_gen.nodes.ingest import ingest
@@ -82,6 +83,13 @@ def _build_budget_error(*, message: str, est_cost_usd: float, limit_usd: float) 
     )
 
 
+@instrument_image_node(
+    "runtime_gate",
+    complete_fields=lambda _state, delta: {
+        "budget_blocked": delta.get("budget_blocked"),
+        "estimated_cost_usd": getattr(delta.get("usage"), "estimated_cost_usd", None),
+    },
+)
 def runtime_gate(state: RunState, deps: Deps) -> dict[str, object]:
     """Compute cost estimates and decide whether runtime guards block generation."""
 

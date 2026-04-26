@@ -3,14 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
-import sys
-from functools import lru_cache
-from pathlib import Path
-from typing import TYPE_CHECKING, Mapping, Protocol, Sequence
-
-if TYPE_CHECKING:
-    from comicbook.state import RenderedPrompt
+from typing import Callable, Mapping, Protocol, Sequence, TypeVar
 
 
 class TemplateLike(Protocol):
@@ -29,23 +22,7 @@ class PlanLike(Protocol):
     prompts: Sequence[PromptLike]
 
 
-@lru_cache(maxsize=1)
-def _load_rendered_prompt_model() -> type[RenderedPrompt]:
-    try:
-        from comicbook.state import RenderedPrompt
-    except ModuleNotFoundError:
-        legacy_state_path = Path(__file__).resolve().parents[3] / "ComicBook" / "comicbook" / "state.py"
-        module_name = "_legacy_comicbook_state"
-        module = sys.modules.get(module_name)
-        if module is None:
-            spec = importlib.util.spec_from_file_location(module_name, legacy_state_path)
-            if spec is None or spec.loader is None:
-                raise RuntimeError(f"Unable to load legacy state module from {legacy_state_path}")
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-        RenderedPrompt = module.RenderedPrompt
-    return RenderedPrompt
+TPrompt = TypeVar("TPrompt")
 
 
 def render_prompt_text(subject_text: str, ordered_templates: Sequence[TemplateLike]) -> str:
@@ -66,11 +43,11 @@ def materialize_rendered_prompts(
     *,
     plan: PlanLike,
     template_lookup: Mapping[str, TemplateLike],
-) -> list[RenderedPrompt]:
+    prompt_factory: Callable[[dict[str, object]], TPrompt],
+) -> list[TPrompt]:
     """Render prompt text and fingerprints from a validated router plan."""
 
-    rendered_prompt_model = _load_rendered_prompt_model()
-    rendered_prompts: list[RenderedPrompt] = []
+    rendered_prompts: list[TPrompt] = []
     for prompt in plan.prompts:
         missing_template_ids = [template_id for template_id in prompt.template_ids if template_id not in template_lookup]
         if missing_template_ids:
@@ -80,7 +57,7 @@ def materialize_rendered_prompts(
         ordered_templates = [template_lookup[template_id] for template_id in prompt.template_ids]
         rendered_prompt = render_prompt_text(prompt.subject_text, ordered_templates)
         rendered_prompts.append(
-            rendered_prompt_model.model_validate(
+            prompt_factory(
                 {
                     "fingerprint": compute_prompt_fingerprint(
                         rendered_prompt,

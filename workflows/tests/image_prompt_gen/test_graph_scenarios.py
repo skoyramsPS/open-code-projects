@@ -6,6 +6,7 @@ from pathlib import Path
 from pipelines.shared.db import ComicBookDB
 from pipelines.shared.fingerprint import compute_prompt_fingerprint
 from pipelines.workflows.image_prompt_gen.graph import run_workflow
+from pipelines.workflows.image_prompt_gen.state import TemplateSummary
 
 from .support import FakeImageTransport
 from .support import FakeRouterTransport
@@ -176,7 +177,7 @@ def test_run_workflow_extract_new_template_persists_exactly_one_template_row(tmp
     assert final_state["plan"].template_decision.new_template is not None
     assert final_state["plan"].template_decision.new_template.id == "fresh-ink"
 
-    template_summaries = db.list_template_summaries()
+    template_summaries = db.list_template_summaries(summary_factory=TemplateSummary.model_validate)
     persisted_rows = db.get_templates_by_ids(["fresh-ink"])
     assert [summary.id for summary in template_summaries] == ["fresh-ink"]
     assert len(persisted_rows) == 1

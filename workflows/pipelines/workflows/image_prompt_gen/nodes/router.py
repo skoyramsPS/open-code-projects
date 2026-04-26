@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from comicbook.state import RunState, UsageTotals
-
 from pipelines.shared.deps import Deps
+from pipelines.shared.state import UsageTotals
+from pipelines.workflows.image_prompt_gen.nodes import instrument_image_node
+from pipelines.workflows.image_prompt_gen.state import RunState
 from pipelines.workflows.image_prompt_gen.adapters.router_llm import build_router_input_payload, request_router_plan
 
 
@@ -20,6 +21,15 @@ def _available_router_models(deps: Deps) -> list[str]:
     return unique_models
 
 
+@instrument_image_node(
+    "router",
+    complete_fields=lambda _state, delta: {
+        "router_model": delta.get("router_model"),
+        "router_escalated": delta.get("router_escalated"),
+        "prompt_count": len(getattr(delta.get("plan"), "prompts", [])),
+        "repair_attempts": delta.get("plan_repair_attempts"),
+    },
+)
 def router(state: RunState, deps: Deps) -> dict[str, object]:
     """Return the authoritative validated router plan for the current run."""
 

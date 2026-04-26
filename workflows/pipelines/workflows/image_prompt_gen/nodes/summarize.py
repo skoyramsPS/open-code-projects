@@ -6,9 +6,10 @@ import hashlib
 import json
 from datetime import datetime, timezone
 
-from comicbook.state import ImageResult, RenderedPrompt, RunState, RunSummary, UsageTotals
-
 from pipelines.shared.deps import Deps
+from pipelines.shared.state import RunSummary, UsageTotals
+from pipelines.workflows.image_prompt_gen.nodes import instrument_image_node
+from pipelines.workflows.image_prompt_gen.state import ImageResult, RenderedPrompt, RunState
 
 
 def _format_timestamp(value: datetime) -> str:
@@ -212,6 +213,15 @@ def _write_report_artifacts(state: RunState, deps: Deps, summary: RunSummary, us
     )
 
 
+@instrument_image_node(
+    "summarize",
+    complete_fields=lambda _state, delta: {
+        "run_status": delta.get("run_status"),
+        "generated": getattr(delta.get("summary"), "generated", None),
+        "failed": getattr(delta.get("summary"), "failed", None),
+        "cache_hits": getattr(delta.get("summary"), "cache_hits", None),
+    },
+)
 def summarize(state: RunState, deps: Deps) -> dict[str, object]:
     """Finalize summary counters from state and persist the terminal run record."""
 

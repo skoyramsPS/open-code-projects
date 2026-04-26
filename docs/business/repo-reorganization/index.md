@@ -206,12 +206,25 @@ Additional migration slices have landed so far.
 - repository guidance now treats `ComicBook/comicbook/` as a legacy compatibility-wrapper location, not the place for new source-of-truth work
 - operator-facing behavior is unchanged; this slice tightened internal instructions only
 
+### TG3 state split
+
+- the repository now keeps shared state, image-workflow state, and template-upload state in separate modules under `workflows/pipelines/`
+- the temporary `comicbook.state` compatibility surface still exists, so operator commands and older import paths continue to work during the shim window
+- this slice was structural only; it did not change workflow commands or stored data
+
+### TG4 logging adoption slice
+
+- representative image-workflow and template-upload runs now emit structured node lifecycle records, not just top-level run records
+- operators can now trace each run by `workflow`, `run_id`, `event`, and `node` across the end-to-end graph execution path
+- log output is still JSON by default, and the workflow command surface is unchanged
+- the template-upload module/function rename is still pending, so the temporary `upload_*` names remain visible in compatibility-era code and docs for now
+
 ## What has not changed yet
 
 TG2 has completed the runtime-root move, but the migration is not finished overall.
 
 - existing workflow commands and runtime behavior remain unchanged for operators because the compatibility layer still preserves legacy imports during the shim window
-- workflow state ownership is still pending TG3 work
+- workflow state ownership has landed, but the final template-upload naming cleanup is still pending TG4 work
 - the temporary `comicbook` compatibility surface still exists so older imports and scripts keep working while later TaskGroups land
 - final shim removal and cleanup remain deferred to TG5
 

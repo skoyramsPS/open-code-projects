@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
-from comicbook.state import RenderedPrompt
+from pipelines.workflows.image_prompt_gen.state import RenderedPrompt
 from pipelines.shared.config import AppConfig
 from pipelines.shared.db import ComicBookDB
 from pipelines.shared.deps import Deps

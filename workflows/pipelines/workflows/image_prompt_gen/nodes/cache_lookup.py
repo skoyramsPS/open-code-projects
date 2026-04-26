@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from comicbook.state import RenderedPrompt, RunState
-
 from pipelines.shared.db import ImageRecord, TemplateRecord
 from pipelines.shared.deps import Deps
 from pipelines.shared.fingerprint import materialize_rendered_prompts
+from pipelines.workflows.image_prompt_gen.nodes import instrument_image_node
+from pipelines.workflows.image_prompt_gen.state import RenderedPrompt, RunState
 
 
 def _dedupe_preserving_order(values: Sequence[str]) -> list[str]:
@@ -48,6 +48,14 @@ def _resolve_template_lookup(state: RunState, deps: Deps) -> dict[str, TemplateR
     return {row.id: row for row in template_rows}
 
 
+@instrument_image_node(
+    "cache_lookup",
+    complete_fields=lambda _state, delta: {
+        "rendered_prompt_count": len(delta.get("rendered_prompts", [])),
+        "cache_hit_count": len(delta.get("cache_hits", [])),
+        "to_generate_count": len(delta.get("to_generate", [])),
+    },
+)
 def cache_lookup(state: RunState, deps: Deps) -> dict[str, object]:
     """Persist prompt rows and split ordered prompt work into cache hits vs generation."""
 
@@ -63,7 +71,11 @@ def cache_lookup(state: RunState, deps: Deps) -> dict[str, object]:
         raise ValueError("cache_lookup requires state['started_at']")
 
     template_lookup = _resolve_template_lookup(state, deps)
-    rendered_prompts = materialize_rendered_prompts(plan=state["plan"], template_lookup=template_lookup)
+    rendered_prompts = materialize_rendered_prompts(
+        plan=state["plan"],
+        template_lookup=template_lookup,
+        prompt_factory=RenderedPrompt.model_validate,
+    )
 
     rendered_prompts_by_fp: dict[str, RenderedPrompt] = {}
     cache_hits: list[RenderedPrompt] = []

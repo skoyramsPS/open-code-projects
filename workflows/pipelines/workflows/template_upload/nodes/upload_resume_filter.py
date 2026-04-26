@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from comicbook.state import ImportRunState, TemplateImportRow, TemplateImportRowResult
-
 from pipelines.shared.deps import Deps
+from pipelines.workflows.template_upload.nodes import instrument_template_upload_node
+from pipelines.workflows.template_upload.state import ImportRunState, TemplateImportRow, TemplateImportRowResult
 
 _TERMINAL_SUCCESS_STATUSES = {"inserted", "updated", "skipped_duplicate"}
 
@@ -23,6 +23,13 @@ def _with_retry_count(row: TemplateImportRow, retry_count: int) -> TemplateImpor
     return updated
 
 
+@instrument_template_upload_node(
+    "upload_resume_filter",
+    complete_fields=lambda _state, delta: {
+        "rows_to_process": len(delta.get("rows_to_process", [])),
+        "rows_skipped_by_resume": len(delta.get("rows_skipped_by_resume", [])),
+    },
+)
 def upload_resume_filter(state: ImportRunState, deps: Deps) -> dict[str, Any]:
     """Build the current run's worklist using prior terminal results for the same file hash."""
 

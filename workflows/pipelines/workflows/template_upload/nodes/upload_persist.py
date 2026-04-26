@@ -11,9 +11,9 @@ import hashlib
 from datetime import datetime, timezone
 from typing import Any
 
-from comicbook.state import ImportRunState, TemplateImportRow, TemplateImportRowResult
-
 from pipelines.shared.deps import Deps
+from pipelines.workflows.template_upload.nodes import instrument_template_upload_node
+from pipelines.workflows.template_upload.state import ImportRunState, TemplateImportRow, TemplateImportRowResult
 
 
 def _format_timestamp(value: datetime) -> str:
@@ -111,6 +111,13 @@ def _compute_update_diff(row: TemplateImportRow, existing_record: Any, *, redact
     return diff
 
 
+@instrument_template_upload_node(
+    "upload_persist",
+    complete_fields=lambda _state, delta: {
+        "row_result_count": len(delta.get("row_results", [])),
+        "deferred_row_count": len(delta.get("deferred_rows", [])),
+    },
+)
 def upload_persist(state: ImportRunState, deps: Deps) -> dict[str, object]:
     """Persist rows serially according to write_mode and record row results."""
 

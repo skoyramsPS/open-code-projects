@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from comicbook.state import RouterPlan, RunState, TemplateSummary
-
 from pipelines.shared.deps import Deps
+from pipelines.workflows.image_prompt_gen.nodes import instrument_image_node
+from pipelines.workflows.image_prompt_gen.state import RouterPlan, RunState, TemplateSummary
 
 
 def _format_timestamp(value: datetime) -> str:
@@ -56,6 +56,13 @@ def _to_template_summary(*, template_id: str, name: str, tags: list[str], summar
     )
 
 
+@instrument_image_node(
+    "persist_template",
+    complete_fields=lambda state, delta: {
+        "extracted_template": bool(getattr(state.get("plan"), "template_decision", None) and state["plan"].template_decision.extract_new_template),
+        "template_count": len(delta.get("templates", state.get("templates", []))),
+    },
+)
 def persist_template(state: RunState, deps: Deps) -> dict[str, object]:
     """Persist a router-extracted template and normalize later prompt references."""
 

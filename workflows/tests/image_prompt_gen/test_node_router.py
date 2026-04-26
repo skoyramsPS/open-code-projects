@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from comicbook.state import TemplateSummary
+from pipelines.workflows.image_prompt_gen.state import TemplateSummary
 from pipelines.shared.config import AppConfig
 from pipelines.shared.deps import Deps
 

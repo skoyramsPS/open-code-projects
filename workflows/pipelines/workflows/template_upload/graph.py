@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
-from comicbook.state import ImportRunState
-
 from pipelines.shared.deps import Deps
 from pipelines.shared.execution import bind_node
+from pipelines.workflows.template_upload.nodes import instrument_template_upload_node
+from pipelines.workflows.template_upload.state import ImportRunState
 from pipelines.workflows.template_upload.nodes.upload_backfill_metadata import upload_backfill_metadata
 from pipelines.workflows.template_upload.nodes.upload_decide_write_mode import upload_decide_write_mode
 from pipelines.workflows.template_upload.nodes.upload_load_file import upload_load_file
@@ -17,6 +17,13 @@ from pipelines.workflows.template_upload.nodes.upload_resume_filter import uploa
 from pipelines.workflows.template_upload.nodes.upload_summarize import upload_summarize
 
 
+@instrument_template_upload_node(
+    "prepare_deferred_retry",
+    complete_fields=lambda _state, delta: {
+        "rows_to_process": len(delta.get("rows_to_process", [])),
+        "deferred_rows": len(delta.get("deferred_rows", [])),
+    },
+)
 def _prepare_deferred_retry(state: ImportRunState, _deps: Deps) -> dict[str, object]:
     deferred_rows = list(state.get("deferred_rows") or [])
     return {

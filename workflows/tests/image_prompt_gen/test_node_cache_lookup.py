@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from comicbook.state import RenderedPrompt, RouterPlan, TemplateSummary
+from pipelines.workflows.image_prompt_gen.state import RenderedPrompt, RouterPlan, TemplateSummary
 from pipelines.shared.config import AppConfig
 from pipelines.shared.db import ComicBookDB, TemplateRecord
 from pipelines.shared.deps import Deps

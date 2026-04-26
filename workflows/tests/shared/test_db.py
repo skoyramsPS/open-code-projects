@@ -9,6 +9,7 @@ from comicbook.db import ComicBookDB as LegacyComicBookDB
 from comicbook.db import RunLockError as LegacyRunLockError
 from comicbook.db import SCHEMA_SQL as LEGACY_SCHEMA_SQL
 from pipelines.shared.db import ComicBookDB, RunLockError, SCHEMA_SQL
+from pipelines.workflows.image_prompt_gen.state import TemplateSummary
 
 
 @dataclass(frozen=True)
@@ -217,7 +218,7 @@ def test_insert_template_deduplicates_and_supports_append_only_lineage(db: Comic
         supersedes_id=original.id,
     )
 
-    summaries = db.list_template_summaries()
+    summaries = db.list_template_summaries(summary_factory=TemplateSummary.model_validate)
     full_rows = db.get_templates_by_ids([revision.id, original.id])
 
     assert duplicate.id == original.id

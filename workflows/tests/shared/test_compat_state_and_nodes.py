@@ -7,14 +7,16 @@ def test_target_tree_compat_package_no_longer_uses_legacy_package_path_fallback(
     assert all(not path.endswith("ComicBook/comicbook") for path in comicbook.__path__)
 
 
-def test_target_tree_state_wrapper_points_to_legacy_state_module() -> None:
+def test_target_tree_state_wrapper_reexports_split_state_symbols() -> None:
     import comicbook.state as wrapped_state_module
-    from ComicBook.comicbook import state as legacy_state_module
+    from pipelines.shared import state as shared_state_module
+    from pipelines.workflows.image_prompt_gen import state as image_state_module
+    from pipelines.workflows.template_upload import state as upload_state_module
 
-    assert wrapped_state_module is legacy_state_module
-    assert wrapped_state_module.TemplateSummary is legacy_state_module.TemplateSummary
-    assert wrapped_state_module.RunState is legacy_state_module.RunState
-    assert wrapped_state_module.ImportRunState is legacy_state_module.ImportRunState
+    assert wrapped_state_module.TemplateSummary is image_state_module.TemplateSummary
+    assert wrapped_state_module.RunState is image_state_module.RunState
+    assert wrapped_state_module.ImportRunState is upload_state_module.ImportRunState
+    assert wrapped_state_module.WorkflowError is shared_state_module.WorkflowError
 
 
 def test_target_tree_compat_node_package_imports_without_legacy_path_fallback() -> None:

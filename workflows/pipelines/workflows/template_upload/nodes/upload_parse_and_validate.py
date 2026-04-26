@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from comicbook.state import ImportRunState, TemplateImportRow
-
 from pipelines.shared.deps import Deps
+from pipelines.workflows.template_upload.nodes import instrument_template_upload_node
+from pipelines.workflows.template_upload.state import ImportRunState, TemplateImportRow
 
 _KNOWN_FIELDS = {
     "template_id",
@@ -159,6 +159,13 @@ def _normalize_row(raw_row: object, row_index: int) -> TemplateImportRow:
     return parsed_row
 
 
+@instrument_template_upload_node(
+    "upload_parse_and_validate",
+    complete_fields=lambda _state, delta: {
+        "parsed_row_count": len(delta.get("parsed_rows", [])),
+        "validation_error_count": sum(len(row.get("validation_errors", [])) for row in delta.get("parsed_rows", [])),
+    },
+)
 def upload_parse_and_validate(state: ImportRunState, deps: Deps) -> dict[str, Any]:
     """Normalize each raw row and attach row-local validation metadata."""
 

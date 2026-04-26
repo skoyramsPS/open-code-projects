@@ -13,7 +13,7 @@ from comicbook.nodes.load_templates import load_templates
 from comicbook.nodes.persist_template import persist_template
 from comicbook.nodes.router import router
 from comicbook.nodes.summarize import summarize
-from comicbook.state import RunState
+from pipelines.workflows.image_prompt_gen.state import RunState
 
 
 def enforce_single_portrait(state: RunState, deps: Deps) -> dict[str, object]:

@@ -8,14 +8,12 @@ import sys
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Protocol, cast
+from typing import Callable, Protocol, cast
 
-from comicbook.deps import Deps
+from pipelines.shared.deps import Deps
 
-if TYPE_CHECKING:
-    from comicbook.state import RunState
-else:
-    RunState = dict[str, object]
+
+RunState = dict[str, object]
 
 
 NodeCallable = Callable[[RunState, Deps], dict[str, object]]
@@ -29,29 +27,10 @@ GraphFactory = Callable[[Deps], CompiledWorkflow]
 
 
 @lru_cache(maxsize=1)
-def _load_legacy_state_module() -> object:
-    legacy_state_path = Path(__file__).resolve().parents[3] / "ComicBook" / "comicbook" / "state.py"
-    module_name = "_legacy_comicbook_state"
-    module = sys.modules.get(module_name)
-    if module is None:
-        spec = importlib.util.spec_from_file_location(module_name, legacy_state_path)
-        if spec is None or spec.loader is None:
-            raise RuntimeError(f"Unable to load legacy state module from {legacy_state_path}")
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
-        sys.modules.setdefault("comicbook.state", module)
-        spec.loader.exec_module(module)
-    else:
-        sys.modules.setdefault("comicbook.state", module)
-    return module
-
-
-@lru_cache(maxsize=1)
 def _load_ingest_callable() -> NodeCallable:
     try:
         from comicbook.nodes.ingest import ingest
     except ModuleNotFoundError:
-        _load_legacy_state_module()
         legacy_ingest_path = Path(__file__).resolve().parents[3] / "ComicBook" / "comicbook" / "nodes" / "ingest.py"
         module_name = "_legacy_comicbook_nodes_ingest"
         module = sys.modules.get(module_name)

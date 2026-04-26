@@ -9,7 +9,7 @@ from typing import Any
 
 from pipelines.shared.config import AppConfig
 from pipelines.shared.deps import Deps
-from comicbook.state import TemplateSummary
+from pipelines.workflows.image_prompt_gen.state import TemplateSummary
 
 
 @dataclass

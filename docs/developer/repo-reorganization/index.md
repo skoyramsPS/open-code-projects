@@ -6,9 +6,20 @@ Developer notes for the phased migration from `ComicBook/comicbook/` to `workflo
 
 - TG1: complete
 - TG2: complete
-- TG3-TG5: not started
+- TG3: complete
+- TG4: in progress
+- TG5: not started
 
-TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, the full current pytest tree into `workflows/tests/`, and the real workflow node modules into `workflows/` while preserving legacy import behavior through compatibility aliases. TG2 also completed the image-workflow doc-slug normalization, refreshed maintainer/tooling references, and closed with a green full target-tree pytest run.
+TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, the full current pytest tree into `workflows/tests/`, and the real workflow node modules into `workflows/` while preserving legacy import behavior through compatibility aliases. TG2 also completed the image-workflow doc-slug normalization, refreshed maintainer/tooling references, and closed with a green full target-tree pytest run. TG3 then split the monolithic state contract into `pipelines.shared.state`, `pipelines.workflows.image_prompt_gen.state`, and `pipelines.workflows.template_upload.state`, updated all workflow/runtime importers to use the right module, and replaced both compatibility `state.py` wrappers with re-export surfaces that no longer duplicate type definitions. TG4 has now started with a logging-adoption slice: reusable decorators wrap every node entry point so `node_started`, `node_completed`, and `node_failed` records emit through `log_node_event(...)` with consistent workflow/run/node fields and duration data.
+
+## TG4 logging-adoption slice
+
+- added reusable node-instrumentation decorators in `workflows/pipelines/workflows/image_prompt_gen/nodes/__init__.py` and `workflows/pipelines/workflows/template_upload/nodes/__init__.py`
+- wrapped every image-workflow node, every template-upload node, and the graph-local helper nodes `runtime_gate` and `prepare_deferred_retry`
+- standardized node lifecycle logging on `node_started`, `node_completed`, and `node_failed`, with error promotion and `duration_ms` attached at the decorator layer
+- added focused log-shape tests in `workflows/tests/image_prompt_gen/test_graph_logging.py` and `workflows/tests/template_upload/test_graph_logging.py`
+- verified representative successful runs and targeted failing-node cases emit parseable JSON records with `workflow`, `run_id`, `event`, and `node`
+- the remaining TG4 work is still the template-upload rename step (`upload_*` filenames/functions and compatibility wrapper rewires), which was intentionally deferred because the current approval gates do not allow delete-like rename work implicitly
 
 ## TG1 deliverables
 
@@ -209,6 +220,16 @@ The logging module now supports and tests:
 - updated `.opencode/agents/test-engineer.md` so it treats `workflows/tests/` as the canonical pytest tree and `ComicBook/tests/` as historical context only
 - updated `.opencode/agents/langgraph-architect.md` so design output treats `ComicBook/comicbook/` as transitional compatibility surface, not the target ownership layout
 - reviewed `opencode.json` and `.pre-commit-config.yaml`; no path rewrite was required there because the current entries are still valid during the shim window
+
+## TG3 state split deliverables
+
+- added `workflows/pipelines/shared/state.py` as the sole home of `WorkflowModel`, `WorkflowError`, `UsageTotals`, `RunSummary`, and `RunStatus`
+- added `workflows/pipelines/workflows/image_prompt_gen/state.py` as the sole home of image-workflow models and `RunState`
+- added `workflows/pipelines/workflows/template_upload/state.py` as the sole home of template-upload typed dicts and literals
+- updated workflow graphs, nodes, adapters, prompts, examples, and tests to import state symbols from the correct module instead of `comicbook.state`
+- updated `workflows/comicbook/state.py` and `ComicBook/comicbook/state.py` so both compatibility surfaces now re-export the split modules instead of carrying duplicate type definitions
+- removed the remaining shared-module dependence on workflow state imports by making `pipelines.shared.db` use caller-provided summary factories, `pipelines.shared.fingerprint` use caller-provided prompt factories, and `pipelines.shared.execution` use a plain mapping alias for image run state typing
+- added `workflows/tests/shared/test_state_modules.py` and `workflows/tests/shared/test_state_boundaries.py` to prove symbol ownership and enforce the shared/workflow import boundary
 
 ## Verification
 

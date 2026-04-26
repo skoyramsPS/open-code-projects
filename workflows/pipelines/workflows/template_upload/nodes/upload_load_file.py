@@ -7,9 +7,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from comicbook.state import ImportRunState
-
 from pipelines.shared.deps import Deps
+from pipelines.workflows.template_upload.nodes import instrument_template_upload_node
+from pipelines.workflows.template_upload.state import ImportRunState
 
 
 def _extract_json_error_snippet(text: str, position: int, radius: int = 40) -> str:
@@ -73,6 +73,14 @@ def _read_source_bytes(state: ImportRunState) -> tuple[bytes, str | None, str]:
     return data, str(resolved_path), str(resolved_path)
 
 
+@instrument_template_upload_node(
+    "upload_load_file",
+    complete_fields=lambda _state, delta: {
+        "raw_row_count": len(delta.get("raw_rows", [])),
+        "input_version": delta.get("input_version"),
+        "source_label": delta.get("source_label"),
+    },
+)
 def upload_load_file(state: ImportRunState, deps: Deps) -> dict[str, Any]:
     """Resolve, read, and parse the import source into raw rows."""
 

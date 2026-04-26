@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from comicbook.state import ImageResult, RenderedPrompt, RunState, UsageTotals, WorkflowError
-
 from pipelines.shared.db import ImageRecord
 from pipelines.shared.deps import Deps
+from pipelines.shared.state import UsageTotals, WorkflowError
+from pipelines.workflows.image_prompt_gen.nodes import instrument_image_node
+from pipelines.workflows.image_prompt_gen.state import ImageResult, RenderedPrompt, RunState
 from pipelines.workflows.image_prompt_gen.adapters.image_client import generate_one
 
 
@@ -85,6 +86,13 @@ def _build_workflow_error(
     )
 
 
+@instrument_image_node(
+    "generate_images_serial",
+    complete_fields=lambda _state, delta: {
+        "image_result_count": len(delta.get("image_results", [])),
+        "error_count": len(delta.get("errors", [])),
+    },
+)
 def generate_images_serial(state: RunState, deps: Deps) -> dict[str, object]:
     """Generate uncached images one at a time, with resume and rate-limit guards."""
 

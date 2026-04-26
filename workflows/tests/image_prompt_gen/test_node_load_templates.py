@@ -5,16 +5,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from comicbook.state import TemplateSummary
 from pipelines.shared.config import AppConfig
 from pipelines.shared.deps import Deps
+from pipelines.workflows.image_prompt_gen.state import TemplateSummary
 
 
 @dataclass
 class FakeDB:
     templates: list[TemplateSummary]
 
-    def list_template_summaries(self) -> list[TemplateSummary]:
+    def list_template_summaries(self, *, summary_factory):
         return list(self.templates)
 
 

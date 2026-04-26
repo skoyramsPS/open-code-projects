@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from comicbook.state import ImportRunState, TemplateImportRow
-
 from pipelines.shared.deps import Deps
+from pipelines.workflows.template_upload.nodes import instrument_template_upload_node
+from pipelines.workflows.template_upload.state import ImportRunState, TemplateImportRow
 
 
 def _has_failed_result(row_index: int, row_results: list[dict[str, Any]]) -> bool:
@@ -29,6 +29,13 @@ def _updated_row(row: TemplateImportRow, **changes: object) -> TemplateImportRow
     return updated
 
 
+@instrument_template_upload_node(
+    "upload_decide_write_mode",
+    complete_fields=lambda _state, delta: {
+        "parsed_row_count": len(delta.get("parsed_rows", [])),
+        "rows_to_process": len(delta.get("rows_to_process", [])),
+    },
+)
 def upload_decide_write_mode(state: ImportRunState, deps: Deps) -> dict[str, object]:
     """Annotate processable rows with their persistence mode."""
 

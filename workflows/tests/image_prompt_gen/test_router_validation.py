@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from comicbook.state import TemplateSummary
+from pipelines.workflows.image_prompt_gen.state import TemplateSummary
 from pipelines.workflows.image_prompt_gen.prompts.router_prompts import ROUTER_SYSTEM_PROMPT_V2
 from pipelines.workflows.image_prompt_gen.prompts.router_prompts import RouterValidationError
 from pipelines.workflows.image_prompt_gen.prompts.router_prompts import select_templates_for_router

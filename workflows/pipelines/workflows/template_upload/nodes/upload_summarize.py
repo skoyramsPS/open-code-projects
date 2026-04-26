@@ -7,10 +7,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from comicbook.state import ImportRunState, UsageTotals
-
 from pipelines.shared.deps import Deps
+from pipelines.shared.state import UsageTotals
 from pipelines.shared.execution import format_timestamp
+from pipelines.workflows.template_upload.nodes import instrument_template_upload_node
+from pipelines.workflows.template_upload.state import ImportRunState
 
 
 def _counts(row_results: list[dict[str, Any]]) -> Counter[str]:
@@ -158,6 +159,13 @@ def _write_structured_log(state: ImportRunState, deps: Deps, *, ended_at: str, r
     return log_path
 
 
+@instrument_template_upload_node(
+    "upload_summarize",
+    complete_fields=lambda _state, delta: {
+        "run_status": delta.get("run_status"),
+        "row_result_count": len(delta.get("row_results", [])),
+    },
+)
 def upload_summarize(state: ImportRunState, deps: Deps) -> dict[str, object]:
     """Finalize import-run counts and write durable report artifacts."""
 

@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from comicbook.state import RouterPlan, TemplateSummary
+from pipelines.workflows.image_prompt_gen.state import RouterPlan, TemplateSummary
 
 
 ROUTER_SYSTEM_PROMPT_V2 = """You are the routing brain for a comic-book image generation workflow.

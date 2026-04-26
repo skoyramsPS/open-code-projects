@@ -7,6 +7,7 @@ import pytest
 from comicbook.fingerprint import compute_prompt_fingerprint as legacy_compute_prompt_fingerprint
 from comicbook.fingerprint import materialize_rendered_prompts as legacy_materialize_rendered_prompts
 from pipelines.shared.fingerprint import compute_prompt_fingerprint, materialize_rendered_prompts, render_prompt_text
+from pipelines.workflows.image_prompt_gen.state import RenderedPrompt
 
 
 @dataclass(frozen=True)
@@ -133,6 +134,7 @@ def test_materialize_rendered_prompts_builds_rendered_prompt_models() -> None:
             "storybook-soft": TemplateStub("Soft painterly linework and warm golden light."),
             "inked-contrast": TemplateStub("Bold black inks with crisp silhouette contrast."),
         },
+        prompt_factory=RenderedPrompt.model_validate,
     )
 
     assert len(rendered_prompts) == 1
@@ -177,6 +179,7 @@ def test_materialize_rendered_prompts_preserves_prompt_and_template_order() -> N
             "storybook-soft": TemplateStub("Soft painterly linework and warm golden light."),
             "inked-contrast": TemplateStub("Bold black inks with crisp silhouette contrast."),
         },
+        prompt_factory=RenderedPrompt.model_validate,
     )
 
     assert [item.subject_text for item in rendered_prompts] == [
@@ -206,4 +209,4 @@ def test_materialize_rendered_prompts_rejects_missing_template_records() -> None
     )
 
     with pytest.raises(ValueError, match="Missing template records"):
-        materialize_rendered_prompts(plan=plan, template_lookup={})
+        materialize_rendered_prompts(plan=plan, template_lookup={}, prompt_factory=RenderedPrompt.model_validate)

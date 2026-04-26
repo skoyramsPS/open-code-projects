@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from comicbook.state import RouterPlan, TemplateSummary
 from pipelines.shared.config import AppConfig
 from pipelines.shared.db import ComicBookDB, TemplateRecord
 from pipelines.shared.deps import Deps
 from pipelines.shared.fingerprint import materialize_rendered_prompts
+from pipelines.workflows.image_prompt_gen.state import RenderedPrompt, RouterPlan, TemplateSummary
 
 
 @pytest.fixture
@@ -124,6 +124,7 @@ def test_target_tree_persist_template_wrapper_inserts_extracted_template_before_
     rendered_prompts = materialize_rendered_prompts(
         plan=updated_plan,
         template_lookup={record.id: record for record in db.get_templates_by_ids(updated_plan.prompts[0].template_ids)},
+        prompt_factory=RenderedPrompt.model_validate,
     )
 
     assert [template.id for template in updated_templates] == [existing.id, "new-template"]

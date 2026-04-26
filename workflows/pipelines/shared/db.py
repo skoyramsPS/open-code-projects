@@ -3,17 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import json
 import sqlite3
-import sys
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Sequence
-
-if TYPE_CHECKING:
-    from comicbook.state import RenderedPrompt, TemplateSummary
+from typing import Any, Callable, Iterable, Protocol, Sequence, TypeVar
 
 
 SCHEMA_SQL = """
@@ -135,23 +129,17 @@ GROUP BY substr(started_at, 1, 10);
 """
 
 
-@lru_cache(maxsize=1)
-def _load_template_summary_model() -> type[TemplateSummary]:
-    try:
-        from comicbook.state import TemplateSummary
-    except ModuleNotFoundError:
-        legacy_state_path = Path(__file__).resolve().parents[3] / "ComicBook" / "comicbook" / "state.py"
-        module_name = "_legacy_comicbook_state"
-        module = sys.modules.get(module_name)
-        if module is None:
-            spec = importlib.util.spec_from_file_location(module_name, legacy_state_path)
-            if spec is None or spec.loader is None:
-                raise RuntimeError(f"Unable to load legacy state module from {legacy_state_path}")
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-        TemplateSummary = module.TemplateSummary
-    return TemplateSummary
+class PromptLike(Protocol):
+    fingerprint: str | None
+    rendered_prompt: str
+    subject_text: str
+    template_ids: Sequence[str]
+    size: str
+    quality: str
+    image_model: str
+
+
+TSummary = TypeVar("TSummary")
 
 
 class RunLockError(RuntimeError):
@@ -702,13 +690,12 @@ class ComicBookDB:
             raise RuntimeError(f"Failed to fetch import row result for {import_run_id}:{row_index}")
         return self._row_to_import_row_result_record(row)
 
-    def list_template_summaries(self) -> list[TemplateSummary]:
+    def list_template_summaries(self, *, summary_factory: Callable[[dict[str, object]], TSummary]) -> list[TSummary]:
         rows = self.connection.execute(
             "SELECT id, name, tags, summary, created_at FROM templates ORDER BY created_at DESC, id DESC"
         ).fetchall()
-        template_summary_model = _load_template_summary_model()
         return [
-            template_summary_model.model_validate(
+            summary_factory(
                 {
                     "id": row["id"],
                     "name": row["name"],
@@ -844,7 +831,7 @@ class ComicBookDB:
                 count += 1
         return count
 
-    def upsert_prompt_if_absent(self, *, prompt: RenderedPrompt, first_seen_run: str, created_at: str) -> PromptRecord:
+    def upsert_prompt_if_absent(self, *, prompt: PromptLike, first_seen_run: str, created_at: str) -> PromptRecord:
         fingerprint = prompt.fingerprint
         if fingerprint is None:
             raise ValueError("RenderedPrompt.fingerprint is required before prompt persistence")

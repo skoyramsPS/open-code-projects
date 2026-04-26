@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from comicbook.state import ImportRunState, TemplateImportRow, TemplateImportRowResult, UsageTotals
-
 from pipelines.shared.deps import Deps
+from pipelines.shared.state import UsageTotals
+from pipelines.workflows.template_upload.nodes import instrument_template_upload_node
 from pipelines.workflows.image_prompt_gen.prompts.metadata_prompts import (
     METADATA_BACKFILL_RESPONSE_FORMAT,
     MetadataBackfillResult,
@@ -17,6 +17,7 @@ from pipelines.workflows.image_prompt_gen.prompts.metadata_prompts import (
     validate_metadata_backfill_response,
 )
 from pipelines.workflows.image_prompt_gen.adapters.router_llm import RouterTransportError, call_structured_response
+from pipelines.workflows.template_upload.state import ImportRunState, TemplateImportRow, TemplateImportRowResult
 
 _ESTIMATED_OUTPUT_TOKENS = 80
 
@@ -192,6 +193,13 @@ def _request_metadata_backfill(row: TemplateImportRow, deps: Deps) -> _BackfillS
     )
 
 
+@instrument_template_upload_node(
+    "upload_backfill_metadata",
+    complete_fields=lambda _state, delta: {
+        "parsed_row_count": len(delta.get("parsed_rows", [])),
+        "row_result_count": len(delta.get("row_results", [])),
+    },
+)
 def upload_backfill_metadata(state: ImportRunState, deps: Deps) -> dict[str, Any]:
     """Fill missing tags and summaries for rows that passed validation."""
 

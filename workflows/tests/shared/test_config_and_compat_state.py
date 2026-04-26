@@ -6,22 +6,22 @@ from typing import get_args
 import pytest
 from pydantic import ValidationError
 
-from comicbook.state import (
-    ImportRowStatus,
-    ImportRunState,
+from pipelines.shared.config import AppConfig, ConfigError, load_config
+from pipelines.shared.state import RunSummary, UsageTotals, WorkflowError
+from pipelines.workflows.image_prompt_gen.state import (
     ImageResult,
     NewTemplateDraft,
     RenderedPrompt,
     RouterPlan,
     RouterTemplateDecision,
-    RunSummary,
+    TemplateSummary,
+)
+from pipelines.workflows.template_upload.state import (
+    ImportRowStatus,
+    ImportRunState,
     TemplateImportRow,
     TemplateImportRowResult,
-    TemplateSummary,
-    UsageTotals,
-    WorkflowError,
 )
-from pipelines.shared.config import AppConfig, ConfigError, load_config
 
 
 ALL_ENV_VARS = (

@@ -1,15 +1,51 @@
-"""Compatibility alias for the still-legacy combined state module."""
+"""Compatibility wrapper for the split workflow state modules."""
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+from pipelines.shared.state import RunStatus, RunSummary, UsageTotals, WorkflowError, WorkflowModel
+from pipelines.workflows.image_prompt_gen.state import (
+    ImageQuality,
+    ImageResult,
+    ImageResultStatus,
+    ImageSize,
+    NewTemplateDraft,
+    PromptPlanItem,
+    RenderedPrompt,
+    RouterModel,
+    RouterPlan,
+    RouterTemplateDecision,
+    RunState,
+    TemplateSummary,
+)
+from pipelines.workflows.template_upload.state import (
+    ImportRowStatus,
+    ImportRunState,
+    ImportWriteMode,
+    TemplateImportRow,
+    TemplateImportRowResult,
+)
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from ComicBook.comicbook import state as _state_module
-
-sys.modules[__name__] = _state_module
+__all__ = [
+    "ImportRowStatus",
+    "ImportRunState",
+    "ImportWriteMode",
+    "ImageQuality",
+    "ImageResult",
+    "ImageResultStatus",
+    "ImageSize",
+    "NewTemplateDraft",
+    "PromptPlanItem",
+    "RenderedPrompt",
+    "RouterModel",
+    "RouterPlan",
+    "RouterTemplateDecision",
+    "RunState",
+    "RunStatus",
+    "RunSummary",
+    "TemplateImportRow",
+    "TemplateImportRowResult",
+    "TemplateSummary",
+    "UsageTotals",
+    "WorkflowError",
+    "WorkflowModel",
+]

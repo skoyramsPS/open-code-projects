@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from comicbook.state import RunState, UsageTotals
-
 from pipelines.shared.deps import Deps
+from pipelines.shared.state import UsageTotals
+from pipelines.workflows.image_prompt_gen.nodes import instrument_image_node
+from pipelines.workflows.image_prompt_gen.state import RunState
 
 
 def _format_timestamp(value: datetime) -> str:
@@ -15,6 +16,13 @@ def _format_timestamp(value: datetime) -> str:
     return rendered.replace("+00:00", "Z") if value.tzinfo is not None else f"{rendered}Z"
 
 
+@instrument_image_node(
+    "ingest",
+    complete_fields=lambda _state, delta: {
+        "dry_run": delta.get("dry_run"),
+        "force_regenerate": delta.get("force_regenerate"),
+    },
+)
 def ingest(state: RunState, deps: Deps) -> dict[str, object]:
     """Fill the required ingest-phase state keys and runtime defaults."""
 
