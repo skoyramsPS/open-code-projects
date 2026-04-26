@@ -4,9 +4,9 @@ Plain-language status and operator-facing notes for the repository move into the
 
 ## Current status
 
-The repository reorganization cleanup has landed. The live runtime now ships only the `pipelines` package under `workflows/`, and the temporary `comicbook` compatibility shim has been removed.
+The repository reorganization is complete. The live runtime now ships only the `pipelines` package under `workflows/`, and the temporary `comicbook` compatibility shim has been removed.
 
-Final closeout verification is still pending because the old locked local uv project was removed during cleanup and the replacement `workflows/` environment has not yet been synced with pytest in this session.
+Final closeout verification is complete: the full target-tree pytest suite passed from `workflows/`, and both workflow CLIs passed help-smoke checks from the final project root.
 
 ### TG1 foundation
 

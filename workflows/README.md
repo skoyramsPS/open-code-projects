@@ -4,7 +4,7 @@ This directory is the active repository root for the migrated multi-workflow Pyt
 
 ## Current repository state
 
-The repo reorganization cleanup has landed. See `docs/planning/repo-reorganization/implementation-handoff.md` for the final TG5 verification status.
+The repo reorganization is complete.
 
 - shared infrastructure now lives under `workflows/pipelines/shared/`
 - workflow runtime code now lives under `workflows/pipelines/workflows/image_prompt_gen/` and `workflows/pipelines/workflows/template_upload/`

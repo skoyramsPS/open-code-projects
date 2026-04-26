@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | TG1 completed; TG2 completed; TG3 completed; TG4 completed; TG5 in progress (verification blocked) |
+| Status | TG1 completed; TG2 completed; TG3 completed; TG4 completed; TG5 completed |
 | Last updated | 2026-04-26 |
 | Active implementation guide | `docs/planning/repo-reorganization/implementation-v2.md` |
 | Preserved prior guide | `docs/planning/repo-reorganization/implementation.md` (historical; superseded by v2 — kept on disk for traceability of earlier execution) |
@@ -16,9 +16,9 @@
 
 ## Current status summary
 
-The shared logging foundation landed under TG1 and has remained stable. TG2 is complete and remains green. TG3 is complete and remains green. TG4 is complete and remains green. TG5 cleanup has now landed in code: the `comicbook` shim trees were removed, package discovery is narrowed to `pipelines*`, shared metadata-backfill and Responses helpers were promoted into `pipelines.shared`, tests/examples now import `pipelines.*` directly, and active docs/tooling point at the final layout.
+The shared logging foundation landed under TG1 and has remained stable. TG2 is complete and remains green. TG3 is complete and remains green. TG4 is complete and remains green. TG5 is now also complete: the `comicbook` shim trees were removed, package discovery is narrowed to `pipelines*`, shared metadata-backfill and Responses helpers were promoted into `pipelines.shared`, tests/examples import `pipelines.*` directly, active docs/tooling point at the final layout, the full target-tree pytest suite passes from `workflows/`, and both workflow CLIs passed final help-smoke verification.
 
-What is **not yet** done overall: the guide-required TG5 verification gate is blocked. After removing the old locked `ComicBook` uv project as part of approved cleanup, the replacement `workflows/` project has no synced pytest environment yet, so the final full pytest run and CLI smoke checks now require explicit install/sync approval before TG5 can be marked complete.
+What is **not yet** done overall: nothing from this implementation guide. The migration guide has been fully executed.
 
 ## TaskGroup progress table
 
@@ -28,7 +28,7 @@ What is **not yet** done overall: the guide-required TG5 verification gate is bl
 | TG2 | Move package + tests into `workflows/`, add `comicbook` shim, normalize doc slugs, adopt non-node logging | completed | TG2-T1 through TG2-T13 are complete. Full target-tree pytest exit gate passed; docs gate closed. |
 | TG3 | Split state modules | completed | TG3-T1 through TG3-T8 are complete. State ownership is split cleanly and boundary tests plus full pytest passed. |
 | TG4 | Adopt node logging + remove `upload_` prefix | completed | TG4-T1 through TG4-T8 are effectively complete: logging adoption, rename/wrapper updates, verification, and docs are all green. |
-| TG5 | Remove the `comicbook` shim and close the migration | in progress (verification blocked) | TG5.T1-T4 and most of TG5.T6-T8 landed; final pytest/CLI verification needs install approval after deleting the old locked uv project. |
+| TG5 | Remove the `comicbook` shim and close the migration | completed | TG5 cleanup landed, the full target-tree pytest suite passed from `workflows/`, CLI help smokes passed for both workflows, docs/ADR were refreshed, and the shim trees are gone. |
 
 ### TG2 sub-task map (canonical IDs from `implementation-v2.md`)
 
@@ -82,22 +82,22 @@ What is **not yet** done overall: the guide-required TG5 verification gate is bl
 | TG5-T2 — delete the compatibility shim | completed | Deleted the tracked `workflows/comicbook/**`, `ComicBook/**`, and `workflows/tests/shared/test_compat_state_and_nodes.py` surfaces; follow-up filesystem checks confirm both directories now do not exist. |
 | TG5-T3 — update package discovery | completed | `workflows/pyproject.toml` now narrows setuptools discovery to `include = ["pipelines*"]`. |
 | TG5-T4 — promote shared modules where needed | completed | Added `workflows/pipelines/shared/responses.py` and `workflows/pipelines/shared/metadata_backfill.py`; rewired template-upload metadata backfill and image-workflow router helpers so cross-workflow ownership now lives in `pipelines.shared`. |
-| TG5-T5 — run the full test suite | blocked | `python3 -m py_compile` over the changed Python files succeeded, but the required pytest run is blocked because deleting the old locked `ComicBook` uv project removed the only available local pytest environment; `uv run --project "." --no-sync pytest ...` now fails with `Failed to spawn: pytest`. |
-| TG5-T6 — documentation gate | in progress | Active workflow docs, repo-structure standards, AGENTS/agent docs, README, repo-reorganization docs, and ADR status were refreshed to the final layout; final completion wording still depends on the blocked TG5 verification gate. |
+| TG5-T5 — run the full test suite | completed | `uv sync --extra dev` in `workflows/`, full `uv run --project "." pytest -c pyproject.toml -q` passed at `160 passed`, and both workflow CLI help commands ran successfully from `workflows/`. |
+| TG5-T6 — documentation gate | completed | Active workflow docs, repo-structure standards, AGENTS/agent docs, README, repo-reorganization docs, and ADR status now reflect the final post-shim layout. |
 | TG5-T7 — update ADR-0002 | completed | `docs/planning/adr/ADR-0002-repo-reorganization.md` now reads **Accepted and Implemented** and records the TG5 close date. |
-| TG5-T8 — update the implementation-handoff ledger | in progress | This ledger now records the TG5 cleanup work and the verification blocker, but the final "Migration complete" entry is deferred until TG5-T5 passes. |
+| TG5-T8 — update the implementation-handoff ledger | completed | This ledger now records the full TG5 cleanup plus the final verification pass and marks the migration complete. |
 
 ## Current in-progress slice
 
 ### Selected TaskGroup and slice cluster
 
 - **TaskGroup:** TG5
-- **Slice cluster:** TG5-T1 through TG5-T4 plus the non-final portions of TG5-T6 through TG5-T8
-- **Canonical IDs under v2:** TG5-T1, TG5-T2, TG5-T3, TG5-T4, partial TG5-T6, partial TG5-T8, and TG5-T7
+- **Slice cluster:** TG5-T1 through TG5-T8 across the approved cleanup plus the approved install/sync-backed verification closeout
+- **Canonical IDs under v2:** TG5-T1 through TG5-T8
 
 ### Why these slice boundaries were chosen
 
-After TG4, the remaining guide-ordered work was one tightly related cleanup cluster: remove the shim trees, rewire the few remaining direct dependents, promote cross-workflow helpers into `pipelines.shared`, narrow package discovery, and refresh active docs/tooling. The user explicitly approved the delete-heavy TG5 cleanup slice, so it was safe to complete that cluster in one pass. The session stopped only when the guide-required final pytest/CLI verification hit a new approval gate for dependency installation/sync.
+After TG4, the remaining guide-ordered work was one tightly related cleanup cluster: remove the shim trees, rewire the few remaining direct dependents, promote cross-workflow helpers into `pipelines.shared`, narrow package discovery, refresh active docs/tooling, and then close with the final verification gate. The user explicitly approved the delete-heavy cleanup slice first and later explicitly approved the `workflows/` dependency sync needed for the final pytest/CLI verification pass, so the rest of TG5 could be completed cleanly in sequence.
 
 ### Completed work from this session
 
@@ -106,7 +106,8 @@ After TG4, the remaining guide-ordered work was one tightly related cleanup clus
 - Deleted the tracked compatibility shim surfaces under `workflows/comicbook/` and `ComicBook/`, removed the compat smoke test, and removed the remaining on-disk untracked shim directories.
 - Narrowed setuptools package discovery to `pipelines*` only.
 - Updated active workflow docs, repo-structure standards, AGENTS/agent docs, README, repo-reorganization indexes, and ADR-0002 to reflect the final target layout.
-- Captured the new verification blocker: the old locked `ComicBook` uv project was removed during approved cleanup, so no synced local pytest environment remains for the guide-required TG5 exit gate.
+- Synced the `workflows/` project with `uv sync --extra dev`, restoring a local pytest-capable environment after the shim-era `ComicBook` project was removed.
+- Ran the full target-tree pytest suite from `workflows/` and final CLI help smoke checks for both workflows; all green.
 
 ### Files changed in this session
 
@@ -123,28 +124,27 @@ After TG4, the remaining guide-ordered work was one tightly related cleanup clus
 - `python3 -m py_compile ...` across the changed Python modules and tests → **passed** (no syntax errors)
 - `grep` for `from comicbook|import comicbook` under `workflows/` → **no matches**
 - `read` checks for `/ComicBook` and `/workflows/comicbook` after cleanup → **both paths missing**
-- `uv run --project "." --no-sync pytest -c pyproject.toml -q ...` from `workflows/` → **blocked**, failed immediately with `Failed to spawn: pytest` because the local `workflows/` uv environment has not been synced and the deleted `ComicBook` project no longer provides pytest
+- `uv sync --extra dev` from `workflows/` → **passed**
+- `uv run --project "." pytest -c pyproject.toml -q` from `workflows/` → **passed** at `160 passed in 5.98s`
+- `uv run --project "." python3 -m pipelines.workflows.image_prompt_gen.run --help` from `workflows/` → **passed**
+- `uv run --project "." python3 -m pipelines.workflows.template_upload.run --help` from `workflows/` → **passed**
 
 ### Documentation updated in this session
 
 - The docs-update gate applied because TG5 changes the repository-wide runtime layout, active package paths, tooling commands, and developer/operator expectations.
 - Updated active workflow business/developer docs to use `pipelines.*` commands and module paths.
 - Updated `docs/standards/repo-structure.md`, `AGENTS.md`, `.opencode/agents/test-engineer.md`, `.opencode/agents/langgraph-architect.md`, and `workflows/README.md` to remove shim-era guidance and document the promoted shared modules.
-- Updated repo-reorganization planning/business/developer indexes plus this handoff to record the landed cleanup work and the remaining verification blocker.
+- Updated repo-reorganization planning/business/developer indexes plus this handoff to record the landed cleanup work and final completion.
 - Updated ADR-0002 status to **Accepted and Implemented**.
 
 ### Current blockers or open questions
 
-- Final TG5 verification is blocked on explicit approval to install/sync dependencies for the `workflows/` uv project (or another equivalent package-install action) so pytest can run after the old `ComicBook` environment was removed.
-- The local `implementation-slice-guard` skill still exists on disk but is not loadable through the skill tool, so slice selection continues to apply the checked-in rules manually.
+- The local `implementation-slice-guard` skill still exists on disk but is not loadable through the skill tool, so slice selection continued to apply the checked-in rules manually.
+- No implementation blocker remains for this guide.
 
 ### Exact next recommended slice
 
-1. Explicitly approve dependency installation/sync for `workflows/`.
-2. Run the guide-required TG5 verification:
-   - full `pytest -q` from `workflows/`
-   - representative CLI help/invocation smoke checks for both workflows
-3. If those pass, finish TG5-T6/TG5-T8 wording and add the final "Migration complete" session entry.
+The implementation guide is complete. Any further structural work should start from a fresh planning update or follow-up ADR.
 
 ## Last completed slices
 
@@ -447,9 +447,22 @@ Runtime grep verification:
 - Verified syntax with `py_compile`, verified that `workflows/` no longer imports `comicbook`, and confirmed the shim directories are gone.
 - Hit a new blocker on the guide-required pytest/CLI exit gate because deleting the old `ComicBook` uv project removed the only available local pytest environment; the replacement `workflows/` environment now needs explicit install/sync approval before final verification can run.
 
+### 2026-04-26 — TG5 verification closeout (TG5-T5, finish TG5-T6/TG5-T8)
+
+- Used the newly granted explicit approval for `workflows/` dependency sync only, ran `uv sync --extra dev`, and restored a local pytest-capable environment in the final project root.
+- Ran the full target-tree pytest suite from `workflows/`; it passed at `160 passed`.
+- Ran final CLI help smoke checks for `pipelines.workflows.image_prompt_gen.run` and `pipelines.workflows.template_upload.run`; both succeeded.
+- Updated the repo-reorganization planning/business/developer docs, README, and this handoff to mark TG5 complete and the migration fully executed.
+
+### 2026-04-26 — Migration complete
+
+- All TaskGroups in `docs/planning/repo-reorganization/implementation-v2.md` are now complete.
+- The runtime ships only the `pipelines` package under `workflows/`.
+- Future structural work should use a fresh planning update or follow-up ADR rather than re-opening this guide.
+
 ## Permission checkpoint
 
-- The next guide-ordered incomplete work is the blocked remainder of TG5: final verification and final closeout wording.
-- No additional approval is required for continued read-only inspection or handoff/documentation edits that do not install packages or mutate remote state.
-- Additional approval **is now required** before any package or module installation / dependency sync needed to run pytest from `workflows/`, plus any copy, `git push`, or remote-mutation work.
+- There is no remaining incomplete work in this guide.
+- No additional approval is required to read the repository or review the completed handoff/docs.
+- Additional approval would still be required for any future install, copy, delete, `git push`, or remote-mutation work outside this completed guide execution.
 - For a future session after this run ends, implementation work should resume only after another explicit `/implement-next-autonomous docs/planning/repo-reorganization/implementation-v2.md docs/planning/repo-reorganization/implementation-handoff.md` approval (or equivalent explicit approval for this autonomous implementation agent). Generic continuation phrases do not count as approval.

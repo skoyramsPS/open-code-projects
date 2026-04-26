@@ -19,7 +19,7 @@ Planning material and completion record for the repository move from a flat sing
 
 ## Status
 
-Implementation closeout is in progress.
+Implementation is complete.
 
 - TG1 is complete: the shared logging foundation in `workflows/pipelines/shared/logging.py` is now covered by focused tests.
 - TG2 has started with a bootstrap slice: `workflows/pyproject.toml` now defines the target-tree project metadata and `workflows/.env.example` now holds the shared environment template.
@@ -58,5 +58,4 @@ Implementation closeout is in progress.
 - TG2 is complete.
 - TG3 is now complete: state ownership is split across `pipelines.shared.state`, `pipelines.workflows.image_prompt_gen.state`, and `pipelines.workflows.template_upload.state`; workflow/runtime importers now reference the correct module; both compatibility `state.py` wrappers re-export the split symbols; and focused boundary coverage plus a full target-tree pytest run are green.
 - TG4 is now complete: node-level lifecycle logging is wired through reusable decorators around every image-workflow node, every template-upload node, and the graph-local helper nodes (`runtime_gate`, `prepare_deferred_retry`), focused log-shape tests prove representative end-to-end runs emit parseable JSON records carrying `workflow`, `run_id`, `event`, and `node`, and the template-upload runtime now uses unprefixed node module/function names while compatibility wrappers preserve the legacy `upload_*` import surface.
-- TG5 cleanup has landed: the `comicbook` compatibility shim was removed, package discovery was narrowed to `pipelines*`, shared metadata-backfill and Responses helpers were promoted into `pipelines.shared`, and tooling/docs were refreshed to the final layout.
-- Final TG5 completion is still blocked on the guide-required pytest and CLI verification because the old locked `ComicBook` uv project was removed during cleanup and the local `workflows/` environment does not yet have pytest installed. Continuing requires explicit install/sync approval.
+- TG5 is now complete: the `comicbook` compatibility shim was removed, package discovery was narrowed to `pipelines*`, shared metadata-backfill and Responses helpers were promoted into `pipelines.shared`, tooling/docs were refreshed to the final layout, the full target-tree pytest suite passed from `workflows/`, and both workflow CLIs passed help-smoke verification.
