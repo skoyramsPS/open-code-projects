@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | TG1 completed; TG2 completed; TG3 completed; TG4 in progress; TG5 pending |
+| Status | TG1 completed; TG2 completed; TG3 completed; TG4 completed; TG5 pending |
 | Last updated | 2026-04-26 |
 | Active implementation guide | `docs/planning/repo-reorganization/implementation-v2.md` |
 | Preserved prior guide | `docs/planning/repo-reorganization/implementation.md` (historical; superseded by v2 — kept on disk for traceability of earlier execution) |
@@ -16,9 +16,9 @@
 
 ## Current status summary
 
-The shared logging foundation landed under TG1 and has remained stable. TG2 is complete and remains green. TG3 is complete and remains green. TG4 has now started with a logging-adoption slice: reusable instrumentation decorators wrap every image-workflow node, every template-upload node, and the graph-local helper nodes `runtime_gate` and `prepare_deferred_retry`; representative successful runs and targeted failing-node tests now prove that node lifecycle records emit as parseable JSON with `workflow`, `run_id`, `event`, and `node`; and the shared workflow regression plus full target-tree pytest suite still pass from `workflows/`.
+The shared logging foundation landed under TG1 and has remained stable. TG2 is complete and remains green. TG3 is complete and remains green. TG4 is now also complete: node lifecycle logging is enforced through reusable instrumentation decorators across every workflow node and graph-local helper node; representative successful runs and targeted failing-node tests prove that node lifecycle records emit as parseable JSON with `workflow`, `run_id`, `event`, and `node`; and the template-upload source-of-truth runtime now uses unprefixed node module/function names while both compatibility layers preserve the legacy `upload_*` import surface. The shared workflow regression plus full target-tree pytest suite still pass from `workflows/`.
 
-What is **not yet** done overall: TG4 still must rename the template-upload `upload_*` modules/functions and update the compatibility wrappers; TG5 still must remove the compatibility shim and finish cleanup. The main remaining temporary fallback noted after this slice is the legacy pricing-path fallback in `pipelines.shared.runtime_deps`, which belongs to later cleanup work.
+What is **not yet** done overall: TG5 must remove the compatibility shim and finish cleanup. The main remaining temporary fallback noted after TG4 is the legacy pricing-path fallback in `pipelines.shared.runtime_deps`, which belongs to later cleanup work.
 
 ## TaskGroup progress table
 
@@ -27,7 +27,7 @@ What is **not yet** done overall: TG4 still must rename the template-upload `upl
 | TG1 | Shared logging foundation | completed | `workflows/pipelines/shared/logging.py` matches the standard; covered by `workflows/tests/shared/test_logging.py`. ADR-0002 set to **Accepted**. |
 | TG2 | Move package + tests into `workflows/`, add `comicbook` shim, normalize doc slugs, adopt non-node logging | completed | TG2-T1 through TG2-T13 are complete. Full target-tree pytest exit gate passed; docs gate closed. |
 | TG3 | Split state modules | completed | TG3-T1 through TG3-T8 are complete. State ownership is split cleanly and boundary tests plus full pytest passed. |
-| TG4 | Adopt node logging + remove `upload_` prefix | in progress | TG4-T1, TG4-T2, TG4-T5, TG4-T6, and representative-run verification for TG4-T7 are complete; the template-upload rename/wrapper slice remains. |
+| TG4 | Adopt node logging + remove `upload_` prefix | completed | TG4-T1 through TG4-T8 are effectively complete: logging adoption, rename/wrapper updates, verification, and docs are all green. |
 | TG5 | Remove the `comicbook` shim and close the migration | not started | Blocked on TG4. |
 
 ### TG2 sub-task map (canonical IDs from `implementation-v2.md`)
@@ -67,78 +67,82 @@ What is **not yet** done overall: TG4 still must rename the template-upload `upl
 | --- | --- | --- |
 | TG4-T1 — sweep for node-level direct logging | completed | Greps across `workflows/pipelines/workflows/` found no remaining `deps.logger.*` or `logging.getLogger(...)` usage inside workflow runtime code. |
 | TG4-T2 — convert node emit sites | completed | Every image-workflow node, every template-upload node, and the graph-local helper nodes are now wrapped by workflow-specific instrumentation decorators that emit `node_started`, `node_completed`, and `node_failed` through `log_node_event(...)`. |
-| TG4-T3 — rename template-upload nodes | pending | Not started in this slice because rename/delete-like file operations remain approval-sensitive under the current session rules. |
-| TG4-T4 — update `comicbook/nodes/upload_*.py` wrappers | pending | Blocked on TG4-T3 rename targets. |
+| TG4-T3 — rename template-upload nodes | completed | The seven template-upload source-of-truth node modules were renamed to unprefixed names and their primary callables plus graph node names/imports were updated accordingly. |
+| TG4-T4 — update `comicbook/nodes/upload_*.py` wrappers | completed | Both `workflows/comicbook/nodes/upload_*.py` and `ComicBook/comicbook/nodes/upload_*.py` now re-export the renamed targets while preserving the legacy callable names. |
 | TG4-T5 — add focused logging tests | completed | Added `workflows/tests/image_prompt_gen/test_graph_logging.py` and `workflows/tests/template_upload/test_graph_logging.py` for representative successful runs plus targeted failing-node logging cases. |
 | TG4-T6 — run tests in layers | completed | `-k log`, shared+workflow regression, and full `pytest -q` all passed from `workflows/`; final suite stayed green at `175 passed`. |
 | TG4-T7 — capture representative sample run output | completed | The new logging tests execute representative end-to-end runs, capture real stdout JSON logs, parse them, and assert the required fields for both workflows. |
-| TG4-T8 — documentation gate | in progress | Planning/business/developer repo-reorganization docs and this handoff now record the logging-adoption slice; the final TG4 doc close still depends on the pending rename slice. |
+| TG4-T8 — documentation gate | completed | Planning/business/developer repo-reorganization docs and this handoff now record both logging adoption and template-upload naming cleanup, with TG5 as next. |
 
 ## Last completed slices
 
 ### Selected TaskGroup and slices
 
 - **TaskGroup:** TG4
-- **Slice cluster:** TG4-T1, TG4-T2, TG4-T5, TG4-T6, and representative-run verification for TG4-T7 as one logging-adoption session
-- **Canonical IDs under v2:** TG4-T1, TG4-T2, TG4-T5, TG4-T6, and TG4-T7
+- **Slice cluster:** TG4-T3, TG4-T4, and TG4-T8 as one rename/wrapper closeout session after the earlier logging-adoption slice
+- **Canonical IDs under v2:** TG4-T3, TG4-T4, and TG4-T8
 
 ### Why these slice boundaries were chosen
 
-TG4 was the next guide-ordered TaskGroup, but the rename half of TG4 (`TG4-T3` and `TG4-T4`) is approval-sensitive because it involves delete-like file-rename work. The smallest meaningful slice that still shipped a useful increment was therefore the logging-adoption cluster: instrument all nodes, add focused log-shape tests, run the guide-layered pytest scopes, and verify representative end-to-end log output before stopping at the rename gate.
+After the earlier TG4 logging-adoption slice, the remaining TG4 work was one tightly related closeout cluster: rename the template-upload source-of-truth nodes/functions, update graph assembly, preserve the legacy wrapper API, and refresh the docs/handoff once the runtime and tests were green. The user explicitly approved the rename/delete-like file operations needed for this slice, so it was safe to complete the rest of TG4 as one coherent increment.
 
 ### Completed work from this session
 
-- Added reusable workflow-local node instrumentation decorators in `workflows/pipelines/workflows/image_prompt_gen/nodes/__init__.py` and `workflows/pipelines/workflows/template_upload/nodes/__init__.py`.
-- Wrapped every image-workflow node, every template-upload node, and the graph-local helper nodes `runtime_gate` and `prepare_deferred_retry` so they emit `node_started`, `node_completed`, and `node_failed` through `log_node_event(...)`.
-- Standardized failure logging so node exceptions now emit promoted `error.code`, `error.message`, and `error.retryable` fields plus `duration_ms`.
-- Added focused end-to-end logging coverage in `workflows/tests/image_prompt_gen/test_graph_logging.py` and `workflows/tests/template_upload/test_graph_logging.py`.
-- Verified that representative successful runs and targeted failing-node cases produce parseable JSON node records with the required standard fields.
-- Updated the repo-reorganization planning/business/developer docs and this handoff to record that TG4 logging adoption is landed and the rename slice remains next.
+- Renamed the seven template-upload source-of-truth node modules to `load_file.py`, `parse_and_validate.py`, `resume_filter.py`, `backfill_metadata.py`, `decide_write_mode.py`, `persist.py`, and `summarize.py`.
+- Renamed the primary callables in those modules to the matching unprefixed names and removed the remaining `upload_*` runtime strings from the target-tree template-upload package.
+- Updated `workflows/pipelines/workflows/template_upload/graph.py` so graph imports, graph node names, edges, and routing use the unprefixed runtime names.
+- Replaced both compatibility-wrapper layers with explicit re-export wrappers so `comicbook.nodes.upload_*` and `ComicBook.comicbook.nodes.upload_*` still expose the legacy callable names while targeting the renamed modules.
+- Updated compatibility and logging tests so they now reference the renamed target-tree modules while still validating legacy wrapper behavior.
+- Updated the repo-reorganization planning/business/developer docs and this handoff to mark TG4 complete and point the next session at TG5 cleanup.
 
 ## Files changed in this session
 
+- `ComicBook/comicbook/nodes/upload_backfill_metadata.py`
+- `ComicBook/comicbook/nodes/upload_decide_write_mode.py`
+- `ComicBook/comicbook/nodes/upload_load_file.py`
+- `ComicBook/comicbook/nodes/upload_parse_and_validate.py`
+- `ComicBook/comicbook/nodes/upload_persist.py`
+- `ComicBook/comicbook/nodes/upload_resume_filter.py`
+- `ComicBook/comicbook/nodes/upload_summarize.py`
 - `docs/business/repo-reorganization/index.md`
 - `docs/developer/repo-reorganization/index.md`
 - `docs/planning/repo-reorganization/implementation-handoff.md`
 - `docs/planning/repo-reorganization/index.md`
-- `workflows/pipelines/workflows/image_prompt_gen/graph.py`
-- `workflows/pipelines/workflows/image_prompt_gen/nodes/__init__.py`
-- `workflows/pipelines/workflows/image_prompt_gen/nodes/cache_lookup.py`
-- `workflows/pipelines/workflows/image_prompt_gen/nodes/generate_images_serial.py`
-- `workflows/pipelines/workflows/image_prompt_gen/nodes/ingest.py`
-- `workflows/pipelines/workflows/image_prompt_gen/nodes/load_templates.py`
-- `workflows/pipelines/workflows/image_prompt_gen/nodes/persist_template.py`
-- `workflows/pipelines/workflows/image_prompt_gen/nodes/router.py`
-- `workflows/pipelines/workflows/image_prompt_gen/nodes/summarize.py`
+- `workflows/comicbook/nodes/upload_backfill_metadata.py`
+- `workflows/comicbook/nodes/upload_decide_write_mode.py`
+- `workflows/comicbook/nodes/upload_load_file.py`
+- `workflows/comicbook/nodes/upload_parse_and_validate.py`
+- `workflows/comicbook/nodes/upload_persist.py`
+- `workflows/comicbook/nodes/upload_resume_filter.py`
+- `workflows/comicbook/nodes/upload_summarize.py`
 - `workflows/pipelines/workflows/template_upload/graph.py`
-- `workflows/pipelines/workflows/template_upload/nodes/__init__.py`
-- `workflows/pipelines/workflows/template_upload/nodes/upload_backfill_metadata.py`
-- `workflows/pipelines/workflows/template_upload/nodes/upload_decide_write_mode.py`
-- `workflows/pipelines/workflows/template_upload/nodes/upload_load_file.py`
-- `workflows/pipelines/workflows/template_upload/nodes/upload_parse_and_validate.py`
-- `workflows/pipelines/workflows/template_upload/nodes/upload_persist.py`
-- `workflows/pipelines/workflows/template_upload/nodes/upload_resume_filter.py`
-- `workflows/pipelines/workflows/template_upload/nodes/upload_summarize.py`
-- `workflows/tests/image_prompt_gen/test_graph_logging.py`
+- `workflows/pipelines/workflows/template_upload/nodes/backfill_metadata.py`
+- `workflows/pipelines/workflows/template_upload/nodes/decide_write_mode.py`
+- `workflows/pipelines/workflows/template_upload/nodes/load_file.py`
+- `workflows/pipelines/workflows/template_upload/nodes/parse_and_validate.py`
+- `workflows/pipelines/workflows/template_upload/nodes/persist.py`
+- `workflows/pipelines/workflows/template_upload/nodes/resume_filter.py`
+- `workflows/pipelines/workflows/template_upload/nodes/summarize.py`
+- `workflows/tests/shared/test_compat_state_and_nodes.py`
 - `workflows/tests/template_upload/test_graph_logging.py`
 
 ## Tests run and results
 
-Focused logging-shape scope from `workflows/`:
+Focused rename/wrapper regression scope from `workflows/`:
 
 ```bash
-uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/image_prompt_gen/test_graph_logging.py tests/template_upload/test_graph_logging.py
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared/test_compat_state_and_nodes.py tests/template_upload/test_node_preflight.py tests/template_upload/test_node_backfill_metadata.py tests/template_upload/test_node_persist.py tests/template_upload/test_graph_scenarios.py tests/template_upload/test_graph_logging.py
 ```
 
-Result: `4 passed in 0.45s`.
+Result: `36 passed in 0.77s`.
 
-Guide-ordered TG4 logging scope from `workflows/`:
+Guide-ordered TG4 logging scope rerun from `workflows/`:
 
 ```bash
 uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/template_upload tests/image_prompt_gen -k log
 ```
 
-Result: `10 passed, 97 deselected in 0.48s`.
+Result: `10 passed, 97 deselected in 0.49s`.
 
 Broader regression scope from `workflows/`:
 
@@ -146,7 +150,7 @@ Broader regression scope from `workflows/`:
 uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared tests/image_prompt_gen tests/template_upload
 ```
 
-Result: `175 passed in 5.47s`.
+Result: `175 passed in 5.48s`.
 
 Full target-tree suite from `workflows/`:
 
@@ -154,27 +158,21 @@ Full target-tree suite from `workflows/`:
 uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q
 ```
 
-Result: `175 passed in 5.46s`.
-
-Representative-run log verification:
-
-- `workflows/tests/image_prompt_gen/test_graph_logging.py` executes a successful `run_workflow(...)`, captures stdout JSON log lines, parses them, and asserts `workflow=image_prompt_gen`, a stable `run_id`, `event`, and `node` on node records.
-- `workflows/tests/template_upload/test_graph_logging.py` does the same for a successful `run_upload_workflow(...)` with `workflow=template_upload`.
-- Both files also include a targeted failing-node case that proves `node_failed` records carry promoted `error.code` fields.
+Result: `175 passed in 5.48s`.
 
 Runtime grep verification:
 
-- `grep` for `deps.logger.*` under `workflows/pipelines/workflows/` → no matches
-- `grep` for `logging.getLogger` under `workflows/pipelines/workflows/` → no matches
+- `grep` for `deps.logger.*` or `logging.getLogger` under `workflows/pipelines/workflows/` → no matches
+- `grep` for `upload_load_file|upload_parse_and_validate|upload_resume_filter|upload_backfill_metadata|upload_decide_write_mode|upload_persist|upload_summarize` under `workflows/pipelines/workflows/template_upload/` → no matches
 
 ## Documentation updated
 
-- The docs-update gate applied because this slice materially changed runtime observability behavior and operator/developer expectations around structured workflow logs.
-- Updated `docs/planning/repo-reorganization/index.md` to mark TG4 logging adoption in progress and call out the remaining rename slice.
-- Updated `docs/business/repo-reorganization/index.md` to explain that operators now get node-level structured lifecycle records while commands remain unchanged.
-- Updated `docs/developer/repo-reorganization/index.md` with the decorator-based node instrumentation approach, focused logging tests, and the remaining rename boundary.
-- Updated this handoff ledger to record the completed logging-adoption slice and the approval-sensitive next step.
-- No ADR or logging standard update was needed because the implementation follows the existing approved logging contract without introducing new fields.
+- The docs-update gate applied because this slice changed developer-facing runtime naming and compatibility behavior, and it completed TG4's user/operator-observable logging and naming contracts.
+- Updated `docs/planning/repo-reorganization/index.md` to mark TG4 complete and TG5 next.
+- Updated `docs/business/repo-reorganization/index.md` to note that the live template-upload runtime now uses unprefixed internal node names while the compatibility layer keeps legacy `upload_*` imports working.
+- Updated `docs/developer/repo-reorganization/index.md` with the completed rename slice, graph rewires, wrapper strategy, and TG5 as next.
+- Updated this handoff ledger to mark TG4 complete, record the approved rename slice, and recommend the TG5 cleanup checkpoint.
+- No ADR or logging standard update was needed because the implementation follows the existing approved repository and logging contracts without adding new fields or architecture changes.
 
 ## Blockers or open questions
 
@@ -182,27 +180,26 @@ Runtime grep verification:
 - Direct `pytest` is still unavailable in the shell environment; verification continues to use the locked `ComicBook` uv project with `--no-sync`.
 - The pytest runs continue to regenerate tracked and untracked `__pycache__/` artifacts under `workflows/`; deleting those cache files still requires explicit approval because it is a delete operation.
 - `pipelines.shared.runtime_deps` still keeps the legacy `ComicBook/comicbook/pricing.json` path as a fallback; that cleanup belongs to later migration work.
-- The next TG4 slice is the template-upload rename/wrapper rewrite (`TG4-T3` and `TG4-T4`). Under the current session rules, rename/delete-like file operations are approval-sensitive, so this run stops before that step.
-- No technical blocker remains from the logging-adoption slice itself.
+- TG5 is entirely cleanup-heavy and includes recursive shim removal, smoke-test deletion, and legacy-reference cleanup, so it remains approval-sensitive under the repository rules.
+- No technical blocker remains from TG4 itself.
 
 ## Exact next recommended slice
 
-**Recommended TaskGroup:** TG4.
+**Recommended TaskGroup:** TG5.
 
-**Recommended task focus:** complete TG4-T3 and TG4-T4 together as one rename slice: rename the seven template-upload `upload_*` node modules/functions to their unprefixed names, update `workflows/pipelines/workflows/template_upload/graph.py`, and update the `workflows/comicbook/nodes/upload_*.py` wrappers so legacy import paths still re-export the renamed targets.
+**Recommended task focus:** begin TG5 with the final sweep and compatibility-shim removal planning checkpoint: validate the remaining `comicbook` references, then remove `workflows/comicbook/`, `ComicBook/`, and the compat smoke tests only after explicit approval for the delete-heavy cleanup slice.
 
 **Why this slice:**
 
-- TG4 logging adoption is complete and green.
-- The rename/wrapper work is the next guide-ordered incomplete TG4 dependency.
-- Finishing the rename is the prerequisite for closing TG4 documentation and moving on to TG5 cleanup.
+- TG4 is complete and green.
+- TG5 is the next incomplete guide-ordered TaskGroup.
+- The remaining work is now almost entirely cleanup, legacy-reference removal, package-discovery narrowing, and final docs/ADR closeout.
 
 **Boundaries for the next session:**
 
-- keep the work focused on the seven template-upload node renames plus direct importer/wrapper/test updates;
-- do not start TG5 cleanup early;
-- do not remove compatibility wrappers yet;
-- secure explicit approval first if the next session will perform rename/delete-like file operations.
+- do not start TG5 until delete approval for the shim-removal slice is explicit;
+- keep the first TG5 slice focused on the shim/remnant cleanup and direct importer rewires only;
+- finish with the full pytest run and final docs/ADR updates once the cleanup lands.
 
 ## Session log
 
@@ -361,9 +358,18 @@ Runtime grep verification:
 - Ran focused log scopes, broader shared/workflow regression, and the full target-tree pytest suite; all green (`175 passed` overall on the final run).
 - Updated the planning/business/developer repo-reorganization docs and this handoff to record that TG4 logging adoption is complete and the rename slice remains next.
 
+### 2026-04-26 — TG4 rename/wrapper closeout slice (TG4-T3, TG4-T4, TG4-T8)
+
+- Used the newly granted explicit approval for the rename/delete-like file operations required by the template-upload rename slice.
+- Renamed the seven template-upload source-of-truth node modules under `workflows/pipelines/workflows/template_upload/nodes/` and renamed their primary callables to the unprefixed runtime names.
+- Rewired `workflows/pipelines/workflows/template_upload/graph.py` so graph node names, imports, routes, and edges now use the unprefixed runtime names.
+- Replaced both compatibility-wrapper layers with explicit wrappers that re-export the renamed targets while preserving the legacy `upload_*` callable names for straggler callers.
+- Updated compatibility/logging tests and reran focused rename coverage, focused TG4 log coverage, broader shared/workflow regression, and full target-tree pytest; all green (`175 passed` overall on the final run).
+- Updated the repo-reorganization planning/business/developer docs and this handoff to mark TG4 complete and point the next session at TG5 cleanup.
+
 ## Permission checkpoint
 
-- The next guide-ordered incomplete work is the TG4 template-upload rename/wrapper slice (`TG4-T3` and `TG4-T4`).
-- No additional approval would be required only for continued non-destructive read/test/edit work that avoids rename/delete-like operations.
-- Additional approval **is still required** before any install, copy, delete (including cleanup of regenerated `__pycache__/` artifacts), `git push`, remote-mutation work, compatibility-wrapper removal, or any rename/delete-like file operation the next session may use for TG4.T3/TG5.
+- The next guide-ordered incomplete work is TG5.
+- No additional approval would be required only for continued non-destructive read/test/edit work that avoids delete/copy/remote-mutation actions.
+- Additional approval **is still required** before any install, copy, delete (including cleanup of regenerated `__pycache__/` artifacts and the TG5 shim-removal work), `git push`, remote-mutation work, or compatibility-wrapper removal.
 - For a future session after this run ends, implementation work should resume only after another explicit `/implement-next-autonomous docs/planning/repo-reorganization/implementation-v2.md docs/planning/repo-reorganization/implementation-handoff.md` approval (or equivalent explicit approval for this autonomous implementation agent). Generic continuation phrases do not count as approval.

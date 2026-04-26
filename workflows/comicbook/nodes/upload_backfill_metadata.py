@@ -1,15 +1,6 @@
-"""Compatibility alias for the legacy ``upload_backfill_metadata`` node."""
+"""Compatibility wrapper for the legacy ``upload_backfill_metadata`` node."""
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from ComicBook.comicbook.nodes import upload_backfill_metadata as _legacy_module
-
-sys.modules[__name__] = _legacy_module
+from pipelines.workflows.template_upload.nodes.backfill_metadata import *  # noqa: F401,F403
+from pipelines.workflows.template_upload.nodes.backfill_metadata import backfill_metadata as upload_backfill_metadata  # noqa: F401

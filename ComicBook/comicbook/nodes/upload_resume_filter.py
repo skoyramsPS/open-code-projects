@@ -1,4 +1,4 @@
-"""Legacy compatibility alias for :mod:`pipelines.workflows.template_upload.nodes.upload_resume_filter`."""
+"""Legacy compatibility wrapper for :mod:`pipelines.workflows.template_upload.nodes.resume_filter`."""
 
 from __future__ import annotations
 
@@ -10,6 +10,5 @@ WORKFLOWS_ROOT = Path(__file__).resolve().parents[3] / "workflows"
 if str(WORKFLOWS_ROOT) not in sys.path:
     sys.path.insert(0, str(WORKFLOWS_ROOT))
 
-from pipelines.workflows.template_upload.nodes import upload_resume_filter as _upload_resume_filter_module
-
-sys.modules[__name__] = _upload_resume_filter_module
+from pipelines.workflows.template_upload.nodes.resume_filter import *  # noqa: F401,F403
+from pipelines.workflows.template_upload.nodes.resume_filter import resume_filter as upload_resume_filter  # noqa: F401

@@ -12,7 +12,7 @@ from pipelines.shared.config import AppConfig
 from pipelines.shared.deps import Deps
 from pipelines.shared.logging import get_logger
 from pipelines.workflows.template_upload.graph import run_upload_workflow
-from pipelines.workflows.template_upload.nodes.upload_load_file import upload_load_file
+from pipelines.workflows.template_upload.nodes.load_file import load_file
 
 from .support import FakeRouterTransport
 from .support import db
@@ -87,13 +87,13 @@ def test_run_upload_workflow_emits_structured_node_logs(capsys: pytest.CaptureFi
     assert payloads
     assert {payload["event"] for payload in payloads} == {"node_started", "node_completed"}
     assert {payload["node"] for payload in payloads} >= {
-        "upload_load_file",
-        "upload_parse_and_validate",
-        "upload_resume_filter",
-        "upload_backfill_metadata",
-        "upload_decide_write_mode",
-        "upload_persist",
-        "upload_summarize",
+        "load_file",
+        "parse_and_validate",
+        "resume_filter",
+        "backfill_metadata",
+        "decide_write_mode",
+        "persist",
+        "summarize",
     }
     assert all(payload["workflow"] == "template_upload" for payload in payloads)
     assert all(payload["run_id"] == "import-log-1" for payload in payloads)
@@ -125,12 +125,12 @@ def test_failing_template_upload_node_emits_node_failed_log(capsys: pytest.Captu
     )
 
     with pytest.raises(ValueError, match=r"requires exactly one of source_file_path or stdin_text"):
-        upload_load_file({"import_run_id": "import-log-2"}, deps)
+        load_file({"import_run_id": "import-log-2"}, deps)
 
     payloads = _node_payloads(capsys.readouterr().out)
 
     assert [payload["event"] for payload in payloads] == ["node_started", "node_failed"]
     assert payloads[-1]["workflow"] == "template_upload"
     assert payloads[-1]["run_id"] == "import-log-2"
-    assert payloads[-1]["node"] == "upload_load_file"
+    assert payloads[-1]["node"] == "load_file"
     assert payloads[-1]["error.code"] == "ValueError"

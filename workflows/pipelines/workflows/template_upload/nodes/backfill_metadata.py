@@ -194,13 +194,13 @@ def _request_metadata_backfill(row: TemplateImportRow, deps: Deps) -> _BackfillS
 
 
 @instrument_template_upload_node(
-    "upload_backfill_metadata",
+    "backfill_metadata",
     complete_fields=lambda _state, delta: {
         "parsed_row_count": len(delta.get("parsed_rows", [])),
         "row_result_count": len(delta.get("row_results", [])),
     },
 )
-def upload_backfill_metadata(state: ImportRunState, deps: Deps) -> dict[str, Any]:
+def backfill_metadata(state: ImportRunState, deps: Deps) -> dict[str, Any]:
     """Fill missing tags and summaries for rows that passed validation."""
 
     parsed_rows = [dict(row) for row in list(state.get("parsed_rows") or [])]
@@ -285,4 +285,4 @@ def upload_backfill_metadata(state: ImportRunState, deps: Deps) -> dict[str, Any
     }
 
 
-__all__ = ["upload_backfill_metadata"]
+__all__ = ["backfill_metadata"]

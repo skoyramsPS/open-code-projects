@@ -160,13 +160,13 @@ def _normalize_row(raw_row: object, row_index: int) -> TemplateImportRow:
 
 
 @instrument_template_upload_node(
-    "upload_parse_and_validate",
+    "parse_and_validate",
     complete_fields=lambda _state, delta: {
         "parsed_row_count": len(delta.get("parsed_rows", [])),
         "validation_error_count": sum(len(row.get("validation_errors", [])) for row in delta.get("parsed_rows", [])),
     },
 )
-def upload_parse_and_validate(state: ImportRunState, deps: Deps) -> dict[str, Any]:
+def parse_and_validate(state: ImportRunState, deps: Deps) -> dict[str, Any]:
     """Normalize each raw row and attach row-local validation metadata."""
 
     raw_rows = list(state.get("raw_rows") or [])
@@ -179,4 +179,4 @@ def upload_parse_and_validate(state: ImportRunState, deps: Deps) -> dict[str, An
     }
 
 
-__all__ = ["upload_parse_and_validate"]
+__all__ = ["parse_and_validate"]

@@ -112,13 +112,13 @@ def _compute_update_diff(row: TemplateImportRow, existing_record: Any, *, redact
 
 
 @instrument_template_upload_node(
-    "upload_persist",
+    "persist",
     complete_fields=lambda _state, delta: {
         "row_result_count": len(delta.get("row_results", [])),
         "deferred_row_count": len(delta.get("deferred_rows", [])),
     },
 )
-def upload_persist(state: ImportRunState, deps: Deps) -> dict[str, object]:
+def persist(state: ImportRunState, deps: Deps) -> dict[str, object]:
     """Persist rows serially according to write_mode and record row results."""
 
     parsed_rows = [dict(row) for row in list(state.get("parsed_rows") or [])]
@@ -309,4 +309,4 @@ def upload_persist(state: ImportRunState, deps: Deps) -> dict[str, object]:
     }
 
 
-__all__ = ["upload_persist"]
+__all__ = ["persist"]

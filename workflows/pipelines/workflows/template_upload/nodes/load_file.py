@@ -60,7 +60,7 @@ def _read_source_bytes(state: ImportRunState) -> tuple[bytes, str | None, str]:
     source_file_path = state.get("source_file_path")
 
     if bool(stdin_text is not None) == bool(source_file_path):
-        raise ValueError("upload_load_file requires exactly one of source_file_path or stdin_text")
+        raise ValueError("load_file requires exactly one of source_file_path or stdin_text")
 
     if stdin_text is not None:
         return stdin_text.encode("utf-8"), None, "<stdin>"
@@ -74,14 +74,14 @@ def _read_source_bytes(state: ImportRunState) -> tuple[bytes, str | None, str]:
 
 
 @instrument_template_upload_node(
-    "upload_load_file",
+    "load_file",
     complete_fields=lambda _state, delta: {
         "raw_row_count": len(delta.get("raw_rows", [])),
         "input_version": delta.get("input_version"),
         "source_label": delta.get("source_label"),
     },
 )
-def upload_load_file(state: ImportRunState, deps: Deps) -> dict[str, Any]:
+def load_file(state: ImportRunState, deps: Deps) -> dict[str, Any]:
     """Resolve, read, and parse the import source into raw rows."""
 
     source_file_path = state.get("source_file_path")
@@ -111,4 +111,4 @@ def upload_load_file(state: ImportRunState, deps: Deps) -> dict[str, Any]:
     }
 
 
-__all__ = ["upload_load_file"]
+__all__ = ["load_file"]

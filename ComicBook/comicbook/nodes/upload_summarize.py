@@ -1,4 +1,4 @@
-"""Legacy compatibility alias for :mod:`pipelines.workflows.template_upload.nodes.upload_summarize`."""
+"""Legacy compatibility wrapper for :mod:`pipelines.workflows.template_upload.nodes.summarize`."""
 
 from __future__ import annotations
 
@@ -10,6 +10,5 @@ WORKFLOWS_ROOT = Path(__file__).resolve().parents[3] / "workflows"
 if str(WORKFLOWS_ROOT) not in sys.path:
     sys.path.insert(0, str(WORKFLOWS_ROOT))
 
-from pipelines.workflows.template_upload.nodes import upload_summarize as _upload_summarize_module
-
-sys.modules[__name__] = _upload_summarize_module
+from pipelines.workflows.template_upload.nodes.summarize import *  # noqa: F401,F403
+from pipelines.workflows.template_upload.nodes.summarize import summarize as upload_summarize  # noqa: F401

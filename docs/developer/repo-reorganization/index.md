@@ -7,10 +7,10 @@ Developer notes for the phased migration from `ComicBook/comicbook/` to `workflo
 - TG1: complete
 - TG2: complete
 - TG3: complete
-- TG4: in progress
+- TG4: complete
 - TG5: not started
 
-TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, the full current pytest tree into `workflows/tests/`, and the real workflow node modules into `workflows/` while preserving legacy import behavior through compatibility aliases. TG2 also completed the image-workflow doc-slug normalization, refreshed maintainer/tooling references, and closed with a green full target-tree pytest run. TG3 then split the monolithic state contract into `pipelines.shared.state`, `pipelines.workflows.image_prompt_gen.state`, and `pipelines.workflows.template_upload.state`, updated all workflow/runtime importers to use the right module, and replaced both compatibility `state.py` wrappers with re-export surfaces that no longer duplicate type definitions. TG4 has now started with a logging-adoption slice: reusable decorators wrap every node entry point so `node_started`, `node_completed`, and `node_failed` records emit through `log_node_event(...)` with consistent workflow/run/node fields and duration data.
+TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, the full current pytest tree into `workflows/tests/`, and the real workflow node modules into `workflows/` while preserving legacy import behavior through compatibility aliases. TG2 also completed the image-workflow doc-slug normalization, refreshed maintainer/tooling references, and closed with a green full target-tree pytest run. TG3 then split the monolithic state contract into `pipelines.shared.state`, `pipelines.workflows.image_prompt_gen.state`, and `pipelines.workflows.template_upload.state`, updated all workflow/runtime importers to use the right module, and replaced both compatibility `state.py` wrappers with re-export surfaces that no longer duplicate type definitions. TG4 then completed two related runtime cleanups: reusable decorators wrap every node entry point so `node_started`, `node_completed`, and `node_failed` records emit through `log_node_event(...)` with consistent workflow/run/node fields and duration data, and the template-upload source-of-truth node modules/functions dropped the redundant `upload_` prefix while compatibility wrappers preserved the legacy API.
 
 ## TG4 logging-adoption slice
 
@@ -19,7 +19,14 @@ TG1 established the shared logging foundation first so later package moves could
 - standardized node lifecycle logging on `node_started`, `node_completed`, and `node_failed`, with error promotion and `duration_ms` attached at the decorator layer
 - added focused log-shape tests in `workflows/tests/image_prompt_gen/test_graph_logging.py` and `workflows/tests/template_upload/test_graph_logging.py`
 - verified representative successful runs and targeted failing-node cases emit parseable JSON records with `workflow`, `run_id`, `event`, and `node`
-- the remaining TG4 work is still the template-upload rename step (`upload_*` filenames/functions and compatibility wrapper rewires), which was intentionally deferred because the current approval gates do not allow delete-like rename work implicitly
+
+## TG4 template-upload rename slice
+
+- renamed the source-of-truth template-upload node modules from `upload_*.py` to unprefixed names under `workflows/pipelines/workflows/template_upload/nodes/`
+- renamed the primary callables to `load_file`, `parse_and_validate`, `resume_filter`, `backfill_metadata`, `decide_write_mode`, `persist`, and `summarize`
+- updated `workflows/pipelines/workflows/template_upload/graph.py` so graph node names, imports, edges, and routing now use the unprefixed runtime names
+- updated both compatibility layers (`workflows/comicbook/nodes/upload_*.py` and `ComicBook/comicbook/nodes/upload_*.py`) so legacy callers still import `upload_*` symbols that re-export the new targets
+- updated compatibility tests and focused template-upload regression tests to reflect the new target-tree ownership while preserving legacy wrapper expectations
 
 ## TG1 deliverables
 
@@ -380,17 +387,15 @@ The `pythonpath = ["."]` pytest setting in `workflows/pyproject.toml` keeps the 
 
 ## Important boundaries
 
-The completed TG1 + TG2 work does **not** yet:
+The completed TG1 + TG2 + TG3 + TG4 work does **not** yet:
 
-- start TG3 state splitting
-- adopt node-level structured logging everywhere (TG4)
 - remove the temporary compatibility layers (TG5)
 
 Those changes remain sequenced behind TG2 and later TaskGroups in the implementation guide.
 
 ## Next expected slice
 
-The next slice is TG3: split state ownership into `pipelines.shared.state`, `pipelines.workflows.image_prompt_gen.state`, and `pipelines.workflows.template_upload.state`, then rewire importers and boundary tests accordingly.
+The next slice is TG5: remove the compatibility shim, sweep remaining legacy references, narrow package discovery to `pipelines*`, and close the migration docs plus ADR.
 
 ## Related documents
 

@@ -77,25 +77,18 @@ def test_moved_template_upload_preflight_node_wrappers_point_to_target_tree_modu
     import comicbook.nodes.upload_persist as wrapped_upload_persist_module
     import comicbook.nodes.upload_resume_filter as wrapped_upload_resume_filter_module
     import comicbook.nodes.upload_summarize as wrapped_upload_summarize_module
-    from pipelines.workflows.template_upload.nodes import upload_backfill_metadata as moved_backfill_metadata_module
-    from pipelines.workflows.template_upload.nodes import upload_decide_write_mode as moved_decide_write_mode_module
-    from pipelines.workflows.template_upload.nodes import upload_load_file as moved_load_file_module
-    from pipelines.workflows.template_upload.nodes import upload_parse_and_validate as moved_parse_and_validate_module
-    from pipelines.workflows.template_upload.nodes import upload_persist as moved_persist_module
-    from pipelines.workflows.template_upload.nodes import upload_resume_filter as moved_resume_filter_module
-    from pipelines.workflows.template_upload.nodes import upload_summarize as moved_summarize_module
+    from pipelines.workflows.template_upload.nodes import backfill_metadata as moved_backfill_metadata_module
+    from pipelines.workflows.template_upload.nodes import decide_write_mode as moved_decide_write_mode_module
+    from pipelines.workflows.template_upload.nodes import load_file as moved_load_file_module
+    from pipelines.workflows.template_upload.nodes import parse_and_validate as moved_parse_and_validate_module
+    from pipelines.workflows.template_upload.nodes import persist as moved_persist_module
+    from pipelines.workflows.template_upload.nodes import resume_filter as moved_resume_filter_module
+    from pipelines.workflows.template_upload.nodes import summarize as moved_summarize_module
 
-    assert wrapped_upload_backfill_metadata_module is moved_backfill_metadata_module
-    assert wrapped_upload_backfill_metadata_module.upload_backfill_metadata is moved_backfill_metadata_module.upload_backfill_metadata
-    assert wrapped_upload_load_file_module is moved_load_file_module
-    assert wrapped_upload_load_file_module.upload_load_file is moved_load_file_module.upload_load_file
-    assert wrapped_upload_parse_and_validate_module is moved_parse_and_validate_module
-    assert wrapped_upload_parse_and_validate_module.upload_parse_and_validate is moved_parse_and_validate_module.upload_parse_and_validate
-    assert wrapped_upload_resume_filter_module is moved_resume_filter_module
-    assert wrapped_upload_resume_filter_module.upload_resume_filter is moved_resume_filter_module.upload_resume_filter
-    assert wrapped_upload_decide_write_mode_module is moved_decide_write_mode_module
-    assert wrapped_upload_decide_write_mode_module.upload_decide_write_mode is moved_decide_write_mode_module.upload_decide_write_mode
-    assert wrapped_upload_persist_module is moved_persist_module
-    assert wrapped_upload_persist_module.upload_persist is moved_persist_module.upload_persist
-    assert wrapped_upload_summarize_module is moved_summarize_module
-    assert wrapped_upload_summarize_module.upload_summarize is moved_summarize_module.upload_summarize
+    assert wrapped_upload_backfill_metadata_module.upload_backfill_metadata is moved_backfill_metadata_module.backfill_metadata
+    assert wrapped_upload_load_file_module.upload_load_file is moved_load_file_module.load_file
+    assert wrapped_upload_parse_and_validate_module.upload_parse_and_validate is moved_parse_and_validate_module.parse_and_validate
+    assert wrapped_upload_resume_filter_module.upload_resume_filter is moved_resume_filter_module.resume_filter
+    assert wrapped_upload_decide_write_mode_module.upload_decide_write_mode is moved_decide_write_mode_module.decide_write_mode
+    assert wrapped_upload_persist_module.upload_persist is moved_persist_module.persist
+    assert wrapped_upload_summarize_module.upload_summarize is moved_summarize_module.summarize

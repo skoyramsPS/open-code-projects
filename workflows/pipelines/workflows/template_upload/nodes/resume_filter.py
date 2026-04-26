@@ -24,18 +24,18 @@ def _with_retry_count(row: TemplateImportRow, retry_count: int) -> TemplateImpor
 
 
 @instrument_template_upload_node(
-    "upload_resume_filter",
+    "resume_filter",
     complete_fields=lambda _state, delta: {
         "rows_to_process": len(delta.get("rows_to_process", [])),
         "rows_skipped_by_resume": len(delta.get("rows_skipped_by_resume", [])),
     },
 )
-def upload_resume_filter(state: ImportRunState, deps: Deps) -> dict[str, Any]:
+def resume_filter(state: ImportRunState, deps: Deps) -> dict[str, Any]:
     """Build the current run's worklist using prior terminal results for the same file hash."""
 
     source_file_hash = state.get("source_file_hash")
     if not source_file_hash:
-        raise ValueError("upload_resume_filter requires state['source_file_hash']")
+        raise ValueError("resume_filter requires state['source_file_hash']")
 
     parsed_rows = list(state.get("parsed_rows") or [])
     existing_row_results = list(state.get("row_results") or [])
@@ -74,4 +74,4 @@ def upload_resume_filter(state: ImportRunState, deps: Deps) -> dict[str, Any]:
     }
 
 
-__all__ = ["upload_resume_filter"]
+__all__ = ["resume_filter"]

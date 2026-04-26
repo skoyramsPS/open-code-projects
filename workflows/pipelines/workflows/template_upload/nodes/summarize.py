@@ -135,7 +135,7 @@ def _write_structured_log(state: ImportRunState, deps: Deps, *, ended_at: str, r
         events.append(
             {
                 "import_run_id": import_run_id,
-                "node": "upload_summarize",
+                "node": "summarize",
                 "event": event_name,
                 "row_index": result.get("row_index"),
                 "template_id": result.get("template_id"),
@@ -148,7 +148,7 @@ def _write_structured_log(state: ImportRunState, deps: Deps, *, ended_at: str, r
     events.append(
         {
             "import_run_id": import_run_id,
-            "node": "upload_summarize",
+            "node": "summarize",
             "event": "import_finished",
             "status": run_status,
             "ended_at": ended_at,
@@ -160,21 +160,21 @@ def _write_structured_log(state: ImportRunState, deps: Deps, *, ended_at: str, r
 
 
 @instrument_template_upload_node(
-    "upload_summarize",
+    "summarize",
     complete_fields=lambda _state, delta: {
         "run_status": delta.get("run_status"),
         "row_result_count": len(delta.get("row_results", [])),
     },
 )
-def upload_summarize(state: ImportRunState, deps: Deps) -> dict[str, object]:
+def summarize(state: ImportRunState, deps: Deps) -> dict[str, object]:
     """Finalize import-run counts and write durable report artifacts."""
 
     import_run_id = state.get("import_run_id")
     if not import_run_id:
-        raise ValueError("upload_summarize requires state['import_run_id']")
+        raise ValueError("summarize requires state['import_run_id']")
     started_at = state.get("started_at")
     if not started_at:
-        raise ValueError("upload_summarize requires state['started_at']")
+        raise ValueError("summarize requires state['started_at']")
 
     row_results = list(state.get("row_results") or [])
     parsed_rows = list(state.get("parsed_rows") or [])
@@ -207,4 +207,4 @@ def upload_summarize(state: ImportRunState, deps: Deps) -> dict[str, object]:
     }
 
 
-__all__ = ["upload_summarize"]
+__all__ = ["summarize"]
