@@ -92,5 +92,5 @@ Follow-up work:
 - `docs/developer/implementation-execution-agent/index.md`
 - `.opencode/agents/autonomous-implementation-agent.md`
 - `.opencode/commands/implement-next-autonomous.md`
-- `docs/planning/Image-prompt-gen-workflow/implementation.md`
-- `docs/planning/Image-prompt-gen-workflow/implementation-handoff.md`
+- `docs/planning/image-prompt-gen-workflow/implementation.md`
+- `docs/planning/image-prompt-gen-workflow/implementation-handoff.md`

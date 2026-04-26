@@ -62,7 +62,7 @@ Adjacent legacy assets: `ComicBook/tests/` (pytest tree), `ComicBook/examples/`,
 
 ### 2.3 Documentation tree
 
-Planning, business, and developer triads exist for `repo-reorganization`, `image-prompt-gen-workflow` (note: the planning slug is currently `Image-prompt-gen-workflow` and must be normalized in TG2), `template-upload-workflow`, and `implementation-execution-agent`. `docs/standards/repo-structure.md`, `docs/standards/logging-standards.md`, `docs/standards/index.md`, `AGENTS.md`, `opencode.json`, and every `.opencode/agents/*.md` already describe the target layout and logging gate.
+Planning, business, and developer triads exist for `repo-reorganization`, `image-prompt-gen-workflow` (the image-workflow folder used a mixed-case legacy slug when this guide was authored and is normalized during TG2), `template-upload-workflow`, and `implementation-execution-agent`. `docs/standards/repo-structure.md`, `docs/standards/logging-standards.md`, `docs/standards/index.md`, `AGENTS.md`, `opencode.json`, and every `.opencode/agents/*.md` already describe the target layout and logging gate.
 
 ### 2.4 Behaviors that must be preserved
 
@@ -99,7 +99,7 @@ Each item below resolves a place where the plan was underspecified or where it i
 
 **3.8 — No persistence-schema or behavior redesign.** Any persistence touch during these TaskGroups must be strictly mechanical (import path updates) or logging-supporting (new structured fields).
 
-**3.9 — Doc-slug normalization runs in TG2.** Renaming `Image-prompt-gen-workflow` → `image-prompt-gen-workflow` across `docs/planning/`, `docs/business/`, `docs/developer/`, and every index that links to those folders happens in TG2 because it pairs naturally with the directory move.
+**3.9 — Doc-slug normalization runs in TG2.** Normalizing the mixed-case image-workflow doc slug to `image-prompt-gen-workflow` across `docs/planning/`, `docs/business/`, `docs/developer/`, and every index that links to those folders happens in TG2 because it pairs naturally with the directory move.
 
 **3.10 — Examples folder placement.** During the migration, `ComicBook/examples/` moves to `workflows/examples/` (repo-level under the new root). Per-workflow `examples/` folders are deferred until a third workflow is added.
 
@@ -401,7 +401,7 @@ TG2 does **not** split state, does **not** rename `upload_*` template-upload mod
 - conversion of every `ComicBook/comicbook/*.py` module into a thin compatibility wrapper that re-exports the moved module (interim state through the rest of TG2; deleted in TG5);
 - update of `.env.example` location, repo-protection path constants, pre-commit config references, and any pytest working-directory documentation to point at `workflows/`;
 - relocation of every test from `ComicBook/tests/` into `workflows/tests/` under the appropriate subfolder;
-- rename of `docs/planning/Image-prompt-gen-workflow/`, `docs/business/Image-prompt-gen-workflow/`, `docs/developer/Image-prompt-gen-workflow/` to `image-prompt-gen-workflow` (and update of every link to those folders).
+- rename of the mixed-case image-workflow doc folders under `docs/planning/`, `docs/business/`, and `docs/developer/` to `image-prompt-gen-workflow` (and update of every link to those folders).
 
 **Out of scope.**
 
@@ -459,7 +459,7 @@ Add `__init__.py` to the new `prompts/` and `adapters/` subpackages. Update defa
 
 **TG2.T9 — Move tests.** `git mv ComicBook/tests` → `workflows/tests/` with the layout `workflows/tests/shared/`, `workflows/tests/image_prompt_gen/`, `workflows/tests/template_upload/`. For tests that already exist in both trees (relocated during the existing TG2 progress), keep the target-tree copy and delete the legacy copy; verify each pair has identical assertions before deletion. Update test imports so they reference `pipelines.*` directly. Keep one or two thin smoke tests that import via `comicbook.*` to prove the wrapper layer works end-to-end (these live under `workflows/tests/shared/test_compat_*.py` and are deleted in TG5).
 
-**TG2.T10 — Normalize doc-tree slugs.** `git mv docs/planning/Image-prompt-gen-workflow docs/planning/image-prompt-gen-workflow`. Repeat for `docs/business/` and `docs/developer/`. Run `grep -RIn 'Image-prompt-gen-workflow' .` and update every remaining reference (indexes, READMEs, agent files, ADRs).
+**TG2.T10 — Normalize doc-tree slugs.** Rename the mixed-case image-workflow doc directories under `docs/planning/`, `docs/business/`, and `docs/developer/` to `image-prompt-gen-workflow`. Then run a repository-wide grep for the old mixed-case slug and update every remaining reference (indexes, READMEs, agent files, ADRs).
 
 **TG2.T11 — Update tooling references.** `pyproject.toml` (root, if any), `.opencode/agents/*.md` (if they reference paths), `AGENTS.md`, `opencode.json`, and any pre-commit config — update path strings from `ComicBook/` to `workflows/` where the migration has invalidated them.
 
@@ -494,7 +494,7 @@ Required new test types: at least one `is`-identity test asserting that `comicbo
 - `python -m pipelines.workflows.image_prompt_gen.run --help` runs.
 - `python -m pipelines.workflows.template_upload.run --help` runs.
 - `grep -RIn 'ComicBook/comicbook' workflows/ docs/ AGENTS.md` returns no functional references (only historical/migration-context references are allowed).
-- `grep -RIn 'Image-prompt-gen-workflow' .` returns nothing inside `docs/`, `AGENTS.md`, or `.opencode/`.
+- grep for the old mixed-case image-workflow slug returns nothing inside `docs/`, `AGENTS.md`, or `.opencode/`.
 - Every legacy `ComicBook/comicbook/*.py` module is a wrapper or has been removed.
 - The `workflows/comicbook/` shim package exists with one wrapper per legacy import path including the `nodes/` subpackage.
 - Non-node runtime code emits structured records (verified by a logging-shape test).
@@ -1219,14 +1219,14 @@ addopts = "-q"
 
 ## Appendix F — Doc-slug rename checklist (TG2.T10)
 
-The image-workflow planning slug currently uses mixed case. Run all three moves and refresh every link.
+The image-workflow planning slug used a mixed-case legacy folder name when this guide was authored. Run all three moves and refresh every link.
 
 ```bash
-git mv docs/planning/Image-prompt-gen-workflow docs/planning/image-prompt-gen-workflow
-git mv docs/business/Image-prompt-gen-workflow docs/business/image-prompt-gen-workflow  # if it exists with that case
-git mv docs/developer/Image-prompt-gen-workflow docs/developer/image-prompt-gen-workflow  # if it exists with that case
+git mv docs/planning/<mixed-case-image-workflow-folder> docs/planning/image-prompt-gen-workflow
+git mv docs/business/<mixed-case-image-workflow-folder> docs/business/image-prompt-gen-workflow  # if it exists with that case
+git mv docs/developer/<mixed-case-image-workflow-folder> docs/developer/image-prompt-gen-workflow  # if it exists with that case
 
-grep -RIn 'Image-prompt-gen-workflow' .   # should be empty after fixes
+grep -RIn '<old-mixed-case-image-workflow-slug>' .   # should be empty after fixes
 ```
 
 Files that commonly link the old slug: `docs/planning/index.md`, `docs/business/index.md`, `docs/developer/index.md`, the per-tree workflow indexes, `AGENTS.md`, `.opencode/agents/*.md`, `docs/standards/repo-structure.md` (only if it lists the slug literally — the canonical mapping table is already correct).

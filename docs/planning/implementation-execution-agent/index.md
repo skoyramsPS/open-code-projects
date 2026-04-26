@@ -191,6 +191,6 @@ This workflow is ready when all of the following are true.
 - the repo contains callable `implementation-agent` and `autonomous-implementation-agent` variants
 - the repo contains reusable slice-selection and handoff-maintenance skills
 - commands exist for invoking the standard and autonomous agents against an implementation guide
-- the current `Image-prompt-gen-workflow` planning folder contains an initial handoff file
+- the current `image-prompt-gen-workflow` planning folder contains an initial handoff file
 - docs explain what the workflow is, how to use it, and how status resumes across sessions
 - the ADR record explains why the repository adopted this workflow

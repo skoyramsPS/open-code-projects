@@ -5,10 +5,10 @@ Developer notes for the phased migration from `ComicBook/comicbook/` to `workflo
 ## Current implementation status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image/test relocations + actual node moves + adjacent-asset move + completed target-tree test relocation sweep complete)
+- TG2: complete
 - TG3-TG5: not started
 
-TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, the full current pytest tree into `workflows/tests/`, and the real workflow node modules into `workflows/` while preserving legacy import behavior through compatibility aliases.
+TG1 established the shared logging foundation first so later package moves could reuse one tested logging implementation. TG2 then moved the target-tree project metadata, shared infrastructure modules, workflow entry points, workflow graph modules, image-workflow helper modules, explicit target-tree state/node bridge wrappers, the full current pytest tree into `workflows/tests/`, and the real workflow node modules into `workflows/` while preserving legacy import behavior through compatibility aliases. TG2 also completed the image-workflow doc-slug normalization, refreshed maintainer/tooling references, and closed with a green full target-tree pytest run.
 
 ## TG1 deliverables
 
@@ -197,7 +197,31 @@ The logging module now supports and tests:
 - folded the remaining unique shared-config assertion (environment-overrides-dotenv) into `workflows/tests/shared/test_config_and_deps.py`
 - deleted the legacy `ComicBook/tests/` directory after the duplicate-removal sweep and cleaned approved `__pycache__` artifacts created during verification
 
+### TG2 doc-slug normalization
+
+- renamed the image-workflow planning, business, and developer doc folders to the canonical lowercase slug `image-prompt-gen-workflow`
+- updated cross-doc links in the top-level indexes, implementation-execution workflow docs, ADR references, related workflow plans, and the image-workflow implementation/handoff docs
+- verified that the old mixed-case slug no longer appears anywhere in `docs/`, `AGENTS.md`, or `.opencode/`
+
+### TG2 tooling-reference sweep
+
+- updated `AGENTS.md` so it points new work at `workflows/pipelines/` and describes `ComicBook/comicbook/` only as a temporary compatibility-wrapper location
+- updated `.opencode/agents/test-engineer.md` so it treats `workflows/tests/` as the canonical pytest tree and `ComicBook/tests/` as historical context only
+- updated `.opencode/agents/langgraph-architect.md` so design output treats `ComicBook/comicbook/` as transitional compatibility surface, not the target ownership layout
+- reviewed `opencode.json` and `.pre-commit-config.yaml`; no path rewrite was required there because the current entries are still valid during the shim window
+
 ## Verification
+
+TG2 exit-gate verification now also includes the full target-tree suite from `workflows/`:
+
+```bash
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/shared
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/image_prompt_gen
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q tests/template_upload
+uv run --project "../ComicBook" --no-sync pytest -c pyproject.toml -q
+```
+
+Result: all scopes passed; the full suite finished at `165 passed`.
 
 Focused verification for the migrated target-tree test scope now runs from `workflows/` while still reusing the existing locked dependency environment from `ComicBook/`:
 
@@ -337,16 +361,15 @@ The `pythonpath = ["."]` pytest setting in `workflows/pyproject.toml` keeps the 
 
 The completed TG1 + TG2 work does **not** yet:
 
-- move runtime modules out of `ComicBook/comicbook/`
-- move most workflow-owned modules such as node implementations and state ownership out of `ComicBook/comicbook/`
 - start TG3 state splitting
-- finish doc-slug normalization, tooling-reference cleanup, and the final TG2 closeout gates
+- adopt node-level structured logging everywhere (TG4)
+- remove the temporary compatibility layers (TG5)
 
 Those changes remain sequenced behind TG2 and later TaskGroups in the implementation guide.
 
 ## Next expected slice
 
-The next TG2 slice should move to the ordered closeout work: slug normalization (TG2-T10), then the tooling-reference sweep, then the full target-tree suite gate.
+The next slice is TG3: split state ownership into `pipelines.shared.state`, `pipelines.workflows.image_prompt_gen.state`, and `pipelines.workflows.template_upload.state`, then rewire importers and boundary tests accordingly.
 
 ## Related documents
 

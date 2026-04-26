@@ -28,7 +28,7 @@ Repository layout assumptions:
 - cross-workflow infrastructure lives under `workflows/pipelines/shared/` (config, deps, runtime_deps, execution, db, fingerprint, logging, shared state base)
 - every node, adapter, and helper is reusable in principle. The folder records current ownership; a second importer triggers promotion into `shared/`.
 - doc slugs match `docs/standards/repo-structure.md`: `image_prompt_gen` ↔ `image-prompt-gen-workflow`, `template_upload` ↔ `template-upload-workflow`
-- during the in-progress reorganization, code may still live under `ComicBook/comicbook/`; reference the target layout in design output and call out any temporary import shims
+- during the in-progress reorganization, legacy compatibility wrappers may still appear under `ComicBook/comicbook/`; reference the target layout in design output and call out any temporary import shims
 
 Default output shape:
 

@@ -19,7 +19,7 @@ Business docs explain workflows in plain language for non-technical readers.
 
 ## Workflows
 
-- [Image Prompt Generation Workflow](Image-prompt-gen-workflow/index.md): current plain-language status, setup expectations, and operational guardrails for the image-generation workflow.
+- [Image Prompt Generation Workflow](image-prompt-gen-workflow/index.md): current plain-language status, setup expectations, and operational guardrails for the image-generation workflow.
 - [Template Upload Workflow](template-upload-workflow/index.md): plain-language import behavior, operator commands, resumability, and troubleshooting for JSON template uploads.
 - [Implementation Execution Agent](implementation-execution-agent/index.md): what to expect from the clarification-first guide-writing step and the standard/autonomous agents that advance approved implementation guides in resumable slices.
 

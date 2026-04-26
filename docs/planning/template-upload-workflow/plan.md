@@ -9,7 +9,7 @@
 - `ComicBook/DoNotChange/generate_image_gpt_image_1_5.py` — Azure `gpt-image-1.5` image generation client
 
 **Reference design (read-only for this plan, reuse its modules):**
-- `docs/planning/Image-prompt-gen-workflow/plan.md` — Image-prompt generation workflow design
+- `docs/planning/image-prompt-gen-workflow/plan.md` — Image-prompt generation workflow design
 - `ComicBook/comicbook/db.py`, `router_llm.py`, `router_prompts.py`, `state.py`, `deps.py`, `config.py` — reusable library modules authored under the image-prompt workflow's "C14 modularity" mandate.
 
 **Companion files:**

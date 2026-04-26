@@ -22,9 +22,9 @@ Use:
 
 Examples:
 
-- `/implementation-doc docs/planning/Image-prompt-gen-workflow/input-file-support-design.md`
-- `/implement-next docs/planning/Image-prompt-gen-workflow/implementation.md`
-- `/implement-next docs/planning/Image-prompt-gen-workflow/implementation.md docs/planning/Image-prompt-gen-workflow/implementation-handoff.md`
+- `/implementation-doc docs/planning/image-prompt-gen-workflow/input-file-support-design.md`
+- `/implement-next docs/planning/image-prompt-gen-workflow/implementation.md`
+- `/implement-next docs/planning/image-prompt-gen-workflow/implementation.md docs/planning/image-prompt-gen-workflow/implementation-handoff.md`
 - `/implement-next-autonomous docs/planning/repo-reorganization/implementation.md`
 
 If no handoff path is provided, the workflow uses `implementation-handoff.md` beside the implementation guide.
@@ -156,4 +156,4 @@ One `autonomous-implementation-agent` run may complete multiple coherent commit-
 
 ## Current seeded handoff
 
-The current planning folder `docs/planning/Image-prompt-gen-workflow/` now includes an initial `implementation-handoff.md` file so the first implementation session has a status ledger to resume from.
+The current planning folder `docs/planning/image-prompt-gen-workflow/` now includes an initial `implementation-handoff.md` file so the first implementation session has a status ledger to resume from.

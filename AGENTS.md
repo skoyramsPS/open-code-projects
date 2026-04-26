@@ -120,7 +120,7 @@ The runtime code lives in the `pipelines` package under the top-level `workflows
                 └── nodes/
 ```
 
-Migration to this layout is in progress — see [`docs/planning/repo-reorganization/plan.md`](docs/planning/repo-reorganization/plan.md). During the transition, code may still live under `ComicBook/comicbook/`; new work should target the `pipelines` layout and update the migration plan if a new affordance is needed.
+Migration to this layout is in progress — see [`docs/planning/repo-reorganization/plan.md`](docs/planning/repo-reorganization/plan.md). During the transition, legacy compatibility wrappers may still exist under `ComicBook/comicbook/`, but new work should target the `pipelines` layout and update the migration plan if a new affordance is needed.
 
 ## OpenCode layout
 

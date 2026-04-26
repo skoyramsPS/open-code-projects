@@ -2,7 +2,7 @@
 
 **Status:** Draft for implementation  
 **Date:** 2026-04-23  
-**Source planning document:** `docs/planning/Image-prompt-gen-workflow/input-file-support-design.md`  
+**Source planning document:** `docs/planning/image-prompt-gen-workflow/input-file-support-design.md`  
 **Audience:** delivery team  
 **Authority:** This document is the primary build document for the JSON/CSV input-file-support change. It is written to be executable without reopening the source planning document during implementation.
 
@@ -165,13 +165,13 @@ ComicBook/
   README.md                    # update when implementation lands
 docs/
   planning/
-    Image-prompt-gen-workflow/
+    image-prompt-gen-workflow/
       implementation.md        # this guide
       index.md                 # update description if needed
   business/
-    Image-prompt-gen-workflow/index.md   # update when runtime surface changes
+    image-prompt-gen-workflow/index.md   # update when runtime surface changes
   developer/
-    Image-prompt-gen-workflow/index.md   # update when runtime surface changes
+    image-prompt-gen-workflow/index.md   # update when runtime surface changes
 ```
 
 ### 4.2 Files expected to remain unchanged
@@ -632,13 +632,13 @@ TG3 complete.
 1. Add `ComicBook/examples/prompts.sample.json` with at least two safe prompts and one explicit `run_id` example.
 2. Add `ComicBook/examples/prompts.sample.csv` with the same supported shape.
 3. Update `ComicBook/README.md` with file-mode examples and the `--run-id` restriction in file mode.
-4. Update `docs/business/Image-prompt-gen-workflow/index.md` in plain language:
+4. Update `docs/business/image-prompt-gen-workflow/index.md` in plain language:
    - what input files are supported
    - what operators can expect
    - the no-per-row-overrides limitation
    - resume expectations when `run_id` is or is not supplied
-5. Update `docs/developer/Image-prompt-gen-workflow/index.md` with module boundaries, parser/runtime responsibilities, and test coverage.
-6. Update `docs/planning/Image-prompt-gen-workflow/index.md` if document descriptions need to reflect the new implementation guide scope or any added docs.
+5. Update `docs/developer/image-prompt-gen-workflow/index.md` with module boundaries, parser/runtime responsibilities, and test coverage.
+6. Update `docs/planning/image-prompt-gen-workflow/index.md` if document descriptions need to reflect the new implementation guide scope or any added docs.
 7. Run the focused and full pytest scopes and record results in the implementation handoff if that handoff is still used for execution tracking.
 
 **Expected files or modules**
@@ -646,9 +646,9 @@ TG3 complete.
 - `ComicBook/examples/prompts.sample.json`
 - `ComicBook/examples/prompts.sample.csv`
 - `ComicBook/README.md`
-- `docs/business/Image-prompt-gen-workflow/index.md`
-- `docs/developer/Image-prompt-gen-workflow/index.md`
-- `docs/planning/Image-prompt-gen-workflow/index.md`
+- `docs/business/image-prompt-gen-workflow/index.md`
+- `docs/developer/image-prompt-gen-workflow/index.md`
+- `docs/planning/image-prompt-gen-workflow/index.md`
 
 **Exit criteria**
 

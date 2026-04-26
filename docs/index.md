@@ -15,10 +15,10 @@ This repository keeps all durable project documentation under `docs/`.
   - [Planning](planning/template-upload-workflow/index.md)
   - [Business](business/template-upload-workflow/index.md)
   - [Developer](developer/template-upload-workflow/index.md)
-- Image Prompt Generation Workflow (target slug: `image-prompt-gen-workflow`; folders rename to lowercase in Phase 2 of the reorganization)
-  - [Planning](planning/Image-prompt-gen-workflow/index.md)
-  - [Business](business/Image-prompt-gen-workflow/index.md)
-  - [Developer](developer/Image-prompt-gen-workflow/index.md)
+- Image Prompt Generation Workflow (slug: `image-prompt-gen-workflow`)
+  - [Planning](planning/image-prompt-gen-workflow/index.md)
+  - [Business](business/image-prompt-gen-workflow/index.md)
+  - [Developer](developer/image-prompt-gen-workflow/index.md)
 
 ## Cross-cutting initiatives
 

@@ -622,7 +622,7 @@ Make `workflows/` the actual runtime root, move modules into the target ownershi
    - repo-protection path checks
    - pre-commit or tooling references that point to `ComicBook/`
    - documented pytest working directory expectations for the new root
-10. Rename the image workflow doc folder slug from `Image-prompt-gen-workflow` to `image-prompt-gen-workflow` across the documentation triad and indexes as part of this TaskGroup's full docs gate.
+10. Normalize the image workflow doc folder slug to `image-prompt-gen-workflow` across the documentation triad and indexes as part of this TaskGroup's full docs gate.
 
 ### Expected files or modules
 

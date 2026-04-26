@@ -194,17 +194,26 @@ Additional migration slices have landed so far.
 - the final remaining legacy test-only coverage was moved into the target tree, including direct router-node coverage under `workflows/tests/image_prompt_gen/test_router_node.py`
 - the duplicate legacy `ComicBook/tests/` regression files were removed after their target-tree counterparts were verified, so operator guidance no longer relies on the old test root
 
+### TG2 doc-slug normalization
+
+- the image prompt workflow docs now use the same lowercase slug under planning, business, and developer views: `image-prompt-gen-workflow`
+- cross-document links, quick links, ADR references, and implementation-execution examples now point at the normalized slug
+- this is a documentation-path cleanup only; it does not change operator commands or workflow behavior
+
+### TG2 tooling-reference sweep
+
+- maintainer-facing agent guidance no longer points engineers at the removed `ComicBook/tests/` tree as if it were still active
+- repository guidance now treats `ComicBook/comicbook/` as a legacy compatibility-wrapper location, not the place for new source-of-truth work
+- operator-facing behavior is unchanged; this slice tightened internal instructions only
+
 ## What has not changed yet
 
-TG2 has not finished moving the live runtime into `workflows/`.
+TG2 has completed the runtime-root move, but the migration is not finished overall.
 
-- most of the active runtime still lives under `ComicBook/comicbook/`, even though the CLI entry points, graph modules, image-workflow helper modules, both workflows' node modules, and target-tree state/node wrappers now live under `workflows/`
-- existing workflow commands and runtime paths are unchanged for operators
-- workflow state ownership is still pending TG3 work, but both workflows' node implementations now live in the target-tree workflow packages
-- only part of the temporary `comicbook` compatibility surface exists so far (`config`, `deps`, `repo_protection`, `fingerprint`, `db`, `execution`, `runtime_deps`, `state`, `nodes/*`, `input_file`, `router_prompts`, `metadata_prompts`, `router_llm`, `image_client`, `run`, `upload_run`, `graph`, and `upload_graph`, plus the package-root `upload_templates` re-export); other cleanup work is still pending
-
-That means the migration has updated project metadata and configuration guidance,
-but it has not rolled the runtime itself over to the new package tree yet.
+- existing workflow commands and runtime behavior remain unchanged for operators because the compatibility layer still preserves legacy imports during the shim window
+- workflow state ownership is still pending TG3 work
+- the temporary `comicbook` compatibility surface still exists so older imports and scripts keep working while later TaskGroups land
+- final shim removal and cleanup remain deferred to TG5
 
 ## Why this matters
 
@@ -215,7 +224,7 @@ TG1 establishes that shared contract first so later migration steps can adopt it
 ## Current rollout status
 
 - TG1: complete
-- TG2: in progress (bootstrap + shared config/deps + repo-protection + fingerprint + db + execution + runtime-deps + CLI entry-point + workflow-graph + image-helper-module + state/node-wrapper + bounded image/test relocations + actual node moves + adjacent-asset move + completed target-tree test relocation sweep complete; TG2 closeout sweeps still pending)
+- TG2: complete
 - TG3-TG5: not started
 
 ## Related documents

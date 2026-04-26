@@ -2,8 +2,8 @@
 
 - Status: completed
 - Last updated: 2026-04-24
-- Implementation guide: `docs/planning/Image-prompt-gen-workflow/implementation.md`
-- Planning index: `docs/planning/Image-prompt-gen-workflow/index.md`
+- Implementation guide: `docs/planning/image-prompt-gen-workflow/implementation.md`
+- Planning index: `docs/planning/image-prompt-gen-workflow/index.md`
 
 ## Current status summary
 
@@ -27,7 +27,7 @@ Repository reality no longer matches the older TG1-TG8 handoff that previously l
 - Added `ComicBook/comicbook/input_file.py` with strict `.json` and `.csv` parsing, per-record normalization, blank-value checks, duplicate `run_id` rejection, and parser-specific error reporting.
 - Updated `ComicBook/comicbook/run.py` so the CLI now accepts either a positional prompt or `--input-file`, keeps `run_once(...)` single-prompt, adds `run_batch(...)`, reuses one managed dependency set for serial batches, and prints a batch summary JSON in file mode.
 - Added `ComicBook/examples/prompts.sample.json` and `ComicBook/examples/prompts.sample.csv` as runnable reference files.
-- Updated `ComicBook/README.md`, `docs/business/Image-prompt-gen-workflow/index.md`, and `docs/developer/Image-prompt-gen-workflow/index.md` to document the shipped file-input capability.
+- Updated `ComicBook/README.md`, `docs/business/image-prompt-gen-workflow/index.md`, and `docs/developer/image-prompt-gen-workflow/index.md` to document the shipped file-input capability.
 - Updated the implementation-execution workflow instructions so `implementation-doc` and `implement-next` now end with explicit permission checkpoints instead of silently flowing into more work.
 - Workflow deviation recorded: implementation continued in the same session as `implementation-doc` without an explicit `/implement-next` approval. That behavior has now been corrected in the command, agent, and workflow documentation so future sessions stop at the handoff boundary.
 
@@ -55,7 +55,7 @@ Repository reality no longer matches the older TG1-TG8 handoff that previously l
 | File mode prints a batch summary JSON with the required fields. | complete | `ComicBook/comicbook/run.py`, `tests/test_input_file_support.py`. |
 | File mode exits non-zero when any record is `partial` or `failed`, or when the file fails validation. | complete | `tests/test_input_file_support.py`, `ComicBook/comicbook/run.py`. |
 | Sample JSON and CSV files exist under `ComicBook/examples/` and reflect the parser contract. | complete | `ComicBook/examples/prompts.sample.json`, `ComicBook/examples/prompts.sample.csv`, parse check above. |
-| Updated business and developer docs explain the new behavior and maintainer boundaries. | complete | `docs/business/Image-prompt-gen-workflow/index.md`, `docs/developer/Image-prompt-gen-workflow/index.md`, `ComicBook/README.md`. |
+| Updated business and developer docs explain the new behavior and maintainer boundaries. | complete | `docs/business/image-prompt-gen-workflow/index.md`, `docs/developer/image-prompt-gen-workflow/index.md`, `ComicBook/README.md`. |
 
 ## Files changed in this implementation run
 
@@ -65,12 +65,12 @@ Repository reality no longer matches the older TG1-TG8 handoff that previously l
 - `ComicBook/examples/prompts.sample.csv`
 - `ComicBook/tests/test_input_file_support.py`
 - `ComicBook/README.md`
-- `docs/business/Image-prompt-gen-workflow/index.md`
-- `docs/developer/Image-prompt-gen-workflow/index.md`
-- `docs/planning/Image-prompt-gen-workflow/implementation.md`
-- `docs/planning/Image-prompt-gen-workflow/input-file-support-design.md`
-- `docs/planning/Image-prompt-gen-workflow/index.md`
-- `docs/planning/Image-prompt-gen-workflow/implementation-handoff.md`
+- `docs/business/image-prompt-gen-workflow/index.md`
+- `docs/developer/image-prompt-gen-workflow/index.md`
+- `docs/planning/image-prompt-gen-workflow/implementation.md`
+- `docs/planning/image-prompt-gen-workflow/input-file-support-design.md`
+- `docs/planning/image-prompt-gen-workflow/index.md`
+- `docs/planning/image-prompt-gen-workflow/implementation-handoff.md`
 - `.opencode/commands/implementation-doc.md`
 - `.opencode/commands/implement-next.md`
 - `.opencode/agents/docs-writer.md`
@@ -83,9 +83,9 @@ Repository reality no longer matches the older TG1-TG8 handoff that previously l
 
 - The docs-update gate applied because this session changed user-visible runtime behavior for the input-file workflow feature and changed the developer-facing implementation-execution workflow.
 - Updated documentation for the input-file feature:
-  - planning design and implementation docs in `docs/planning/Image-prompt-gen-workflow/`
-  - business-facing workflow usage in `docs/business/Image-prompt-gen-workflow/index.md`
-  - developer-facing module and test coverage notes in `docs/developer/Image-prompt-gen-workflow/index.md`
+  - planning design and implementation docs in `docs/planning/image-prompt-gen-workflow/`
+  - business-facing workflow usage in `docs/business/image-prompt-gen-workflow/index.md`
+  - developer-facing module and test coverage notes in `docs/developer/image-prompt-gen-workflow/index.md`
   - package-local usage in `ComicBook/README.md`
 - Updated documentation for the implementation-execution workflow:
   - planning view in `docs/planning/implementation-execution-agent/index.md`

@@ -12,7 +12,7 @@ Today the repository ships two LangGraph workflows in one flat package:
 - the image-prompt-generation workflow (`graph.py`, `run.py`, several router and image-client files)
 - the template-upload workflow (`upload_graph.py`, `upload_run.py`, `upload_*` nodes)
 
-They share the package root with cross-cutting infrastructure (`db.py`, `config.py`, `deps.py`, `execution.py`, `fingerprint.py`, `state.py`). Workflow-specific files mix with shared files. State models for both workflows live in one `state.py`. Logging is implicit: a single logger is built in `runtime_deps.py`, only the CLI entry point uses it, and nodes do not emit structured events at all. The `docs/standards/repo-structure.md` already describes a per-workflow layout that the actual code does not follow, and doc-tree slugs are inconsistent (`Image-prompt-gen-workflow` vs `template-upload-workflow`).
+They share the package root with cross-cutting infrastructure (`db.py`, `config.py`, `deps.py`, `execution.py`, `fingerprint.py`, `state.py`). Workflow-specific files mix with shared files. State models for both workflows live in one `state.py`. Logging is implicit: a single logger is built in `runtime_deps.py`, only the CLI entry point uses it, and nodes do not emit structured events at all. The `docs/standards/repo-structure.md` already describes a per-workflow layout that the actual code does not follow, and the workflow doc slugs were inconsistent before the TG2 normalization.
 
 The reorganization pursues four outcomes:
 
@@ -203,7 +203,7 @@ Every phase carries a `docs-update-guard` pass. Specifically:
 - `opencode.json` — already updated this round to load the logging standard.
 - `AGENTS.md` — already updated this round to reflect new layout, logging, and slugs.
 - `.opencode/agents/*.md` — already updated this round so each subagent's permission posture and priorities reflect the new layout and the logging gate.
-- Doc-tree slugs `Image-prompt-gen-workflow` → `image-prompt-gen-workflow` (rename across `docs/planning/`, `docs/business/`, `docs/developer/`) — deferred to Phase 2 because the code-move phase is the natural moment to retitle.
+- Normalize the image workflow doc-tree slug to `image-prompt-gen-workflow` across `docs/planning/`, `docs/business/`, and `docs/developer/` during Phase 2 because the code-move phase is the natural moment to retitle.
 - Per-workflow planning docs are updated at the end of each phase that touches their workflow.
 - ADR-0002 records this reorganization decision and is marked Accepted at the end of Phase 5.
 
